@@ -1,0 +1,11 @@
+/* Алина: TODO стили форм. */
+form {
+    display: grid;
+    gap: 12px;
+    max-width: 400px;
+}
+
+label {
+    display: grid;
+    gap: 4px;
+}

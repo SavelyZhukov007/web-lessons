@@ -1,0 +1,71 @@
+{
+  "meta": {
+    "fictional": true,
+    "description": "Минимальный пример структуры. Задача 2: расширить согласованно."
+  },
+  "categories": [
+    {
+      "id": 1,
+      "name": "Программирование",
+      "color": "#2563eb"
+    }
+  ],
+  "leaders": [
+    {
+      "id": 1,
+      "name": "Тестовый руководитель",
+      "position": "Преподаватель",
+      "contact": "example@example.test"
+    }
+  ],
+  "rooms": [
+    {
+      "id": 1,
+      "name": "101",
+      "building": "Учебный",
+      "capacity": 20
+    }
+  ],
+  "clubs": [
+    {
+      "id": 1,
+      "name": "Программирование для начинающих",
+      "description": "Вымышленный кружок для проверки шаблона.",
+      "category_id": 1,
+      "leader_id": 1,
+      "is_active": true
+    }
+  ],
+  "sessions": [
+    {
+      "id": 1,
+      "club_id": 1,
+      "room_id": 1,
+      "weekday": 1,
+      "start_time": "15:00",
+      "end_time": "16:00"
+    }
+  ],
+  "session_exceptions": [],
+  "schedule_events": [
+    {
+      "event_id": "1:2026-10-12",
+      "session_id": 1,
+      "club_id": 1,
+      "club_name": "Программирование для начинающих",
+      "category_id": 1,
+      "category_name": "Программирование",
+      "category_color": "#2563eb",
+      "leader_id": 1,
+      "leader_name": "Тестовый руководитель",
+      "room_id": 1,
+      "room_name": "101",
+      "date": "2026-10-12",
+      "start_time": "15:00",
+      "end_time": "16:00",
+      "status": "scheduled",
+      "original_date": "2026-10-12",
+      "comment": ""
+    }
+  ]
+}

@@ -1,13 +1,6 @@
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-
-
+"""Запуск из корня: python server.py. Это единый сервер страниц и API."""
 if __name__ == "__main__":
-    handler = partial(SimpleHTTPRequestHandler, directory=str(Path(__file__).parent))
-    with ThreadingHTTPServer(("127.0.0.1", 8000), handler) as server:
-        print("Сайт: http://127.0.0.1:8000 (Ctrl+C — остановить)", flush=True)
-        try:
-            server.serve_forever()
-        except KeyboardInterrupt:
-            pass
+    from pathlib import Path
+    import uvicorn
+    uvicorn.run("backend.app.main:app", host="127.0.0.1", port=8000,
+                reload=True, app_dir=str(Path(__file__).resolve().parent))

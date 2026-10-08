@@ -1,0 +1,5 @@
+/* TODO: расписание, фильтры, карточки. Не дублировать common.css. */
+#content>a {
+    display: block;
+    padding: 10px 0;
+}

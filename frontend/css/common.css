@@ -1,0 +1,67 @@
+/* Данила / Милена: общие стили. public.css и admin.css — специфичные. */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    color: #172331;
+    background: #f5f7fa;
+    font: 16px/1.6 system-ui, sans-serif;
+}
+
+main,
+header {
+    max-width: 960px;
+    margin: auto;
+    padding: 20px;
+}
+
+nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+a {
+    color: #2456a6;
+    overflow-wrap: anywhere;
+}
+
+section {
+    padding: 20px;
+    margin-top: 20px;
+    border: 1px solid #d8e0e9;
+    background: white;
+    border-radius: 12px;
+}
+
+.notice {
+    color: #725018;
+    background: #fff4d8;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+button,
+input {
+    font: inherit;
+    max-width: 100%;
+}
+
+button {
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+@media (max-width: 600px) {
+
+    main,
+    header {
+        padding: 14px;
+    }
+
+    h1 {
+        font-size: 1.6rem;
+    }
+}
