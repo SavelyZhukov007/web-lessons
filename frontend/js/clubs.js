@@ -1,4 +1,3 @@
-// Алиса / Данила. TODO: поиск, фильтры, состояния по задаче 7.
 import {getClubs} from './api.js';
 const list = document.querySelector('#content');
 try {

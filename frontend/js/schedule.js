@@ -1,5 +1,4 @@
 import {getSchedule} from './api.js';
-// TODO: выбор недели, фильтры, сетка. Пока показана фиксированная тестовая неделя.
 const content = document.querySelector('#content');
 try {
   const events = await getSchedule('2026-10-12');

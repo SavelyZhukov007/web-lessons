@@ -1,5 +1,4 @@
 import {getClub} from './api.js';
-// TODO: руководитель, аудитория, занятия, изменения. id читается из URL.
 const content = document.querySelector('#content');
 const id = Number(new URLSearchParams(location.search).get('id'));
 try {
