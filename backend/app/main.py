@@ -1,7 +1,6 @@
-"""Артём: API подключаем ДО статики. Статика доступна только из frontend."""
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from .database import init_db
 from .routers import public, admin
@@ -19,11 +18,14 @@ app.include_router(admin.router)
 def health():
     return {"status": "ok", "mode": "template"}
 
-# Не позволяем неизвестным API-путям попасть в HTML/статику.
-@app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+# исключаем чужие апи в теле http запроса
+@app.api_route(
+    "/api/{path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+    include_in_schema=False,
+)
 def unknown_api(path: str):
-    from fastapi import HTTPException
     raise HTTPException(404, "API-маршрут не найден")
 
-FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
+FRONTEND = Path(__file__).resolve().parents[2] / "frontend" # тут лежит index.html и тд
 app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
