@@ -59,9 +59,11 @@ def build_week(week_start: date, data: dict) -> list[dict]:
                     "comment": exc_by_id[event_id]["comment"]
                 })
             else:
+                # занятие перенесено
                 cur_exception = exc_by_id[event_id]
                 new_date = date.fromisoformat(cur_exception["new_date"])
                 if week_start <= new_date <= week_start + timedelta(days=6):
+                    # из этой недели в эту же
                     scheduled_event.update({
                         "room_id": cur_exception["new_room_id"],
                         "room_name": room_names_by_id[cur_exception["new_room_id"]],
@@ -72,7 +74,8 @@ def build_week(week_start: date, data: dict) -> list[dict]:
                         "original_date": session_date_str,
                         "comment": exc_by_id[event_id]["comment"]
                     })
-                else:
+                else: 
+                    # из этой недели в другую - исключить из текущей недели
                     continue
         else:
             scheduled_event.update({
@@ -87,6 +90,7 @@ def build_week(week_start: date, data: dict) -> list[dict]:
             })
         res.append(scheduled_event)
 
+    # для обработки переноса из другой недели в текущую
     for exc in exc_by_id.values():
         if exc["type"] == "moved":
             new_date = date.fromisoformat(exc["new_date"])
