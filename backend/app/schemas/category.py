@@ -1,3 +1,4 @@
+from pydantic import ConfigDict
 from .common import Color, InputSchema, Name, UpdateSchema
 
 class CategoryCreate(InputSchema):
@@ -7,3 +8,11 @@ class CategoryCreate(InputSchema):
 class CategoryUpdate(UpdateSchema):
     name: Name | None = None
     color: Color | None = None
+
+
+class CategoryRead(InputSchema):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: Name
+    color: Color

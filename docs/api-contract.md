@@ -1,34 +1,78 @@
-# Контракт первой версии
+# Актуальный API-контракт
 
-Это стартовый общий формат. Артём и Алиса уточняют его вместе перед интеграцией. Не менять структуру отдельно в своей задаче.
+## Общие правила
 
-## Форматы
+- ID сущностей: `integer`.
+- Формат даты: `YYYY-MM-DD`.
+- Формат времени: `HH:MM`.
+- `weekday`: `1–6` (`1 = понедельник`, `6 = суббота`).
+- Неавторизованные запросы к административному API получают `401`.
+- Ошибка приложения возвращается в формате `{"detail": "Сообщение"}`.
 
-ID сущности: integer. Поля JSON: snake_case. Дата YYYY-MM-DD; время HH:MM; weekday 1–6 (Пн–Сб). В БД и API придерживаться одного формата. Схемы должны сериализовать время именно HH:MM (Pydantic time по умолчанию может добавить секунды — настроить сериализацию). Локальные дата/время колледжа, без преобразования через UTC в браузере.
+## Публичные маршруты
 
-Справочники и список кружков возвращают JSON-массив, страница кружка — объект. Список активных кружков: id, name, description, category_id, leader_id, is_active.
+- `GET /api/categories`
+- `GET /api/leaders`
+- `GET /api/rooms`
+- `GET /api/clubs?search=...&category_id=...` — только активные кружки
+- `GET /api/clubs/{id}` — активный кружок с `category`, `leader`, `sessions`, `upcoming_exceptions`
+- `GET /api/schedule?week=2026-10-12[&category_id=...&weekday=...&leader_id=...&room_id=...&search=...]`
 
-GET /api/categories → [{id, name, color}]
-GET /api/leaders → [{id, name, position, contact}]
-GET /api/rooms → [{id, name, building, capacity}]
-GET /api/clubs?search=...&category_id=... → активные кружки; пустой результат [].
-GET /api/clubs/{id} → поля кружка + category, leader, sessions (с room), upcoming_exceptions. Скрытый/неизвестный кружок → 404.
-GET /api/schedule?week=2026-10-12 → массив ScheduleEvent (schemas/contracts.py). week — понедельник выбранной недели. Фильтры расписания: category_id, weekday, leader_id, room_id, search. Добавлять совместно с frontend.
+`GET /api/schedule` возвращает массив `ScheduleEvent` из `backend/app/schemas/contracts.py`. Для перенесённого занятия `event_id` сохраняет идентификатор исходного occurrence (`session_id:original_date`), а `status` принимает значения `scheduled`, `cancelled` или `moved`.
 
-Для события event_id идентифицирует одну occurrence (например session_id + исходная дата); при переносе остаётся прежним. session_id — серия регулярных занятий. Для конфликта редактирования исключать event_id, иначе можно пропустить другие занятия той же серии.
+## Административные маршруты
 
-Статусы событий: scheduled / cancelled / moved. Отмена остаётся видна. Перенос виден на новой дате; старое место не является действующим занятием. Переносы между неделями включать в целевую неделю. При желании показать указатель на старом месте согласовать отдельный тип, не дублировать действующее событие.
+### Авторизация
 
-## Ошибки
+- `POST /api/admin/login` — `{login, password}`, устанавливает cookie-сессию
+- `POST /api/admin/logout`
+- `GET /api/admin/status`
 
-401 без авторизации; 404 не найдено; 409 конфликт; 422 ошибка данных; 501 только для заглушек в шаблоне.
-Обычная ошибка: {"detail": "Сообщение"}. FastAPI validation 422 имеет detail-массив; frontend должен поддержать оба варианта. Формат подробного 409 согласовать до интеграции.
+### CRUD-справочники и кружки
 
-## Админка
+- `GET|POST /api/admin/categories`
+- `PATCH|DELETE /api/admin/categories/{id}`
+- `GET|POST /api/admin/leaders`
+- `PATCH|DELETE /api/admin/leaders/{id}`
+- `GET|POST /api/admin/rooms`
+- `PATCH|DELETE /api/admin/rooms/{id}`
+- `GET|POST /api/admin/clubs`
+- `PATCH|DELETE /api/admin/clubs/{id}`
+- `GET|POST /api/admin/sessions`
+- `PATCH|DELETE /api/admin/sessions/{id}`
 
-POST /api/admin/login и /logout — пока 501. GET /api/admin/status — пока 401. Позже CRUD /api/admin/clubs, /categories, /leaders, /rooms, /sessions; POST и DELETE /api/admin/exceptions. У каждого защищённого маршрута общий require_admin.
-Реальной регистрации нет. Создание администратора — отдельный скрипт. Формат login и способ серверной сессии ещё предстоит реализовать. Не хранить «авторизован=true» в localStorage как защиту.
+### Исключения из регулярного расписания
 
-## Конфликты
+- `GET /api/admin/exceptions`
+- `POST /api/admin/exceptions/cancellations`
+- `POST /api/admin/exceptions/moves`
+- `PATCH /api/admin/exceptions/{id}`
+- `DELETE /api/admin/exceptions/{id}`
 
-Интервалы [начало, конец); начало < конец; 08:00–21:00. На одной дате пересечение и совпадение room_id или leader_id → конфликт. Отмены пропускать. Переносы учитывать на новом месте. Регулярные занятия проверять с учётом будущих дат и исключений, а не только одной выбранной недели: окончательную политику горизонта согласовать отдельно.
+### Формы исключений
+
+Отмена:
+
+```json
+{
+  "session_id": 1,
+  "original_date": "2026-10-13",
+  "type": "cancelled",
+  "comment": "Праздничный день"
+}
+```
+
+Перенос:
+
+```json
+{
+  "session_id": 1,
+  "original_date": "2026-10-20",
+  "type": "moved",
+  "new_date": "2026-10-22",
+  "new_start_time": "17:00",
+  "new_end_time": "18:00",
+  "new_room_id": 2,
+  "comment": "Перенос на вечер"
+}
+```

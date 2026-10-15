@@ -16,7 +16,7 @@ app.include_router(admin.router)
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "mode": "template"}
+    return {"status": "ok", "mode": "application"}
 
 # исключаем чужие апи в теле http запроса
 @app.api_route(
@@ -27,5 +27,5 @@ def health():
 def unknown_api(path: str):
     raise HTTPException(404, "API-маршрут не найден")
 
-FRONTEND = Path(__file__).resolve().parents[2] / "frontend" # тут лежит index.html и тд
+FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
 app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")

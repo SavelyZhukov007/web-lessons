@@ -1,4 +1,5 @@
 from typing import Literal
+from pydantic import ConfigDict
 from pydantic import model_validator
 from .common import Clock, InputSchema, LocalDate, PositiveId, Text, UpdateSchema
 
@@ -46,3 +47,17 @@ class MoveUpdate(UpdateSchema, MoveInterval):
     new_room_id: PositiveId | None = None
     comment: Text | None = None
     # Отдельный тип PATCH для существующего переноса; смена типа исключения не поддержана.
+
+
+class SessionExceptionRead(InputSchema):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    session_id: PositiveId
+    original_date: LocalDate
+    type: Literal["cancelled", "moved"]
+    new_date: LocalDate | None = None
+    new_start_time: Clock | None = None
+    new_end_time: Clock | None = None
+    new_room_id: PositiveId | None = None
+    comment: Text
