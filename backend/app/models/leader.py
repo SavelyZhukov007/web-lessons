@@ -1,7 +1,3 @@
-"""Илья и Артём. TODO: SQLAlchemy-модель.
-leaders: id, name, position, contact.
-Использовать Base из ../database.py. Пока таблица не реализована.
-"""
 from __future__ import annotations
 
 from sqlalchemy import String, Text

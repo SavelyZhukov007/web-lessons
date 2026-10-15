@@ -1,4 +1,3 @@
-"""Елисей, Михаил, Сергей: сейчас заглушки 501. Заменять по api-contract.md."""
 from __future__ import annotations
 
 from datetime import date

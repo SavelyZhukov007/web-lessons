@@ -1,4 +1,3 @@
-"""Кирилл и Артём: реальной авторизации пока нет. Доступ закрыт по умолчанию."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone

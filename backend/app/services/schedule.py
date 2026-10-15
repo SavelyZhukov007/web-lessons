@@ -1,4 +1,3 @@
-"""Фёдор: формирование недели. Без API и БД; результат соответствует ScheduleEvent."""
 from __future__ import annotations
 
 from datetime import date, timedelta
