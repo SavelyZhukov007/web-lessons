@@ -1,9 +1,7 @@
-"""Кирилл и Артём: реальной авторизации пока нет. Доступ закрыт по умолчанию."""
 from fastapi import APIRouter, Depends, HTTPException
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 def require_admin():
-    # TODO: проверка серверной сессии. НЕ заменять на безусловный успех.
     raise HTTPException(401, "Авторизация ещё не реализована; доступ закрыт")
 
 @router.post("/login")

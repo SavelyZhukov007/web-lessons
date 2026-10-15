@@ -1,4 +1,3 @@
-"""Артём и Илья: единое подключение. Не создавайте свои engine в маршрутах."""
 from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
@@ -20,5 +19,4 @@ def get_db():
         yield session
 
 def init_db():
-    # TODO: импортировать модели здесь перед create_all. Сейчас таблиц ещё нет.
     Base.metadata.create_all(engine)

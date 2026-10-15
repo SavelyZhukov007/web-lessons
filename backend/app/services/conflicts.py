@@ -1,8 +1,6 @@
-"""Эдик и Максим. Чистые функции: без FastAPI, БД, сетевых запросов."""
 from datetime import date, time
 
 def intervals_overlap(start_a : time, end_a: time, start_b: time, end_b: time) -> bool:
-    """TODO: проверка интервалов. Соседние границы НЕ пересекаются."""
     flag = False
     if start_a == start_b and end_a == end_b:
         flag = True

@@ -1,6 +1,3 @@
-"""Алиса Жукова: заменить skip реальными тестами по мере реализации.
-Не считать пропущенные тесты подтверждением готовности бизнес-логики.
-"""
 import pytest
 
 @pytest.mark.skip(reason="TODO задача 4: функции ещё не реализованы")
@@ -11,5 +8,4 @@ def test_adjacent_intervals_do_not_overlap():
 
 @pytest.mark.skip(reason="TODO задача 5: сервис ещё не реализован")
 def test_schedule_cases():
-    # Добавить отдельные тесты отмен, переносов, неактивных кружков.
     raise NotImplementedError

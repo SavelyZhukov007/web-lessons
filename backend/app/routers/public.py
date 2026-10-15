@@ -1,4 +1,3 @@
-"""Елисей, Михаил, Сергей: сейчас заглушки 501. Заменять по api-contract.md."""
 from fastapi import APIRouter, HTTPException
 router = APIRouter(prefix="/api", tags=["public"])
 

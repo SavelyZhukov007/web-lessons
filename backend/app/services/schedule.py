@@ -1,14 +1,6 @@
-"""Фёдор: формирование недели. Без API и БД; результат соответствует ScheduleEvent."""
 from datetime import date, timedelta 
 
 def build_week(week_start: date, data: dict) -> list[dict]:
-    """TODO: раскрыть sessions в события, применить session_exceptions.
-    Принимать понедельник. Исключить неактивные кружки.
-    Отмена видна со статусом cancelled, но не занимает время.
-    Перенос: moved на новом месте; оригинал не считать действующим.
-    Добавить переносы из других недель. Сортировать по дате и времени.
-    Формат data — data/sample-data.json. Не мутировать входные данные.
-    """
     if week_start.isoweekday() != 1:
         raise ValueError(f"Неверный день недели, должен быть Monday(Понедельник), а не {week_start.strftime('%A')}")
     
