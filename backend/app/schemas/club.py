@@ -6,12 +6,14 @@ from .leader import LeaderRead
 from .session import SessionWithRoomRead
 from .session_exception import SessionExceptionRead
 
+
 class ClubCreate(InputSchema):
     name: Name
     description: Text = ""
     category_id: PositiveId
     leader_id: PositiveId
     is_active: StrictBool = True
+
 
 class ClubUpdate(UpdateSchema):
     name: Name | None = None

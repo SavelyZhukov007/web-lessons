@@ -8,8 +8,12 @@ from ..database import Base
 class SessionException(Base):
     __tablename__ = "session_exceptions"
     __table_args__ = (
-        UniqueConstraint("session_id", "original_date", name="uq_session_exceptions_occurrence"),
-        CheckConstraint("type IN ('cancelled', 'moved')", name="ck_session_exceptions_type"),
+        UniqueConstraint(
+            "session_id", "original_date", name="uq_session_exceptions_occurrence"
+        ),
+        CheckConstraint(
+            "type IN ('cancelled', 'moved')", name="ck_session_exceptions_type"
+        ),
         CheckConstraint(
             "("
             "type = 'cancelled' AND new_date IS NULL AND new_start_time IS NULL AND new_end_time IS NULL AND new_room_id IS NULL"

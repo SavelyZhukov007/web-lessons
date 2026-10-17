@@ -1,4 +1,4 @@
-import {getClub} from './api.js';
+import { getClub } from './api.js';
 const content = document.querySelector('#content');
 const id = Number(new URLSearchParams(location.search).get('id'));
 try {

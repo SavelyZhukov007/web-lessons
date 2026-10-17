@@ -25,7 +25,12 @@ def test_admin_login_logout_and_protection(client):
 
     assert client.get("/api/admin/status").status_code == 401
     assert client.get("/api/admin/categories").status_code == 401
-    assert client.post("/api/admin/login", json={"login": "admin", "password": "bad-pass"}).status_code == 401
+    assert (
+        client.post(
+            "/api/admin/login", json={"login": "admin", "password": "bad-pass"}
+        ).status_code
+        == 401
+    )
 
     login_admin(client)
 
@@ -46,7 +51,11 @@ def test_admin_crud_and_public_schedule(client):
     ).json()
     leader = client.post(
         "/api/admin/leaders",
-        json={"name": "Иван Иванов", "position": "Преподаватель", "contact": "ivan@test.local"},
+        json={
+            "name": "Иван Иванов",
+            "position": "Преподаватель",
+            "contact": "ivan@test.local",
+        },
     ).json()
     room = client.post(
         "/api/admin/rooms",
@@ -105,7 +114,9 @@ def test_admin_crud_and_public_schedule(client):
     assert len(detail["upcoming_exceptions"]) == 2
 
     current_week = client.get("/api/schedule?week=2026-10-12").json()
-    cancelled = next(item for item in current_week if item["original_date"] == "2026-10-13")
+    cancelled = next(
+        item for item in current_week if item["original_date"] == "2026-10-13"
+    )
     assert cancelled["status"] == "cancelled"
 
     moved_week = client.get("/api/schedule?week=2026-10-19").json()
@@ -126,20 +137,28 @@ def test_admin_crud_and_public_schedule(client):
     assert updated_move["comment"] == "Перенос из-за мероприятия"
     assert updated_move["new_end_time"] == "18:30"
 
-    assert client.patch(
-        f"/api/admin/clubs/{club['id']}",
-        json={"is_active": False},
-    ).json()["is_active"] is False
+    assert (
+        client.patch(
+            f"/api/admin/clubs/{club['id']}",
+            json={"is_active": False},
+        ).json()["is_active"]
+        is False
+    )
     assert client.get("/api/clubs").json() == []
 
-    assert client.patch(
-        f"/api/admin/clubs/{club['id']}",
-        json={"is_active": True},
-    ).json()["is_active"] is True
+    assert (
+        client.patch(
+            f"/api/admin/clubs/{club['id']}",
+            json={"is_active": True},
+        ).json()["is_active"]
+        is True
+    )
     assert len(client.get("/api/clubs").json()) == 1
 
     assert client.delete(f"/api/admin/exceptions/{move['id']}").status_code == 204
-    assert client.delete(f"/api/admin/exceptions/{cancellation['id']}").status_code == 204
+    assert (
+        client.delete(f"/api/admin/exceptions/{cancellation['id']}").status_code == 204
+    )
     assert client.delete(f"/api/admin/sessions/{session['id']}").status_code == 204
     assert client.delete(f"/api/admin/clubs/{club['id']}").status_code == 204
     assert client.delete(f"/api/admin/rooms/{second_room['id']}").status_code == 204

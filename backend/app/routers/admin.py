@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status as http_status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    status as http_status,
+)
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -248,7 +256,11 @@ def get_status(current_admin: Admin = Depends(require_admin)):
     return {"admin": current_admin}
 
 
-@router.get("/categories", response_model=list[CategoryRead], dependencies=[Depends(require_admin)])
+@router.get(
+    "/categories",
+    response_model=list[CategoryRead],
+    dependencies=[Depends(require_admin)],
+)
 def list_categories(db: Session = Depends(get_db)):
     return list(db.scalars(select(Category).order_by(Category.name, Category.id)))
 
@@ -267,7 +279,11 @@ def create_category(payload: CategoryCreate, db: Session = Depends(get_db)):
     return category
 
 
-@router.patch("/categories/{category_id}", response_model=CategoryRead, dependencies=[Depends(require_admin)])
+@router.patch(
+    "/categories/{category_id}",
+    response_model=CategoryRead,
+    dependencies=[Depends(require_admin)],
+)
 def update_category(
     category_id: int,
     payload: CategoryUpdate,
@@ -280,17 +296,27 @@ def update_category(
     return category
 
 
-@router.delete("/categories/{category_id}", status_code=http_status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
+@router.delete(
+    "/categories/{category_id}",
+    status_code=http_status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_category(category_id: int, db: Session = Depends(get_db)):
     category = _get_or_404(db, Category, category_id, "Направление не найдено")
-    has_clubs = db.scalar(select(Club.id).where(Club.category_id == category_id).limit(1))
+    has_clubs = db.scalar(
+        select(Club.id).where(Club.category_id == category_id).limit(1)
+    )
     if has_clubs is not None:
-        raise HTTPException(409, "Нельзя удалить направление, пока к нему привязаны кружки")
+        raise HTTPException(
+            409, "Нельзя удалить направление, пока к нему привязаны кружки"
+        )
     db.delete(category)
     db.commit()
 
 
-@router.get("/leaders", response_model=list[LeaderRead], dependencies=[Depends(require_admin)])
+@router.get(
+    "/leaders", response_model=list[LeaderRead], dependencies=[Depends(require_admin)]
+)
 def list_leaders(db: Session = Depends(get_db)):
     return list(db.scalars(select(Leader).order_by(Leader.name, Leader.id)))
 
@@ -309,7 +335,11 @@ def create_leader(payload: LeaderCreate, db: Session = Depends(get_db)):
     return leader
 
 
-@router.patch("/leaders/{leader_id}", response_model=LeaderRead, dependencies=[Depends(require_admin)])
+@router.patch(
+    "/leaders/{leader_id}",
+    response_model=LeaderRead,
+    dependencies=[Depends(require_admin)],
+)
 def update_leader(leader_id: int, payload: LeaderUpdate, db: Session = Depends(get_db)):
     leader = _get_or_404(db, Leader, leader_id, "Руководитель не найден")
     _apply_model_updates(leader, payload)
@@ -318,17 +348,25 @@ def update_leader(leader_id: int, payload: LeaderUpdate, db: Session = Depends(g
     return leader
 
 
-@router.delete("/leaders/{leader_id}", status_code=http_status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
+@router.delete(
+    "/leaders/{leader_id}",
+    status_code=http_status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_leader(leader_id: int, db: Session = Depends(get_db)):
     leader = _get_or_404(db, Leader, leader_id, "Руководитель не найден")
     has_clubs = db.scalar(select(Club.id).where(Club.leader_id == leader_id).limit(1))
     if has_clubs is not None:
-        raise HTTPException(409, "Нельзя удалить руководителя, пока к нему привязаны кружки")
+        raise HTTPException(
+            409, "Нельзя удалить руководителя, пока к нему привязаны кружки"
+        )
     db.delete(leader)
     db.commit()
 
 
-@router.get("/rooms", response_model=list[RoomRead], dependencies=[Depends(require_admin)])
+@router.get(
+    "/rooms", response_model=list[RoomRead], dependencies=[Depends(require_admin)]
+)
 def list_rooms(db: Session = Depends(get_db)):
     return list(db.scalars(select(Room).order_by(Room.building, Room.name, Room.id)))
 
@@ -347,7 +385,9 @@ def create_room(payload: RoomCreate, db: Session = Depends(get_db)):
     return room
 
 
-@router.patch("/rooms/{room_id}", response_model=RoomRead, dependencies=[Depends(require_admin)])
+@router.patch(
+    "/rooms/{room_id}", response_model=RoomRead, dependencies=[Depends(require_admin)]
+)
 def update_room(room_id: int, payload: RoomUpdate, db: Session = Depends(get_db)):
     room = _get_or_404(db, Room, room_id, "Аудитория не найдена")
     _apply_model_updates(room, payload)
@@ -356,22 +396,36 @@ def update_room(room_id: int, payload: RoomUpdate, db: Session = Depends(get_db)
     return room
 
 
-@router.delete("/rooms/{room_id}", status_code=http_status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
+@router.delete(
+    "/rooms/{room_id}",
+    status_code=http_status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_room(room_id: int, db: Session = Depends(get_db)):
     room = _get_or_404(db, Room, room_id, "Аудитория не найдена")
-    has_sessions = db.scalar(select(ClubSession.id).where(ClubSession.room_id == room_id).limit(1))
+    has_sessions = db.scalar(
+        select(ClubSession.id).where(ClubSession.room_id == room_id).limit(1)
+    )
     if has_sessions is not None:
-        raise HTTPException(409, "Нельзя удалить аудиторию, пока в ней есть регулярные занятия")
+        raise HTTPException(
+            409, "Нельзя удалить аудиторию, пока в ней есть регулярные занятия"
+        )
     has_moves = db.scalar(
-        select(SessionException.id).where(SessionException.new_room_id == room_id).limit(1)
+        select(SessionException.id)
+        .where(SessionException.new_room_id == room_id)
+        .limit(1)
     )
     if has_moves is not None:
-        raise HTTPException(409, "Нельзя удалить аудиторию, пока на неё есть переносы занятий")
+        raise HTTPException(
+            409, "Нельзя удалить аудиторию, пока на неё есть переносы занятий"
+        )
     db.delete(room)
     db.commit()
 
 
-@router.get("/clubs", response_model=list[ClubRead], dependencies=[Depends(require_admin)])
+@router.get(
+    "/clubs", response_model=list[ClubRead], dependencies=[Depends(require_admin)]
+)
 def list_clubs(db: Session = Depends(get_db)):
     return list(db.scalars(select(Club).order_by(Club.name, Club.id)))
 
@@ -392,7 +446,9 @@ def create_club(payload: ClubCreate, db: Session = Depends(get_db)):
     return club
 
 
-@router.patch("/clubs/{club_id}", response_model=ClubRead, dependencies=[Depends(require_admin)])
+@router.patch(
+    "/clubs/{club_id}", response_model=ClubRead, dependencies=[Depends(require_admin)]
+)
 def update_club(club_id: int, payload: ClubUpdate, db: Session = Depends(get_db)):
     club = _get_or_404(db, Club, club_id, "Кружок не найден")
     updates = payload.model_dump(exclude_unset=True)
@@ -406,18 +462,26 @@ def update_club(club_id: int, payload: ClubUpdate, db: Session = Depends(get_db)
     return club
 
 
-@router.delete("/clubs/{club_id}", status_code=http_status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
+@router.delete(
+    "/clubs/{club_id}",
+    status_code=http_status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_club(club_id: int, db: Session = Depends(get_db)):
     club = _get_or_404(db, Club, club_id, "Кружок не найден")
     db.delete(club)
     db.commit()
 
 
-@router.get("/sessions", response_model=list[SessionRead], dependencies=[Depends(require_admin)])
+@router.get(
+    "/sessions", response_model=list[SessionRead], dependencies=[Depends(require_admin)]
+)
 def list_sessions(db: Session = Depends(get_db)):
     return list(
         db.scalars(
-            select(ClubSession).order_by(ClubSession.weekday, ClubSession.start_time, ClubSession.id)
+            select(ClubSession).order_by(
+                ClubSession.weekday, ClubSession.start_time, ClubSession.id
+            )
         )
     )
 
@@ -438,8 +502,14 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
     return session
 
 
-@router.patch("/sessions/{session_id}", response_model=SessionRead, dependencies=[Depends(require_admin)])
-def update_session(session_id: int, payload: SessionUpdate, db: Session = Depends(get_db)):
+@router.patch(
+    "/sessions/{session_id}",
+    response_model=SessionRead,
+    dependencies=[Depends(require_admin)],
+)
+def update_session(
+    session_id: int, payload: SessionUpdate, db: Session = Depends(get_db)
+):
     session = _get_or_404(db, ClubSession, session_id, "Регулярное занятие не найдено")
     updates = payload.model_dump(exclude_unset=True)
     if "club_id" in updates:
@@ -463,7 +533,11 @@ def update_session(session_id: int, payload: SessionUpdate, db: Session = Depend
     return session
 
 
-@router.delete("/sessions/{session_id}", status_code=http_status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=http_status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_session(session_id: int, db: Session = Depends(get_db)):
     session = _get_or_404(db, ClubSession, session_id, "Регулярное занятие не найдено")
     db.delete(session)
@@ -527,7 +601,9 @@ def update_exception(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
 ):
-    exception = _get_or_404(db, SessionException, exception_id, "Исключение занятия не найдено")
+    exception = _get_or_404(
+        db, SessionException, exception_id, "Исключение занятия не найдено"
+    )
     patch_model = _load_exception_patch(exception, payload)
     updates = _prepare_exception_patch(exception, patch_model)
     if "session_id" in updates and updates["session_id"] is not None:
@@ -555,6 +631,8 @@ def update_exception(
     dependencies=[Depends(require_admin)],
 )
 def delete_exception(exception_id: int, db: Session = Depends(get_db)):
-    exception = _get_or_404(db, SessionException, exception_id, "Исключение занятия не найдено")
+    exception = _get_or_404(
+        db, SessionException, exception_id, "Исключение занятия не найдено"
+    )
     db.delete(exception)
     db.commit()

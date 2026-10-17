@@ -30,7 +30,9 @@ def _prompt_password() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Создание администратора для админки")
-    parser.add_argument("--login", help="Логин администратора; если не указан, будет интерактивный ввод")
+    parser.add_argument(
+        "--login", help="Логин администратора; если не указан, будет интерактивный ввод"
+    )
     args = parser.parse_args()
 
     init_db()

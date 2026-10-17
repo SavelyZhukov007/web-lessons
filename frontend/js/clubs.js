@@ -1,4 +1,4 @@
-import {getClubs} from './api.js';
+import { getClubs } from './api.js';
 const list = document.querySelector('#content');
 try {
   for (const club of await getClubs()) {

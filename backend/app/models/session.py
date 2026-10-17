@@ -13,8 +13,12 @@ class ClubSession(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    club_id: Mapped[int] = mapped_column(ForeignKey("clubs.id", ondelete="CASCADE"), index=True)
-    room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id", ondelete="RESTRICT"), index=True)
+    club_id: Mapped[int] = mapped_column(
+        ForeignKey("clubs.id", ondelete="CASCADE"), index=True
+    )
+    room_id: Mapped[int] = mapped_column(
+        ForeignKey("rooms.id", ondelete="RESTRICT"), index=True
+    )
     weekday: Mapped[int] = mapped_column()
     start_time: Mapped[str] = mapped_column(String(5))
     end_time: Mapped[str] = mapped_column(String(5))

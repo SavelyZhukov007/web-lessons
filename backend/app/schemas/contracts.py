@@ -1,7 +1,9 @@
 """Общий формат подготовленного события; остальные DTO согласовать по контракту."""
+
 from datetime import date, time
 from typing import Literal
 from pydantic import BaseModel, field_serializer
+
 
 class ScheduleEvent(BaseModel):
     # event_id идентифицирует occurrence, а не всю серию регулярных занятий.

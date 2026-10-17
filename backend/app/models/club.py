@@ -11,8 +11,12 @@ class Club(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(160), index=True)
     description: Mapped[str] = mapped_column(Text, default="")
-    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id", ondelete="RESTRICT"))
-    leader_id: Mapped[int] = mapped_column(ForeignKey("leaders.id", ondelete="RESTRICT"))
+    category_id: Mapped[int] = mapped_column(
+        ForeignKey("categories.id", ondelete="RESTRICT")
+    )
+    leader_id: Mapped[int] = mapped_column(
+        ForeignKey("leaders.id", ondelete="RESTRICT")
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     category: Mapped["Category"] = relationship(back_populates="clubs")
     leader: Mapped["Leader"] = relationship(back_populates="clubs")

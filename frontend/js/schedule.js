@@ -1,4 +1,4 @@
-import {getSchedule} from './api.js';
+import { getSchedule } from './api.js';
 const content = document.querySelector('#content');
 try {
   const events = await getSchedule('2026-10-12');

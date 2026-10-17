@@ -1,4 +1,4 @@
-import {request} from '../api.js';
+import { request } from '../api.js';
 export function login() {
   throw new Error('Вход ещё не реализован. Доступ к API закрыт.');
 }

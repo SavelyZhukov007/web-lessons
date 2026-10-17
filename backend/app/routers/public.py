@@ -29,7 +29,9 @@ def _parse_week_start(value: str) -> date:
     except ValueError as exc:
         raise HTTPException(422, "week должен иметь формат YYYY-MM-DD") from exc
     if parsed.isoweekday() != 1:
-        raise HTTPException(422, "week должен указывать на понедельник выбранной недели")
+        raise HTTPException(
+            422, "week должен указывать на понедельник выбранной недели"
+        )
     return parsed
 
 
@@ -52,12 +54,16 @@ def _dump_schedule_data(db: Session) -> dict:
             for item in db.scalars(select(Club).order_by(Club.id))
         ],
         "sessions": [
-            SessionWithRoomRead.model_validate(item).model_dump(mode="json", exclude={"room"})
+            SessionWithRoomRead.model_validate(item).model_dump(
+                mode="json", exclude={"room"}
+            )
             for item in db.scalars(select(ClubSession).order_by(ClubSession.id))
         ],
         "session_exceptions": [
             SessionExceptionRead.model_validate(item).model_dump(mode="json")
-            for item in db.scalars(select(SessionException).order_by(SessionException.id))
+            for item in db.scalars(
+                select(SessionException).order_by(SessionException.id)
+            )
         ],
     }
 
@@ -110,7 +116,9 @@ def club(club_id: int, db: Session = Depends(get_db)):
     if item is None:
         raise HTTPException(404, "Кружок не найден")
 
-    sessions = sorted(item.sessions, key=lambda row: (row.weekday, row.start_time, row.id))
+    sessions = sorted(
+        item.sessions, key=lambda row: (row.weekday, row.start_time, row.id)
+    )
     upcoming_exceptions = sorted(
         [exception for session in sessions for exception in session.exceptions],
         key=lambda row: (

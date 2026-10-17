@@ -5,3 +5,5 @@ __pycache__/
 *.sqlite3
 .env
 docs/NEXT_STAGE_TASKS.md
+tools/calendar_export/tests
+tools/calendar_export/examples

@@ -35,10 +35,13 @@ def parse_date(value):
         raise ValueError("Дата должна иметь формат YYYY-MM-DD")
     return date.fromisoformat(value)
 
+
 LocalDate = Annotated[date, BeforeValidator(parse_date)]
+
 
 class InputSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
 
 class UpdateSchema(InputSchema):
     # только для patch
@@ -50,6 +53,7 @@ class UpdateSchema(InputSchema):
             if null_fields:
                 raise ValueError("null недопустим: " + ", ".join(null_fields))
         return value
+
 
 class IntervalSchema(InputSchema):
     @model_validator(mode="after")

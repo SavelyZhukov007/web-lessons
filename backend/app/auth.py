@@ -1,4 +1,5 @@
 """Пароли и серверные сессии администраторов."""
+
 from __future__ import annotations
 
 from hashlib import scrypt, sha256
@@ -17,7 +18,11 @@ PASSWORD_KDF = {
 
 def normalize_login(login: str) -> str:
     normalized = login.strip().lower()
-    if len(normalized) < 3 or len(normalized) > 64 or any(char.isspace() for char in normalized):
+    if (
+        len(normalized) < 3
+        or len(normalized) > 64
+        or any(char.isspace() for char in normalized)
+    ):
         raise ValueError("Логин должен быть длиной 3–64 символа без пробелов")
     return normalized
 

@@ -27,6 +27,7 @@ class MoveInterval(InputSchema):
             raise ValueError("Начало переноса должно быть раньше конца")
         return self
 
+
 class MoveCreate(MoveInterval):
     session_id: PositiveId
     original_date: LocalDate
@@ -36,6 +37,7 @@ class MoveCreate(MoveInterval):
     new_end_time: Clock
     new_room_id: PositiveId
     comment: Text = ""
+
 
 class MoveUpdate(UpdateSchema, MoveInterval):
     session_id: PositiveId | None = None

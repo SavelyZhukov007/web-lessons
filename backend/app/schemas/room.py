@@ -1,10 +1,12 @@
 from pydantic import ConfigDict
 from .common import InputSchema, Name, PositiveCapacity, Text, UpdateSchema
 
+
 class RoomCreate(InputSchema):
     name: Name
     building: Text = ""
     capacity: PositiveCapacity
+
 
 class RoomUpdate(UpdateSchema):
     name: Name | None = None
