@@ -40,6 +40,7 @@ from ..schemas.session_exception import (
     MoveUpdate,
     SessionExceptionRead,
 )
+from os import getenv
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -48,17 +49,7 @@ SESSION_LIFETIME = timedelta(days=7)
 
 login_attempts_by_ip: dict[str, dict] = {}
 
-# {
-#     "123": {
-#         "attempts": 0,
-#         "locked_until": None
-#     },
-#     "456": {
-#         "attempts": 5,
-#         "locked_until": datetime('whatever...')
-#     }
-# }
-
+COOKIE_SECURE = getenv("COOKIE_SECURE", "false").lower() == "true" # хз, надо это или нет
 MAX_ATTEMPTS = 5
 LOCK_DURATION = timedelta(minutes=5)
 
@@ -149,7 +140,7 @@ def _set_session_cookie(response: Response, token: str) -> None:
         max_age=int(SESSION_LIFETIME.total_seconds()),
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=COOKIE_SECURE,
         path="/",
     )
 
