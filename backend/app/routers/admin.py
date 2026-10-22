@@ -40,6 +40,10 @@ from ..schemas.session_exception import (
     MoveUpdate,
     SessionExceptionRead,
 )
+from ..services.schedule_conflicts import (
+    ProposedChange,
+    ScheduleConflictService,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -108,6 +112,21 @@ def _commit_or_raise_conflict(db: Session, detail: str) -> None:
         db.rollback()
         raise HTTPException(409, detail) from exc
 
+def _raise_if_schedule_conflicts(
+    db: Session,
+    change: ProposedChange,
+) -> None:
+    conflicts = ScheduleConflictService(db).check_proposed_state(change)
+
+    if conflicts:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "CONFLICT",
+                "message": "Занятие пересекается с существующим расписанием",
+                "conflicts": conflicts,
+            },
+        )
 
 def _normalize_login_or_422(login: str) -> str:
     try:
@@ -447,15 +466,42 @@ def create_club(payload: ClubCreate, db: Session = Depends(get_db)):
 
 
 @router.patch(
-    "/clubs/{club_id}", response_model=ClubRead, dependencies=[Depends(require_admin)]
+    "/clubs/{club_id}",
+    response_model=ClubRead,
+    dependencies=[Depends(require_admin)],
 )
-def update_club(club_id: int, payload: ClubUpdate, db: Session = Depends(get_db)):
+def update_club(
+    club_id: int,
+    payload: ClubUpdate,
+    db: Session = Depends(get_db),
+):
     club = _get_or_404(db, Club, club_id, "Кружок не найден")
     updates = payload.model_dump(exclude_unset=True)
+
     if "category_id" in updates:
         _category_exists(db, updates["category_id"])
+
     if "leader_id" in updates:
         _leader_exists(db, updates["leader_id"])
+
+    final_is_active = updates.get("is_active", club.is_active)
+    final_leader_id = updates.get("leader_id", club.leader_id)
+
+    needs_schedule_check = final_is_active and (
+        final_leader_id != club.leader_id
+        or not club.is_active
+    )
+
+    if needs_schedule_check:
+        _raise_if_schedule_conflicts(
+            db,
+            ProposedChange(
+                operation="update_club",
+                entity_id=club_id,
+                payload=updates,
+            ),
+        )
+
     _apply_model_updates(club, payload)
     db.commit()
     db.refresh(club)
@@ -495,6 +541,16 @@ def list_sessions(db: Session = Depends(get_db)):
 def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
     _club_exists(db, payload.club_id)
     _room_exists(db, payload.room_id)
+
+    _raise_if_schedule_conflicts(
+        db,
+        ProposedChange(
+            operation="create_session",
+            entity_id=None,
+            payload=payload.model_dump(),
+        ),
+    )
+
     session = ClubSession(**payload.model_dump())
     db.add(session)
     db.commit()
@@ -508,26 +564,53 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
     dependencies=[Depends(require_admin)],
 )
 def update_session(
-    session_id: int, payload: SessionUpdate, db: Session = Depends(get_db)
+    session_id: int,
+    payload: SessionUpdate,
+    db: Session = Depends(get_db),
 ):
-    session = _get_or_404(db, ClubSession, session_id, "Регулярное занятие не найдено")
+    session = _get_or_404(
+        db, ClubSession, session_id, "Регулярное занятие не найдено"
+    )
     updates = payload.model_dump(exclude_unset=True)
+
     if "club_id" in updates:
         _club_exists(db, updates["club_id"])
+
     if "room_id" in updates:
         _room_exists(db, updates["room_id"])
-    if ("start_time" in updates) ^ ("end_time" in updates):
-        updates["start_time"] = updates.get("start_time", session.start_time)
-        updates["end_time"] = updates.get("end_time", session.end_time)
+
+    has_single_time_boundary = (
+        ("start_time" in updates) ^ ("end_time" in updates)
+    )
+
+    if has_single_time_boundary:
+        updates["start_time"] = updates.get(
+            "start_time", session.start_time
+        )
+        updates["end_time"] = updates.get(
+            "end_time", session.end_time
+        )
         _validate_interval(
             updates["start_time"],
             updates["end_time"],
             "Начало занятия должно быть раньше конца",
         )
+
+    _raise_if_schedule_conflicts(
+        db,
+        ProposedChange(
+            operation="update_session",
+            entity_id=session_id,
+            payload=updates,
+        ),
+    )
+
+    if has_single_time_boundary:
         for field, value in updates.items():
             setattr(session, field, value)
     else:
         _apply_model_updates(session, payload)
+
     db.commit()
     db.refresh(session)
     return session
@@ -584,7 +667,19 @@ def create_cancellation(payload: CancellationCreate, db: Session = Depends(get_d
 def create_move(payload: MoveCreate, db: Session = Depends(get_db)):
     _session_exists(db, payload.session_id)
     _room_exists(db, payload.new_room_id)
-    exception = SessionException(**_prepare_exception_payload(payload))
+
+    exception_payload = _prepare_exception_payload(payload)
+
+    _raise_if_schedule_conflicts(
+        db,
+        ProposedChange(
+            operation="create_move",
+            entity_id=None,
+            payload=exception_payload,
+        ),
+    )
+
+    exception = SessionException(**exception_payload)
     db.add(exception)
     _commit_or_raise_conflict(db, "Не удалось сохранить перенос занятия")
     db.refresh(exception)
@@ -618,6 +713,28 @@ def update_exception(
             updates.get("new_end_time", exception.new_end_time),
             "Начало переноса должно быть раньше конца",
         )
+
+    schedule_fields = {
+        "session_id",
+        "original_date",
+        "new_date",
+        "new_room_id",
+        "new_start_time",
+        "new_end_time",
+    }
+
+    if (
+        exception.type == "moved"
+        and schedule_fields.intersection(updates)
+    ):
+        _raise_if_schedule_conflicts(
+            db,
+            ProposedChange(
+                operation="update_move",
+                entity_id=exception_id,
+                payload=updates,
+            ),
+        )
     for field, value in updates.items():
         setattr(exception, field, value)
     _commit_or_raise_conflict(db, "Не удалось обновить исключение занятия")
@@ -630,9 +747,22 @@ def update_exception(
     status_code=http_status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_admin)],
 )
-def delete_exception(exception_id: int, db: Session = Depends(get_db)):
+def delete_exception(
+    exception_id: int,
+    db: Session = Depends(get_db),
+):
     exception = _get_or_404(
         db, SessionException, exception_id, "Исключение занятия не найдено"
     )
+
+    _raise_if_schedule_conflicts(
+        db,
+        ProposedChange(
+            operation="delete_exception",
+            entity_id=exception_id,
+            payload={},
+        ),
+    )
+
     db.delete(exception)
     db.commit()

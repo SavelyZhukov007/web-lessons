@@ -27,6 +27,8 @@ class ProposedChange:
         "delete_exception",
         "change_leader",
         "activate_club",
+        "update_move",
+        "update_club",
     ]
     entity_id: int | None
     payload: dict[str, Any]
@@ -60,9 +62,15 @@ class ScheduleConflictService:
         candidates = self._get_candidates(
             week_events,
             change,
+            loaded_data,
         )
 
-        conflicts: list[dict] = []
+        events_by_id = {
+            event["event_id"]: event
+            for event in week_events
+        }
+
+        conflicts_by_id: dict[str, dict] = {}
 
         for candidate in candidates:
             candidate_conflicts = self._find_conflicts(
@@ -71,9 +79,33 @@ class ScheduleConflictService:
                 exclude_event_id=candidate["event_id"],
             )
 
-            conflicts.extend(candidate_conflicts)
+            for conflict in candidate_conflicts:
+                event = events_by_id.get(conflict["event_id"])
 
-        return conflicts
+                if event is None:
+                    continue
+
+                event_id = event["event_id"]
+
+                if event_id not in conflicts_by_id:
+                    conflicts_by_id[event_id] = {
+                        "event_id": event_id,
+                        "club_name": event["club_name"],
+                        "date": event["date"],
+                        "start_time": event["start_time"],
+                        "end_time": event["end_time"],
+                        "room_name": event["room_name"],
+                        "leader_name": event["leader_name"],
+                        "reasons": list(conflict["reasons"]),
+                    }
+                else:
+                    existing_reasons = conflicts_by_id[event_id]["reasons"]
+
+                    for reason in conflict["reasons"]:
+                        if reason not in existing_reasons:
+                            existing_reasons.append(reason)
+
+        return list(conflicts_by_id.values())
 
     def _load_schedule_data(self) -> dict:
         categories = [
@@ -138,14 +170,10 @@ class ScheduleConflictService:
             {
                 "id": exception.id,
                 "session_id": exception.session_id,
-                "original_date": exception.original_date.isoformat(),
+                "original_date": exception.original_date,
                 "type": exception.type,
                 "comment": exception.comment or "",
-                "new_date": (
-                    exception.new_date.isoformat()
-                    if exception.new_date is not None
-                    else None
-                ),
+                "new_date": exception.new_date,
                 "new_room_id": exception.new_room_id,
                 "new_start_time": exception.new_start_time,
                 "new_end_time": exception.new_end_time,
@@ -221,6 +249,20 @@ class ScheduleConflictService:
                 }
             )
 
+        elif change.operation == "update_move":
+            for exception in proposed_data["session_exceptions"]:
+                if exception["id"] != change.entity_id:
+                    continue
+
+                for key, value in change.payload.items():
+                    if key in {"original_date", "new_date"}:
+                        if isinstance(value, date):
+                            value = value.isoformat()
+
+                    exception[key] = value
+
+                break
+
         elif change.operation == "delete_exception":
             proposed_data["session_exceptions"] = [
                 exception
@@ -239,6 +281,19 @@ class ScheduleConflictService:
                 if club["id"] == change.entity_id:
                     club["is_active"] = True
                     break
+
+        elif change.operation == "update_club":
+            for club in proposed_data["clubs"]:
+                if club["id"] != change.entity_id:
+                    continue
+
+                if "leader_id" in change.payload:
+                    club["leader_id"] = change.payload["leader_id"]
+
+                if "is_active" in change.payload:
+                    club["is_active"] = change.payload["is_active"]
+
+                break
 
         return proposed_data
 
@@ -308,6 +363,73 @@ class ScheduleConflictService:
 
                 break
 
+        elif change.operation == "update_move":
+            for exception in data["session_exceptions"]:
+                if exception["id"] != change.entity_id:
+                    continue
+
+                # Недели до изменения
+                old_original_date = normalize_date(exception["original_date"])
+                affected_weeks.add(get_week_start(old_original_date))
+
+                if exception["new_date"] is not None:
+                    old_new_date = normalize_date(exception["new_date"])
+                    affected_weeks.add(get_week_start(old_new_date))
+
+                # Недели после изменения
+                new_original_date = normalize_date(
+                    change.payload.get("original_date", exception["original_date"])
+                )
+                affected_weeks.add(get_week_start(new_original_date))
+
+                new_date_value = change.payload.get(
+                    "new_date", exception["new_date"]
+                )
+                if new_date_value is not None:
+                    new_date = normalize_date(new_date_value)
+                    affected_weeks.add(get_week_start(new_date))
+
+                break
+
+        regular_operations = {
+            "create_session",
+            "update_session",
+            "change_leader",
+            "activate_club",
+            "update_club",
+        }
+
+        if change.operation in regular_operations:
+            exception_dates: set[date] = set()
+
+            for exception in data["session_exceptions"]:
+                exception_dates.add(
+                    normalize_date(exception["original_date"])
+                )
+
+                if exception["new_date"] is not None:
+                    exception_dates.add(
+                        normalize_date(exception["new_date"])
+                    )
+
+            today = date.today()
+            normal_week_start = get_week_start(today) + timedelta(days=7)
+
+            while any(
+                normal_week_start
+                <= exception_date
+                <= normal_week_start + timedelta(days=6)
+                for exception_date in exception_dates
+            ):
+                normal_week_start += timedelta(days=7)
+
+            affected_weeks.add(normal_week_start)
+
+            for exception_date in exception_dates:
+                if exception_date >= today:
+                    affected_weeks.add(
+                    get_week_start(exception_date)
+                    )
         return affected_weeks
 
     def _build_events(
@@ -331,7 +453,11 @@ class ScheduleConflictService:
         self,
         events: list[dict],
         change: ProposedChange,
+        original_data: dict,
     ) -> list[dict]:
+        if change.operation == "create_cancel":
+            return []
+
         if change.operation in {
             "create_session",
             "update_session",
@@ -339,7 +465,10 @@ class ScheduleConflictService:
             return [
                 event
                 for event in events
-                if event["session_id"] == change.entity_id
+                if (
+                    event["session_id"] == change.entity_id
+                    and event["status"] != "cancelled"
+                )
             ]
 
         if change.operation == "create_move":
@@ -352,8 +481,7 @@ class ScheduleConflictService:
                 event
                 for event in events
                 if (
-                    event["session_id"]
-                    == change.payload["session_id"]
+                    event["session_id"] == change.payload["session_id"]
                     and event["status"] == "moved"
                     and event["original_date"] == original_date
                 )
@@ -362,22 +490,90 @@ class ScheduleConflictService:
         if change.operation in {
             "change_leader",
             "activate_club",
+            "update_club",
         }:
             return [
                 event
                 for event in events
-                if event["club_id"] == change.entity_id
+                if (
+                    event["club_id"] == change.entity_id
+                    and event["status"] != "cancelled"
+                )
             ]
 
+        if change.operation == "update_move":
+            exception = next(
+                (
+                    item
+                    for item in original_data["session_exceptions"]
+                    if item["id"] == change.entity_id
+                ),
+                None,
+            )
+
+            if exception is None:
+                return []
+
+            new_session_id = change.payload.get(
+                "session_id", exception["session_id"]
+            )
+            new_original_date = change.payload.get(
+                "original_date", exception["original_date"]
+            )
+
+            if isinstance(new_original_date, date):
+                new_original_date = new_original_date.isoformat()
+
+            candidates = [
+                event
+                for event in events
+                if (
+                    event["session_id"] == new_session_id
+                    and event["original_date"] == new_original_date
+                    and event["status"] == "moved"
+                )
+            ]
+
+            old_original_date = exception["original_date"]
+
+            if (
+                exception["session_id"] != new_session_id
+                or old_original_date != new_original_date
+            ):
+                candidates.extend(
+                    event
+                    for event in events
+                    if (
+                        event["session_id"] == exception["session_id"]
+                        and event["original_date"] == old_original_date
+                        and event["status"] != "cancelled"
+                    )
+                )
+
+            return candidates
+
         if change.operation == "delete_exception":
+            exception = next(
+                (
+                    item
+                    for item in original_data["session_exceptions"]
+                    if item["id"] == change.entity_id
+                ),
+                None,
+            )
+
+            if exception is None:
+                return []
+
             return [
                 event
                 for event in events
-                if event["status"] != "cancelled"
+                if (
+                    event["session_id"] == exception["session_id"]
+                    and event["original_date"] == exception["original_date"]
+                    and event["status"] != "cancelled"
+                )
             ]
-
-        if change.operation == "create_cancel":
-            return []
 
         return []
 
