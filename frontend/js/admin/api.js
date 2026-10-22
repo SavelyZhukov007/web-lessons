@@ -1,23 +1,22 @@
 import { request } from '../api.js';
-export async function login(body) {
-  try {
-    const response = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: {
-          "Content-Type": "application/json"
-      },
-      credentials: "same-origin",
-      body: body
+
+// request is async
+export function login(login, password) {
+  return request('/api/admin/login', {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "login": login,
+      "password": password
     })
-
-    const data = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(data?.detail || "Ошибка сервера: HTTP ${response.status}");
-    }
-    return data;
-
-  } catch (error) {
-
-  }
+  });
 }
+
+// POST /api/admin/logout
+export function logout() {
+  return request('/api/admin/logout', { method: "POST"});
+}
+
 export function getAdminStatus() { return request('/api/admin/status'); }
