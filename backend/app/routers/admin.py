@@ -40,11 +40,59 @@ from ..schemas.session_exception import (
     MoveUpdate,
     SessionExceptionRead,
 )
+from os import getenv
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 COOKIE_NAME = "admin_session"
 SESSION_LIFETIME = timedelta(days=7)
+
+login_attempts_by_ip: dict[str, dict] = {}
+
+COOKIE_SECURE = getenv("COOKIE_SECURE", "false").lower() == "true" # хз, надо это или нет
+MAX_ATTEMPTS = 5
+LOCK_DURATION = timedelta(minutes=5)
+
+
+def _check_ip(ip: str) -> None:
+    record = login_attempts_by_ip.get(ip)
+    if record is None:
+        return
+
+    locked_until = record.get("locked_until")
+    if locked_until is None:
+        return
+
+    utcnow = _utcnow()
+    if locked_until > utcnow:
+        remaining = int((locked_until - utcnow).total_seconds())
+        raise HTTPException(
+            status_code=429, 
+            detail=f"Слишком много неудачных попыток входа. Попробуйте через {remaining} секунд.", 
+            headers={"Retry-After": str(remaining)}
+        )
+    else:
+        _remove_ip(ip)
+
+
+def _add_failed_attempt(ip: str) -> None:
+    record = login_attempts_by_ip.get(ip)
+
+    if record is None:
+        login_attempts_by_ip[ip] = {
+            "attempts": 0,
+            "locked_until": None
+        }
+        record = login_attempts_by_ip[ip]
+
+    record["attempts"] += 1
+
+    if record["attempts"] >= MAX_ATTEMPTS:
+        record["locked_until"] = _utcnow() + LOCK_DURATION
+
+
+def _remove_ip(ip: str) -> None:
+    login_attempts_by_ip.pop(ip, None)
 
 
 def _utcnow() -> datetime:
@@ -92,7 +140,7 @@ def _set_session_cookie(response: Response, token: str) -> None:
         max_age=int(SESSION_LIFETIME.total_seconds()),
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=COOKIE_SECURE,
         path="/",
     )
 
@@ -219,14 +267,22 @@ def _load_exception_patch(existing: SessionException, payload: dict):
 @router.post("/login", response_model=AdminStatusResponse)
 def login(
     payload: AdminLoginRequest,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
 ):
+    ip = request.client.host if request.client else ""
+    _check_ip(ip)
+
     login_name = _normalize_login_or_422(payload.login)
     admin = db.scalar(select(Admin).where(Admin.login == login_name))
+
     if admin is None or not verify_password(payload.password, admin.password_hash):
+        _add_failed_attempt(ip)
         raise HTTPException(401, "Неверный логин или пароль")
 
+    _remove_ip(ip)
+    
     token = generate_session_token()
     db.add(
         AdminSession(
