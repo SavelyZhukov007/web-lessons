@@ -20,6 +20,11 @@ from ..schemas.session import SessionWithRoomRead
 from ..schemas.session_exception import SessionExceptionRead
 from ..services.schedule import build_week
 
+from datetime import date, timedelta
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi.responses import Response
+
 router = APIRouter(prefix="/api", tags=["public"])
 
 
@@ -173,3 +178,36 @@ def schedule(
             or needle in event["room_name"].lower()
         ]
     return events
+
+#1
+@router.get("/clubs/{club_id}/calendar.ics")
+def export_club_calendar(
+    club_id: Annotated[int, Path(gt=0)],
+    week: Annotated[
+        str, Query(pattern=r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+    ],
+    db: Session = Depends(get_db),
+):
+    week_start = _parse_week_start(week)
+    if week_start > date.max - timedelta(days=6):
+        raise HTTPException(422, "Неделя выходит за диапазон дат")
+    item = db.scalar(
+        select(Club).where(Club.id == club_id, Club.is_active.is_(True))
+    )
+    if item is None:
+        raise HTTPException(404, "Кружок не найден")
+    calendar_text = build_club_calendar(
+        week_start=week_start,
+        data=_dump_schedule_data(db),
+        club_id=item.id,
+        club_name=item.name,
+    )
+    filename = f"club-{item.id}-{week_start.isoformat()}.ics"
+    return Response(
+        content=calendar_text.encode("utf-8"),
+        media_type="text/calendar",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
