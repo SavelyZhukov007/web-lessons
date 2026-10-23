@@ -17,7 +17,7 @@ def test_template_routes():
             "/css/common.css",
         ]:
             assert client.get(path).status_code == 200
-        assert client.get("/api/clubs").status_code == 501
+        assert client.get("/api/clubs").status_code == 200
         assert client.get("/api/admin/status").status_code == 401
         assert client.get("/api/unknown").status_code == 404
         assert client.get("/README.md").status_code == 404
