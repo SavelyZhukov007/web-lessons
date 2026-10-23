@@ -9,6 +9,13 @@ os.environ["CLUBS_SCHEDULE_DB_PATH"] = str(TEST_DB)
 from backend.app import models  # noqa: F401
 from backend.app.database import Base, engine
 from backend.app.main import app
+from backend.app.routers import admin as admin_router
+
+
+@pytest.fixture(autouse=True)
+def isolated_login_attempts(monkeypatch):
+    # Каждый тест начинает с чистого счётчика, включая тесты блокировки входа.
+    monkeypatch.setattr(admin_router, "login_attempts_by_ip", {})
 
 
 @pytest.fixture(autouse=True)

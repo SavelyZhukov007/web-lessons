@@ -392,6 +392,7 @@ def test_delete_moved_exception_returns_both_weeks(
 
 def test_update_session_candidate(
     service,
+    schedule_data,
 ):
     events = [
         {
@@ -417,6 +418,7 @@ def test_update_session_candidate(
     candidates = service._get_candidates(
         events,
         change,
+        schedule_data,
     )
 
     assert len(candidates) == 1
@@ -425,6 +427,7 @@ def test_update_session_candidate(
 
 def test_change_leader_returns_all_club_events(
     service,
+    schedule_data,
 ):
     events = [
         {
@@ -458,6 +461,7 @@ def test_change_leader_returns_all_club_events(
     candidates = service._get_candidates(
         events,
         change,
+        schedule_data,
     )
 
     assert len(candidates) == 2
@@ -470,6 +474,7 @@ def test_change_leader_returns_all_club_events(
 
 def test_cancel_has_no_candidate(
     service,
+    schedule_data,
 ):
     change = ProposedChange(
         operation="create_cancel",
@@ -483,6 +488,7 @@ def test_cancel_has_no_candidate(
     candidates = service._get_candidates(
         [],
         change,
+        schedule_data,
     )
 
     assert candidates == []

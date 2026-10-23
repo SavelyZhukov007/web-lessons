@@ -169,9 +169,10 @@ def test_admin_crud_and_public_schedule(client):
     with SessionLocal() as db:
         assert db.scalar(select(Admin).where(Admin.login == "admin")) is not None
 
+
 def test_admin_login_rate_limit(client):
     create_admin(login="rateadmin", password="Password123")
-    
+
     for _ in range(5):
         response = client.post(
             "/api/admin/login",

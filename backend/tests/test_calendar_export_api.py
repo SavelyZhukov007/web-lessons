@@ -21,8 +21,12 @@ def calendar_data():
         db.add_all([category, leader, room, new_room])
         db.flush()
         clubs = [
-            Club(name=name, category_id=category.id,
-                 leader_id=leader.id, is_active=active)
+            Club(
+                name=name,
+                category_id=category.id,
+                leader_id=leader.id,
+                is_active=active,
+            )
             for name, active in [
                 ("Python, практика; старт", True),
                 ("Другой кружок", True),
@@ -33,8 +37,13 @@ def calendar_data():
         db.add_all(clubs)
         db.flush()
         sessions = [
-            ClubSession(club_id=clubs[index].id, room_id=room.id,
-                        weekday=day, start_time=start, end_time=end)
+            ClubSession(
+                club_id=clubs[index].id,
+                room_id=room.id,
+                weekday=day,
+                start_time=start,
+                end_time=end,
+            )
             for index, day, start, end in [
                 (0, 1, "10:00", "11:00"),
                 (0, 2, "11:00", "12:00"),
@@ -46,28 +55,35 @@ def calendar_data():
         db.add_all(sessions)
         db.flush()
         cancellation = SessionException(
-            session_id=sessions[1].id, original_date="2026-10-20",
-            type="cancelled", comment="Занятие отменено",
+            session_id=sessions[1].id,
+            original_date="2026-10-20",
+            type="cancelled",
+            comment="Занятие отменено",
         )
         move = SessionException(
-            session_id=sessions[2].id, original_date="2026-10-21",
-            type="moved", new_date="2026-10-23",
-            new_start_time="15:00", new_end_time="16:00",
-            new_room_id=new_room.id, comment="Перенос на пятницу",
+            session_id=sessions[2].id,
+            original_date="2026-10-21",
+            type="moved",
+            new_date="2026-10-23",
+            new_start_time="15:00",
+            new_end_time="16:00",
+            new_room_id=new_room.id,
+            comment="Перенос на пятницу",
         )
         db.add_all([cancellation, move])
         db.commit()
         return {
-            "club": clubs[0].id, "other": clubs[1].id,
-            "hidden": clubs[2].id, "empty": clubs[3].id,
-            "move": move.id, "moved_session": sessions[2].id,
+            "club": clubs[0].id,
+            "other": clubs[1].id,
+            "hidden": clubs[2].id,
+            "empty": clubs[3].id,
+            "move": move.id,
+            "moved_session": sessions[2].id,
         }
 
 
 def download(client, club_id, week="2026-10-19"):
-    return client.get(
-        f"/api/clubs/{club_id}/calendar.ics", params={"week": week}
-    )
+    return client.get(f"/api/clubs/{club_id}/calendar.ics", params={"week": week})
 
 
 def unfolded(response):
@@ -80,7 +96,6 @@ def snapshot():
             table.name: db.execute(select(table)).all()
             for table in Base.metadata.sorted_tables
         }
-
 
 
 def test_download_calendar(client, calendar_data, tmp_path):
@@ -108,5 +123,3 @@ def test_download_calendar(client, calendar_data, tmp_path):
     output = tmp_path / "lesson-calendar.ics"
     output.write_bytes(raw)
     print(f"Файл для демонстрации: {output}")
-
-

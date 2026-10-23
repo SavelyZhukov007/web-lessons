@@ -59,12 +59,15 @@ def test_find_conflicts_same_leader():
 
 
 def test_intervals_adjacent():
-    assert intervals_overlap(
-        time(10, 0),
-        time(11, 0),
-        time(11, 0),
-        time(12, 0),
-    ) is False
+    assert (
+        intervals_overlap(
+            time(10, 0),
+            time(11, 0),
+            time(11, 0),
+            time(12, 0),
+        )
+        is False
+    )
 
 
 def test_find_conflicts_different_dates():
@@ -149,9 +152,7 @@ def test_find_conflicts_excludes_edited_event():
         candidate,
         events,
         exclude_event_id="e1",
-    ) == [
-        {"event_id": "e2", "reasons": ["room"]}
-    ]
+    ) == [{"event_id": "e2", "reasons": ["room"]}]
 
 
 def test_find_conflicts_same_room_and_leader():

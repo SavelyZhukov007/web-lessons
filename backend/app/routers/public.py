@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from datetime import date
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import date, timedelta
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi.responses import Response
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 from ..database import get_db
@@ -18,12 +20,8 @@ from ..schemas.leader import LeaderRead
 from ..schemas.room import RoomRead
 from ..schemas.session import SessionWithRoomRead
 from ..schemas.session_exception import SessionExceptionRead
+from ..services.calendar_export import build_club_calendar
 from ..services.schedule import build_week
-
-from datetime import date, timedelta
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from fastapi.responses import Response
 
 router = APIRouter(prefix="/api", tags=["public"])
 
