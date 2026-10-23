@@ -5,9 +5,17 @@ from backend.app.auth import hash_password
 from backend.app.database import SessionLocal
 from backend.app.models.admin import Admin
 from backend.app.models.session_exception import SessionException
+from backend.app.routers import admin as admin_router
 
 ADMIN_LOGIN = "admin"
 ADMIN_PASSWORD = "Password123"
+
+
+@pytest.fixture(autouse=True)
+def isolated_login_attempts(monkeypatch):
+    # Не наследуем блокировку IP из тестов ограничения попыток входа.
+    monkeypatch.setattr(admin_router, "login_attempts_by_ip", {})
+
 
 @pytest.fixture
 def admin_client(client):
