@@ -1,0 +1,958 @@
+/* Календарь и дневной список. Общая публичная оболочка — campus.css. */
+.page-command {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 28px;
+    margin-bottom: 28px;
+}
+
+.week-toolbar,
+.week-navigation,
+.week-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+
+.week-toolbar {
+    justify-content: flex-start;
+    gap: 20px;
+}
+
+.week-navigation {
+    flex-shrink: 0;
+    gap: 12px;
+}
+
+.week-caption {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.week-caption h2 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -.03em;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.week-caption p {
+    margin: 0;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.week-actions {
+    gap: 12px;
+}
+
+.date-picker {
+    width: 151px;
+}
+
+.campus-page .date-picker input {
+    padding: 9px;
+    font-size: 12px;
+}
+
+.desktop-view {
+    display: flex;
+    gap: 12px;
+    align-self: center;
+}
+
+.campus-page .desktop-view button {
+    border: 0;
+    border-bottom: 2px solid var(--line);
+    border-radius: 0;
+    padding: 10px 8px;
+    min-width: 66px;
+}
+
+.campus-page .desktop-view [aria-pressed="true"] {
+    border-bottom-color: var(--ink);
+    font-weight: 600;
+}
+
+#schedule-filters {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.65fr) repeat(4, minmax(104px, 1fr)) auto;
+    align-items: end;
+    gap: 14px;
+}
+
+.filter-options {
+    display: contents;
+}
+
+.search-input {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input>.ui-icon {
+    position: absolute;
+    left: 12px;
+    width: 19px;
+    height: 19px;
+    color: var(--ink);
+    pointer-events: none;
+}
+
+.campus-page .search-input input {
+    padding-left: 38px;
+}
+
+.campus-page .mobile-filter-toggle {
+    display: none;
+}
+
+.reference-error,
+.schedule-notice {
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    background: #faf7f5;
+    color: var(--ink);
+    font-size: 13px;
+    margin: 18px 0;
+}
+
+.reference-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.reference-error button {
+    flex-shrink: 0;
+}
+
+.mobile-days {
+    display: none;
+}
+
+.schedule-caption {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.schedule-caption p {
+    font-size: 10px;
+    color: var(--muted);
+    margin: 8px 0;
+}
+
+.schedule-content {
+    min-height: 280px;
+}
+
+.week-grid {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+}
+
+.grid-headings,
+.grid-tracks {
+    display: grid;
+    grid-template-columns: 66px repeat(var(--days), minmax(0, 1fr));
+}
+
+.grid-headings {
+    border-bottom: 1px solid var(--line);
+}
+
+.time-zone {
+    align-self: end;
+    padding: 0 0 16px 5px;
+    color: var(--muted);
+    font-size: 10px;
+    font-family: var(--mono);
+}
+
+.grid-day-heading {
+    border-left: 1px solid var(--line);
+    padding: 14px 14px 16px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+}
+
+.grid-day-heading span {
+    font-size: 12px;
+}
+
+.grid-day-heading strong {
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -.06em;
+    font-variant-numeric: tabular-nums;
+    position: relative;
+}
+
+.grid-day-heading.is-today {
+    background: var(--quiet);
+}
+
+.grid-day-heading.is-today strong {
+    color: var(--accent);
+}
+
+.grid-day-heading.is-today strong::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 2px;
+    background: var(--accent);
+}
+
+.time-scale {
+    position: relative;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.time-scale span {
+    position: absolute;
+    left: 5px;
+    transform: translateY(-50%);
+}
+
+.time-scale span:first-child {
+    transform: translateY(4px);
+}
+
+.time-scale span:last-child {
+    transform: translateY(-110%);
+}
+
+.day-track {
+    position: relative;
+    min-width: 0;
+    border-left: 1px solid var(--line);
+    background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--hour-height) - 1px), #e8ebe8 calc(var(--hour-height) - 1px), #e8ebe8 var(--hour-height));
+}
+
+.day-track.is-today {
+    background-color: var(--quiet);
+}
+
+.track-empty {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    padding: 20px 12px;
+}
+
+.calendar-event {
+    --event-color: #606963;
+}
+
+.campus-page .calendar-event {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--event-color);
+    border-radius: 2px;
+    background: var(--paper);
+    padding: 9px 10px;
+    min-height: 0;
+    text-align: left;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.campus-page .calendar-event:hover {
+    border-color: var(--event-color);
+    background: #fcfcfb;
+    z-index: 1;
+}
+
+.calendar-event:focus-visible {
+    z-index: 2;
+}
+
+.calendar-event>* {
+    flex-shrink: 0;
+}
+
+.event-time {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.event-name {
+    font-size: 14px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.3;
+    letter-spacing: -.02em;
+}
+
+.event-room,
+.event-leader {
+    font-size: 12px;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+
+.event-badge {
+    font-size: 10px;
+    color: var(--accent);
+    line-height: 1.5;
+    border-bottom: 1px solid currentColor;
+    align-self: flex-start;
+}
+
+.cancelled .event-badge {
+    border-bottom-style: dashed;
+}
+
+.calendar-event.cancelled .event-name {
+    text-decoration: line-through;
+}
+
+.calendar-event.cancelled {
+    border-left-style: dashed;
+}
+
+.campus-page .calendar-event.compact {
+    gap: 2px;
+    padding: 6px;
+}
+
+.compact .event-leader {
+    display: none;
+}
+
+.compact .event-time {
+    font-size: 10px;
+}
+
+.compact .event-name {
+    font-size: 13px;
+}
+
+.compact .event-room {
+    font-size: 11px;
+}
+
+.compact.has-status .event-name {
+    -webkit-line-clamp: 1;
+}
+
+.compact.has-status .event-room {
+    display: none;
+}
+
+.event-affordance {
+    display: none;
+}
+
+.grid-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 10px 0 0;
+}
+
+.schedule-legend {
+    display: flex;
+    gap: 24px;
+    margin-top: 18px;
+    font-size: 10px;
+    color: var(--muted);
+}
+
+.status-example {
+    padding-left: 14px;
+    position: relative;
+}
+
+.status-example::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 6px;
+    height: 6px;
+    border: 1px solid var(--accent);
+}
+
+.status-example.cancelled::before {
+    border-style: dashed;
+}
+
+.schedule-list {
+    border-top: 1px solid var(--ink);
+}
+
+.list-day {
+    padding-top: 24px;
+}
+
+.list-day>h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 550;
+    letter-spacing: -.02em;
+}
+
+.day-empty {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 12px 0 28px;
+}
+
+.campus-page .schedule-list .calendar-event {
+    position: relative;
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) 24px;
+    column-gap: 24px;
+    row-gap: 3px;
+    width: 100%;
+    min-height: 130px;
+    padding: 24px 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    overflow: visible;
+}
+
+.schedule-list .calendar-event::before {
+    content: "";
+    position: absolute;
+    top: 25px;
+    bottom: 25px;
+    left: 108px;
+    width: 3px;
+    background: var(--event-color);
+}
+
+.campus-page .schedule-list .calendar-event:hover {
+    background: #fafbf9;
+}
+
+.schedule-list .event-time {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.schedule-list .time-divider {
+    display: none;
+}
+
+.schedule-list .event-end {
+    display: block;
+    color: var(--muted);
+}
+
+.schedule-list .event-name,
+.schedule-list .event-room,
+.schedule-list .event-leader,
+.schedule-list .event-badge {
+    grid-column: 2;
+    display: block;
+}
+
+.schedule-list .event-name {
+    font-size: 19px;
+    overflow: visible;
+    line-height: 1.35;
+    font-weight: 550;
+}
+
+.schedule-list .event-room,
+.schedule-list .event-leader {
+    font-size: 13px;
+}
+
+.schedule-list .event-badge {
+    font-size: 12px;
+    justify-self: start;
+}
+
+.schedule-list .event-affordance {
+    display: block;
+    grid-column: 3;
+    grid-row: 1 / span 4;
+    align-self: center;
+    width: 20px;
+    height: 20px;
+}
+
+.schedule-state {
+    padding: 52px 0;
+    min-height: 260px;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--line);
+}
+
+.schedule-state h3 {
+    font-size: 24px;
+    font-weight: 550;
+    letter-spacing: -.035em;
+    margin: 0 0 12px;
+}
+
+.schedule-state p {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 520px;
+    margin: 0 0 24px;
+}
+
+.schedule-state button {
+    border-color: var(--ink);
+}
+
+#event-dialog {
+    width: 520px;
+    max-width: calc(100vw - 36px);
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    padding: 32px;
+    border: 1px solid var(--ink);
+    border-radius: 2px;
+    color: var(--ink);
+    background: var(--paper);
+}
+
+#event-dialog::backdrop {
+    background: #17221b66;
+}
+
+#event-dialog h2 {
+    font-size: 30px;
+    line-height: 1.15;
+    letter-spacing: -.045em;
+    margin: 20px 0 28px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+#event-dialog>div>.event-badge {
+    display: inline-block;
+    font-size: 12px;
+    margin: 0;
+}
+
+.event-badge.scheduled {
+    color: var(--muted);
+    border-color: var(--line);
+}
+
+.event-facts {
+    display: grid;
+    grid-template-columns: 116px minmax(0, 1fr);
+    gap: 14px;
+    padding: 22px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+}
+
+.event-facts dt {
+    color: var(--muted);
+}
+
+.event-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.event-comment {
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+    margin: 20px 0;
+}
+
+.club-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--accent) !important;
+    margin: 16px 0 24px;
+}
+
+.campus-page #close-event {
+    width: 100%;
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+}
+
+@media (min-width: 1600px) {
+    .page-command {
+        gap: 36px;
+    }
+
+    .week-caption h2 {
+        font-size: 18px;
+    }
+
+    .event-name {
+        font-size: 14px;
+    }
+
+    .event-room,
+    .event-leader {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 1359px) and (min-width: 1000px) {
+    .page-command {
+        grid-template-columns: minmax(0, 1fr) auto;
+        row-gap: 20px;
+    }
+
+    .week-toolbar {
+        grid-row: 2;
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+    }
+
+    .desktop-view {
+        grid-column: 2;
+        grid-row: 1;
+    }
+}
+
+@media (max-width: 1099px) and (min-width: 1000px) {
+    #schedule-filters {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .search-field {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 999px) {
+    .page-command {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+        margin-bottom: 20px;
+    }
+
+    .week-toolbar {
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+
+    .desktop-view {
+        display: none;
+    }
+
+    .week-caption {
+        flex-wrap: wrap;
+        gap: 0 6px;
+    }
+
+    #schedule-filters {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+    }
+
+    .campus-page .mobile-filter-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+
+    .filter-options {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        padding: 18px 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    #reset-filters {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+
+    .mobile-days {
+        display: block;
+        margin-top: 24px;
+    }
+
+    #day-buttons {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+    }
+
+    .campus-page #day-buttons button {
+        position: relative;
+        border: 0;
+        border-right: 1px solid var(--line);
+        border-radius: 0;
+        display: grid;
+        justify-items: center;
+        gap: 4px;
+        padding: 12px 2px;
+        min-height: 69px;
+    }
+
+    #day-buttons button:first-child {
+        border-left: 1px solid var(--line);
+    }
+
+    #day-buttons span {
+        font-size: 11px;
+        color: var(--muted);
+    }
+
+    #day-buttons strong {
+        font-size: 21px;
+        font-weight: 450;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.2;
+    }
+
+    #day-buttons .is-today strong,
+    #day-buttons .is-today span {
+        color: var(--accent);
+    }
+
+    #day-buttons [aria-pressed="true"]::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        background: var(--ink);
+    }
+
+    #day-buttons .is-today[aria-pressed="true"]::after {
+        background: var(--accent);
+    }
+
+    #day-buttons [aria-pressed="true"] {
+        background: var(--quiet);
+    }
+
+    .day-navigation {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 22px 0 0;
+    }
+
+    .day-navigation h2 {
+        font-size: 20px;
+        font-weight: 550;
+        letter-spacing: -.035em;
+        margin: 0;
+    }
+
+    .campus-page .day-navigation button {
+        width: 30px;
+        border: 0;
+        padding: 0;
+    }
+
+    .schedule-caption {
+        min-height: 26px;
+    }
+
+    .schedule-caption p {
+        font-size: 10px;
+        margin: 4px 0;
+    }
+
+    .schedule-list {
+        border-top-color: var(--line);
+    }
+
+    .list-day {
+        padding: 0;
+    }
+
+    .list-day>h3 {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
+    .reference-error {
+        display: block;
+    }
+
+    .reference-error button {
+        margin-top: 12px;
+    }
+}
+
+@media (max-width: 599px) {
+    .page-command {
+        gap: 22px;
+    }
+
+    .week-toolbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .week-navigation {
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .week-caption {
+        flex-wrap: nowrap;
+        gap: 5px;
+    }
+
+    .week-caption h2 {
+        font-size: 16px;
+    }
+
+    .week-caption p {
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    .week-actions {
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .week-actions>button {
+        flex: 1;
+    }
+
+    .date-picker {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+    }
+
+    .campus-page .date-picker input {
+        font-size: 12px;
+        width: 100%;
+    }
+
+    .campus-page .search-input input {
+        font-size: 12px;
+        padding-left: 34px;
+    }
+
+    .search-input>.ui-icon {
+        left: 9px;
+        width: 17px;
+    }
+
+    .campus-page .mobile-filter-toggle {
+        gap: 6px;
+        padding: 10px;
+        font-size: 12px;
+    }
+
+    .mobile-filter-toggle .ui-icon {
+        width: 16px;
+    }
+
+    #schedule-filters {
+        gap: 8px;
+    }
+
+    .day-navigation h2 {
+        font-size: 18px;
+    }
+
+    .campus-page .schedule-list .calendar-event {
+        grid-template-columns: 56px minmax(0, 1fr) 16px;
+        column-gap: 18px;
+        padding: 24px 0;
+        min-height: 140px;
+    }
+
+    .schedule-list .calendar-event::before {
+        left: 65px;
+        width: 2px;
+    }
+
+    .schedule-list .event-name {
+        font-size: 16px;
+        letter-spacing: -.025em;
+    }
+
+    .schedule-list .event-time {
+        font-size: 12px;
+    }
+
+    .schedule-list .event-room,
+    .schedule-list .event-leader {
+        font-size: 13px;
+    }
+
+    .schedule-list .event-affordance {
+        width: 16px;
+        height: 16px;
+    }
+
+    .event-facts {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 4px;
+        padding: 18px 0;
+    }
+
+    .event-facts dd {
+        margin-bottom: 12px;
+    }
+
+    #event-dialog {
+        padding: 24px;
+    }
+
+    #event-dialog h2 {
+        font-size: 27px;
+    }
+
+    .grid-hint {
+        font-size: 10px;
+    }
+}

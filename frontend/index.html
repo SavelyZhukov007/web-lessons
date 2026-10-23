@@ -4,22 +4,129 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Расписание кружков</title>
-    <link rel="stylesheet" href="/css/common.css">
-    <link rel="stylesheet" href="/css/public.css">
+    <meta name="description" content="Расписание кружков КИПФИН: занятия, руководители, аудитории, отмены и переносы.">
+    <title>Расписание — кружки.</title>
+    <link rel="stylesheet" href="/css/campus.css">
+    <link rel="stylesheet" href="/css/schedule.css">
 </head>
 
-<body>
-    <header>
-        <nav aria-label="Основная навигация"><a href="/">Расписание</a><a href="/clubs.html">Кружки</a><a
-                href="/admin/login.html">Админка</a></nav>
+<body class="campus-page schedule-page">
+    <a class="skip-link" href="#schedule-main">К содержимому</a>
+    <header class="campus-header">
+        <a class="campus-brand" href="/" aria-label="Кружки — главная"><span>кружки<i
+                    aria-hidden="true"></i></span><small>КИПФИН</small></a>
+        <nav aria-label="Основная навигация">
+            <a href="/" aria-current="page">Расписание</a>
+            <a href="/clubs.html">Все кружки</a>
+        </nav>
+        <a class="staff-link" href="/admin/login.html">Вход для сотрудников</a>
     </header>
-    <main>
-        <h1>Расписание кружков</h1>
-        <p class="notice">Шаблон: вымышленные данные, функции ещё не реализованы полностью.</p>
-        <p>Тестовая неделя: 12–17 октября 2026. TODO: выбор недели и фильтры.</p>
-        <section id="content" aria-live="polite"></section>
+    <main id="schedule-main" tabindex="-1">
+        <div class="page-command">
+            <h1>Расписание</h1>
+            <div class="week-toolbar">
+                <div class="week-navigation">
+                    <button id="prev-week" class="icon-button" type="button" aria-label="Предыдущая неделя"><svg
+                            class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="m14 6-6 6 6 6" />
+                        </svg></button>
+                    <div class="week-caption">
+                        <h2 id="week-label">Расписание недели</h2>
+                        <p id="week-year"></p>
+                    </div>
+                    <button id="next-week" class="icon-button" type="button" aria-label="Следующая неделя"><svg
+                            class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="m10 6 6 6-6 6" />
+                        </svg></button>
+                </div>
+                <div class="week-actions">
+                    <button id="today" type="button">Текущая неделя</button>
+                    <label class="date-picker"><span class="visually-hidden">Перейти к дате</span><input id="week-date"
+                            type="date" min="1900-01-08" max="9998-12-25"></label>
+                </div>
+            </div>
+            <div class="desktop-view" role="group" aria-label="Вид расписания">
+                <button id="view-grid" type="button" aria-pressed="true">Неделя</button>
+                <button id="view-list" type="button" aria-pressed="false">Список</button>
+            </div>
+        </div>
+        <p id="mock-notice" class="schedule-notice" hidden>Режим разработки: показаны вымышленные данные.</p>
+        <div class="schedule-controls" aria-label="Управление расписанием">
+            <form id="schedule-filters" role="search" aria-label="Фильтры расписания">
+                <label class="search-field"><span class="visually-hidden">Поиск</span><span class="search-input"><svg
+                            class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="m20 20-4.5-4.5 M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0" />
+                        </svg><input id="search" type="search" maxlength="200"
+                            placeholder="Кружок, руководитель, аудитория…" autocomplete="off"></span></label>
+                <button id="toggle-filters" class="mobile-filter-toggle" type="button" aria-expanded="false"
+                    aria-controls="filter-options"><svg class="ui-icon " viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                        aria-hidden="true">
+                        <path d="M4 7h16M4 17h16M8 4v6M16 14v6" />
+                    </svg><span>Фильтры</span></button>
+                <div id="filter-options" class="filter-options">
+                    <label>Направление<select id="category">
+                            <option value="">Все направления</option>
+                        </select></label>
+                    <label>День<select id="weekday">
+                            <option value="">Все дни</option>
+                            <option value="1">Понедельник</option>
+                            <option value="2">Вторник</option>
+                            <option value="3">Среда</option>
+                            <option value="4">Четверг</option>
+                            <option value="5">Пятница</option>
+                            <option value="6">Суббота</option>
+                        </select></label>
+                    <label>Руководитель<select id="leader">
+                            <option value="">Все руководители</option>
+                        </select></label>
+                    <label>Аудитория<select id="room">
+                            <option value="">Все аудитории</option>
+                        </select></label>
+                    <button id="reset-filters" class="text-button" type="button">Сбросить</button>
+                </div>
+            </form>
+            <div id="reference-error" class="reference-error" role="status" hidden><span></span><button
+                    id="retry-references" type="button">Повторить загрузку фильтров</button></div>
+        </div>
+        <div class="mobile-days">
+            <div id="day-buttons" role="group" aria-label="Дни выбранной недели"></div>
+            <div class="day-navigation">
+                <button id="prev-day" class="icon-button" type="button" aria-label="Предыдущий учебный день"><svg
+                        class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m14 6-6 6 6 6" />
+                    </svg></button>
+                <h2 id="selected-day-label"></h2>
+                <button id="next-day" class="icon-button" type="button" aria-label="Следующий учебный день"><svg
+                        class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m10 6 6 6-6 6" />
+                    </svg></button>
+            </div>
+        </div>
+        <div class="schedule-caption">
+            <h2 class="visually-hidden">Расписание занятий</h2>
+            <p id="result-status" role="status" aria-live="polite" aria-atomic="true"></p>
+        </div>
+        <div id="content" class="schedule-content" aria-busy="true"></div>
+        <div class="schedule-legend"><span class="status-example moved">Перенос</span><span
+                class="status-example cancelled">Отменено</span></div>
+        <noscript>
+            <p class="schedule-notice">Для просмотра расписания включи JavaScript в браузере.</p>
+        </noscript>
     </main>
+    <footer class="campus-footer"><span>Время московское · Пн–Сб</span><a href="/clubs.html">Все кружки <svg
+                class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14m-5-5 5 5-5 5" />
+            </svg></a></footer>
+    <dialog id="event-dialog" aria-labelledby="event-title">
+        <div id="event-details"></div><button id="close-event" type="button">Закрыть</button>
+    </dialog>
     <script type="module" src="/js/schedule.js"></script>
 </body>
 

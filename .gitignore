@@ -7,3 +7,5 @@ __pycache__/
 docs/NEXT_STAGE_TASKS.md
 tools/calendar_export/tests
 tools/calendar_export/examples
+docs/DESIGN_DECISIONS.md
+docs/PUBLIC_SCHEDULE.md

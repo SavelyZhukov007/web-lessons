@@ -4,21 +4,35 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Страница кружка</title>
-    <link rel="stylesheet" href="/css/common.css">
-    <link rel="stylesheet" href="/css/public.css">
+    <title>Кружок — КИПФИН</title>
+    <link rel="stylesheet" href="/css/campus.css">
 </head>
 
-<body>
-    <header>
-        <nav aria-label="Основная навигация"><a href="/">Расписание</a><a href="/clubs.html">Кружки</a><a
-                href="/admin/login.html">Админка</a></nav>
+<body class="campus-page">
+    <a class="skip-link" href="#public-main">К содержимому</a>
+    <header class="campus-header">
+        <a class="campus-brand" href="/" aria-label="Кружки — главная"><span>кружки<i
+                    aria-hidden="true"></i></span><small>КИПФИН</small></a>
+        <nav aria-label="Основная навигация">
+            <a href="/">Расписание</a>
+            <a href="/clubs.html">Все кружки</a>
+        </nav>
+        <a class="staff-link" href="/admin/login.html">Вход для сотрудников</a>
     </header>
-    <main>
-        <h1>Страница кружка</h1>
-        <p class="notice">Шаблон: вымышленные данные, функции ещё не реализованы полностью.</p>
-        <section id="content" aria-live="polite"></section>
+    <main id="public-main" tabindex="-1">
+        <a class="public-back" href="/clubs.html">К списку кружков</a>
+        <div class="public-title">
+            <h1 id="club-name">Кружок</h1>
+        </div>
+        <div id="content" class="detail-content" aria-live="polite" aria-busy="true">
+            <p class="detail-copy">Загружаем сведения…</p>
+        </div>
     </main>
+    <footer class="campus-footer"><span>Время московское · Пн–Сб</span><a href="/clubs.html">Все кружки <svg
+                class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14m-5-5 5 5-5 5" />
+            </svg></a></footer>
     <script type="module" src="/js/club.js"></script>
 </body>
 
