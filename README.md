@@ -63,122 +63,181 @@
 
 Отдельно проверяется запрет одновременных занятий одного руководителя, переносы между неделями и мобильный интерфейс.
 
-## Текущий статус на 15 октября 2026
-
-Проверенная локальная версия: `5f99945`.
+## Текущий статус (23 октября 2026)
 
 | Часть | Состояние |
 |---|---|
-| Сервер, SQLite-модели, схемы | Реализованы; полнота ограничений требует дальнейших тестов |
-| Публичное API справочников, кружков и недели | Реализовано; нужна расширенная проверка поиска и крайних случаев |
-| Генерация недели, отмены и переносы | Реализована, есть базовые тесты |
-| Вход/выход, серверные сессии, административный CRUD | Реализованы на backend; это не готовый интерфейс админки |
-| Публичный frontend | Простые страницы; USE_MOCKS=true, полноценного интерфейса и фильтров пока нет |
-| Интерфейс админки | Заглушки; вход браузера ещё не подключён к рабочему API |
-| Проверка конфликтов при сохранении | Не подключена; существование отдельной функции не защищает сохранение |
-| Загрузчик тестовых данных | Заглушка |
-| Безопасность публикации и итоговая приёмка | Не завершены |
+| Backend (FastAPI, SQLAlchemy 2, SQLite, Alembic) | Готов: публичное API, админское API, проверка конфликтов аудитории/руководителя, отмены/переносы |
+| Авторизация | JWT (HS256) + серверная сессия, HttpOnly-cookie или Bearer; лимитер входа в БД; CSRF-проверка Origin; смена пароля |
+| Публичный сайт | Недельная сетка/список, фильтры, поиск, список кружков карточками, страница кружка, .ics, 404/офлайн-страницы |
+| Админка (SPA) | Обзор, кружки, занятия, отмены/переносы, справочники, смена пароля; мобильный вид |
+| Оформление | Светлая/тёмная тема, 4 акцента, размер текста (Настройки на каждой странице), нативный вид Android/iOS/desktop |
+| PWA | manifest, service worker (офлайн-оболочка), страница `/install`; Web Push (VAPID) |
+| Android | Capacitor-обёртка (`android/`, `python server.py build android`) |
+| Деплой | Dockerfile, docker-compose + Caddy, systemd-юниты, `docs/deploy.md`, `docs/DEPLOY_COLLEGE.md` |
+| Что НЕ закрыто | см. `PROD_STATUS.md` (напр. нативный FCM, мониторинг, ручной QA, решение по «учебному периоду») |
 
-Результат существующего набора pytest: 8 passed, 2 skipped, 1 failed. Падение в test_template.py связано с устаревшим ожиданием 501 от /api/clubs, который теперь возвращает 200. Пропущенные тесты не подтверждают готовность функций. Это не полный аудит приложения.
+Проверено автоматически: `pytest` — 184 passed (Python 3.10 и 3.13), `node --test frontend/tests/*.test.mjs` — 42 passed, e2e в Chrome — 13 passed. Чего проверить нельзя без реального окружения — в `FEATURE_README.md`.
 
 ## Стек
 
-- Python 3.10+, FastAPI, Uvicorn.
-- SQLAlchemy 2, Pydantic 2, SQLite.
-- HTML, CSS, JavaScript ES modules; без React, TypeScript, npm и сборки frontend.
-- pytest и HTTPX.
+- Python 3.10+, FastAPI, Uvicorn, SQLAlchemy 2, Pydantic 2, Alembic, PyJWT, pywebpush.
+- HTML/CSS/JavaScript (ES modules) без фреймворков и без сборки фронтенда; единственная «сборка» — `python server.py build …` (штамп service worker, PWA, Android).
+- pytest, Playwright (e2e), `node --test`.
 
 ## Быстрый запуск
 
-Все команды выполнять из корня репозитория. Нужны Python 3.10+ с pip и модулем venv. Репозиторий перед этим клонировать через Git или скачать архивом.
-
-### Windows / PowerShell
+Python 3.10+ с pip и venv. Все команды — из корня репозитория.
 
 ```powershell
+# Windows / PowerShell
 py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements.lock.txt
-.\.venv\Scripts\python.exe server.py
-```
-
-### macOS / Linux
-
-```bash
-python3 -m venv .venv
-./.venv/bin/python -m pip install -r backend/requirements.lock.txt
-./.venv/bin/python server.py
-```
-
-Открыть http://127.0.0.1:8000/ . Документация API: http://127.0.0.1:8000/docs . Проверка сервера: http://127.0.0.1:8000/api/health . Остановка — Ctrl+C.
-
-HTML нужно открывать через сервер, а не двойным кликом. server.py запускает локальный сервер с автоматической перезагрузкой; это не конфигурация production.
-
-### Создание администратора
-
-В другом терминале из корня проекта:
-
-```powershell
-# Windows
-.\.venv\Scripts\python.exe -m backend.scripts.create_admin --login admin
+.\.venv\Scripts\python.exe server.py admin create admin      # пароль ≥ 10 символов
+.\.venv\Scripts\python.exe server.py seed                    # (необязательно) демо-данные
+.\.venv\Scripts\python.exe server.py                         # http://127.0.0.1:8000, авто-перезагрузка
 ```
 
 ```bash
 # macOS / Linux
-./.venv/bin/python -m backend.scripts.create_admin --login admin
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r backend/requirements.lock.txt
+./.venv/bin/python server.py admin create admin
+./.venv/bin/python server.py seed
+./.venv/bin/python server.py
 ```
 
-Пароль и подтверждение запрашиваются интерактивно. Пароль не передавать в аргументах и не коммитить. Эта команда создаёт аккаунт backend; вход в браузере пока требует доработки интерфейса.
+Админка: http://127.0.0.1:8000/admin/login.html. HTML открывать только через сервер. Пароль админа передаётся запросом, `--password-stdin` или переменной `ADMIN_PASSWORD` — не аргументом командной строки.
 
-### Тестовые данные
+### Команды `server.py`
 
-Источник вымышленных примеров: data/sample-data.json. Браузерный мок: frontend/mock-data.json. Загрузчик `python -m backend.scripts.seed` пока не реализован и не заполняет БД. Сейчас backend можно наполнить через /docs после авторизации в POST /api/admin/login. Не включать реальные пароли и персональные данные в публичные примеры.
+| Команда | Что делает |
+|---|---|
+| `server.py` | как раньше: dev-сервер 127.0.0.1:8000 с авто-перезагрузкой |
+| `server.py serve --host H --port P [--frontend DIR] [--no-reload]` | запуск сервера (в `ENV=production` перезагрузка отключена принудительно) |
+| `server.py build web\|pwa\|android\|back\|all` | сборки в `builds/`: сайт, PWA, APK, релиз бэкенда; см. `FEATURE_README.md` |
+| `server.py admin create\|reset-password\|list` | управление администраторами (сброс пароля завершает все сессии) |
+| `server.py seed [--dry-run]` | идемпотентная загрузка `data/sample-data.json` |
+| `server.py backup` / `verify-backup FILE` | консистентный бэкап SQLite (sqlite3 backup API, gzip, ротация) и проверка |
+| `server.py check-config` | проверка прод-конфигурации (то же, что делает приложение при старте) |
 
-Frontend пока работает с USE_MOCKS=true в frontend/js/api.js. Не переключать на false до подключения нужных методов и обработки ошибок. Переключение API не должно незаметно возвращать моки при ошибке сервера.
+### Сборки под платформы и раздача приложения
 
-## Данные и структура
+**Android** — `python server.py build android`
+
+* Поднимает версию в `android/version.json` (versionCode +1, versionName 1.0 → 1.1 → 1.2 …) — каждый APK ставится поверх предыдущего; пакет `ru.kipfin.clubs` (демо — `ru.kipfin.clubs.demo`).
+* Основной APK: **release**, если заданы `ANDROID_KEYSTORE` (путь к `.jks`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` [, `ANDROID_KEY_PASSWORD`]; без ключа — debug-подпись (для тестов). Ключ и пароли — только вне репозитория: обновления (и в RuStore) принимаются лишь с той же подписью.
+  Создать ключ: `keytool -genkeypair -v -keystore kruzhki-release.jks -alias kruzhki -keyalg RSA -keysize 4096 -validity 10000`.
+* Затем собирается демо-вариант (`itc-kruzhki-demo-debug-<версия>.apk`, офлайн, без сервера) с той же версией.
+* Результат: `builds/android/*.apk` + `.sha256`; основной APK публикуется в `releases/android/` (`APP_RELEASES_DIR`) вместе с `latest.json` — его сразу отдаёт сайт.
+* Флаги: `--demo` (только демо), `--no-demo`, `--no-publish`, `--server-url URL`, `--check-only`, `--install`.
+
+**iPhone (PWA)** — `python server.py build pwa` (псевдоним `build ios`)
+
+* Сайт + service worker + `manifest.webmanifest`; apple-touch-icon 120/152/167/180, `apple-mobile-web-app-*`, экраны запуска для 12 размеров iPhone (SE … 16 Pro Max) в светлой и тёмной теме, `theme-color` для светлой и тёмной схем.
+* Результат: `builds/pwa/` — раздавать по HTTPS: `python server.py serve --frontend builds/pwa`.
+
+**Страницы установки на сайте**
+
+| Адрес | Что там |
+|---|---|
+| `/ios` | пошаговая установка на iPhone (Safari → «Поделиться» → «На экран “Домой”»); если открыто не в Safari — подсказка и кнопка «Скопировать ссылку» |
+| `/ios/pwa` | ссылка для рассылки: в установленном приложении сразу открывает расписание, в браузере — окно с инструкцией |
+| `/android/` | кнопка «Скачать APK» (версия, размер, SHA-256), инструкция по «неизвестным источникам», блок RuStore |
+| `/android/download` | последний APK из `APP_RELEASES_DIR` (`latest.json` или самый свежий `*.apk`), `application/vnd.android.package-archive`; нет релиза — 404 с пояснением |
+| `/api/app/android` | метаданные релиза для страницы (JSON) |
+
+На главной, «Все кружки» и странице кружка телефон видит небольшую плашку «Установить приложение» (iPhone → `/ios`, Android → `/android/`); её нет на компьютере, в установленном PWA и в APK, закрытие скрывает её на 30 дней.
+Блок RuStore появится на `/android/`, когда задать `RUSTORE_URL=https://www.rustore.ru/catalog/app/…`.
+
+### Переменные окружения
+
+Полный шаблон — `deploy/.env.example`. Главное: `ENV` (`development`/`production`), `JWT_SECRET` (≥32 символов; в dev автогенерируется в `jwt_secret.key`), `ALLOWED_HOSTS`, `CLUBS_SCHEDULE_DB_PATH`, `COOKIE_SECURE`, `TRUSTED_ORIGINS`, `CORS_ORIGINS`, `ENABLE_DOCS`, `LOG_LEVEL`, `AUDIT_LOG_FILE`, `APP_RELEASES_DIR`, `RUSTORE_URL`, `VAPID_KEYS_FILE`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT`. В `ENV=production` небезопасная конфигурация = приложение не стартует.
+
+## Структура
 
 ```text
-backend/app/models/     SQLAlchemy-модели
-backend/app/schemas/    Входные и выходные Pydantic-схемы
-backend/app/routers/    Публичные и административные API
-backend/app/services/   Расписание и конфликты
-backend/app/auth.py     Пароли и серверные сессии
-backend/tests/          Автоматические проверки
-backend/scripts/        Служебные команды
-frontend/               Единственная публичная директория статики
-data/                   Вымышленные тестовые данные
-docs/                   Контракты, инструкции, дизайн и проверки
+backend/app/            FastAPI: routers, models, schemas, services, auth, settings, cli
+backend/migrations/     Alembic (0001 схема, 0002 push/сессии/лимитер)
+backend/tests/          pytest (API, миграции, CLI, push, JWT, регрессии)
+frontend/               Публичные страницы, admin/, js/, css/ (tokens → platform → components → pages), sw.js, manifest
+frontend/tests/         node:test: даты, тема, push-support, контраст WCAG AA
+e2e/                    Playwright: админка в настоящем Chrome
+tools/build/            Сборки web/ios/android (PWA, иконки, штамп SW)
+android/                Capacitor-проект и скрипты сборки APK
+deploy/                 Caddyfile, systemd-юниты, .env.example
+docs/                   Контракт API, безопасность, БД, deploy, runbook, конфликты, DEPLOY_COLLEGE
 ```
 
-БД по умолчанию: backend/development.sqlite3. Путь можно задать переменной CLUBS_SCHEDULE_DB_PATH; относительный путь разрешается от backend/. Файл тестового окружения: test.sqlite3 в корне; существующие тесты создают и удаляют его, поэтому не хранить там полезные данные. Рабочая и тестовая БД не должны совпадать. Базы, .venv и секреты в Git не добавлять.
+БД по умолчанию — `development.sqlite3` в корне (только dev); в production путь задаётся `CLUBS_SCHEDULE_DB_PATH` вне репозитория. Схема управляется Alembic; тесты используют `CLUBS_USE_CREATE_ALL=1`.
 
-## API
-
-Публичные маршруты: GET /api/clubs, /api/clubs/{id}, /api/schedule?week=YYYY-MM-DD, /api/categories, /api/leaders, /api/rooms.
-
-Административные: POST /api/admin/login и /logout; GET /api/admin/status; GET/POST коллекций и PATCH/DELETE объектов /api/admin/categories, /leaders, /rooms, /clubs, /sessions. Исключения: GET /api/admin/exceptions, POST /api/admin/exceptions/cancellations, POST /api/admin/exceptions/moves, PATCH/DELETE /api/admin/exceptions/{id}.
-
-Актуальные тела запросов — в /docs, дополнительные договорённости — docs/api-contract.md. В исходном ТЗ редактирование обозначено PUT, текущая реализация использует PATCH: перед сдачей согласовать это различие и обновить контракт либо добавить PUT.
-
-ID — integer; дата YYYY-MM-DD; время HH:MM; weekday 1–6. Отмена cancelled, перенос moved. event_id обозначает конкретное занятие, session_id — регулярную серию. Ошибки: 401, 404, 409, 422. Сейчас 409 не означает, что все пересечения времени уже проверяются.
-
-## Тестирование
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest backend/tests -q
-```
+## Тесты и качество
 
 ```bash
-./.venv/bin/python -m pytest backend/tests -q
+pip install -r backend/requirements-dev.lock.txt
+ruff check .
+pytest                                        # backend + ICS
+node --test frontend/tests/*.test.mjs         # фронтенд-логика
+playwright install chromium && pytest e2e     # e2e в браузере
 ```
 
-Незавершённые и пропущенные проверки описывать явно. Перед сдачей нужен сквозной сценарий: создать кружок и два занятия → увидеть публично → отклонить конфликт → отменить и перенести → проверить телефон и доступ без входа.
+CI — `.github/workflows/ci.yml` (Python 3.10/3.12/3.13, pip-audit, node, e2e, docker build). **Файл CI в этой песочнице не запускался** — проверена только корректность YAML.
 
-## Публикация и сопровождение
+## Документация
 
-Перед публикацией завершить проверку конфликтов, подключение интерфейсов и тестовые данные. Настроить HTTPS, Secure-cookie для production, защиту изменяющих запросов и ограничение попыток входа. Сейчас cookie имеет Secure=false для локальной разработки. Проверить доступ и безопасный вывод; подготовить резервное копирование SQLite и восстановление.
+- `docs/api-contract.md` — API; `docs/security.md` — безопасность; `docs/database.md` — БД и миграции.
+- `docs/deploy.md`, `docs/DEPLOY_COLLEGE.md`, `docs/runbook.md` — выкатка и эксплуатация.
+- `docs/conflicts.md` — как считаются конфликты; `docs/domain-term.md` — вопрос «учебный период/каникулы».
+- `docs/DESIGN_DECISIONS.md`, `docs/PUBLIC_SCHEDULE.md` — решения по дизайну и публичному расписанию.
+- `CONTRIBUTING.md` — как вносить изменения (PR, ревью, тесты).
 
-Назначить человека, обновляющего данные, и ответственного за техническое сопровождение. Деплой и работа на хостинге ещё не подтверждены.
+## Роли и посещаемость (приложение, phase 2 F)
 
-## Работа команды
+**Первый запуск.** Две кнопки: «Я студент» / «Я преподаю». Администратор входит как раньше (⋮ → «Вход для сотрудников», логин/пароль).
 
-Следующие четыре крупных задания — docs/NEXT_STAGE_TASKS.md. Каждый PR описывает результат, способ проверки и ограничения. Общие форматы API, модели и зависимости изменять согласованно. Не подключать новые библиотеки и не менять структуру ответов незаметно для других команд.
+**Студент.** Вводит Фамилию, Имя, Отчество (необязательно) и группу (`1ИСИП-126`: курс, специальность, номер группы из 3–4 цифр; формат `^[1-6][А-ЯЁ]{2,10}-\d{3,4}$`).
+Эти данные остаются **только на телефоне** и хранятся зашифрованными (AES-256-GCM, ключ в Android Keystore — плагин `ItcSecure`;
+вне APK — неизвлекаемый ключ WebCrypto в IndexedDB). Приложение один раз создаёт случайный 256-битный секрет устройства и вычисляет
+ID студента: `S-` + base32(HMAC-SHA256(секрет, «фио в нижнем регистре, ё→е, одиночные пробелы|ГРУППА»))[:128 бит], группами по 4
+(`S-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX`). По имени ID вычислить нельзя; тот же секрет + то же ФИО дают тот же ID. В «Профиле»:
+«Скопировать ID» и «Резервный код» (секрет в виде фразы/QR) — для переноса ID на новый телефон. **На сервер уходит только ID.**
+
+**Преподаватель.** Админка → Руководители → «Добавить преподавателя» (или «Выдать доступ» существующему). Сервер выдаёт
+идентификатор `T-…` из 128 **случайных** бит, хранит только его SHA-256 и показывает один раз; «Перевыпустить» / «Отозвать»
+мгновенно гасят прежний идентификатор и все его сессии. В приложении «Я преподаю» → вставить ID → подписанная сессия (12 ч,
+scope=teacher): только просмотр своих кружков/занятий, QR занятия, живой список отметившихся (опрос раз в 2 с) с «Удалить»
+(записывается в аудит) и «Отметить по ID» (во время занятия). Отмена/перенос и прочие правки — только администратор.
+
+**Отметка.** Преподаватель открывает занятие → полноэкранный QR `itc-att2.<body>.<HMAC>` (body: занятие, дата, выдан, истекает);
+открывается за 10 с до начала (раньше — «QR ещё не готов» с обратным отсчётом), выдаётся первые 15 минут
+(`ATTENDANCE_WINDOW_MIN`), потом «Отметка закрыта»; обновляется каждые 25 с, каждый действует 60 с. Студент сканирует его встроенным сканером и
+отправляет `{student_id, session_id, qr_token, nonce, device_token}`. Сервер проверяет подпись, срок (410), совпадение занятия (QR одного занятия
+не подходит к другому), одноразовость nonce (таблица `qr_nonces`) и «одна отметка на студента на занятие» (409).
+
+**Проверка и выгрузка.** «Проверить посещение по ID» — только администратор (`/api/admin/attendance/student`). Студент видит
+«Мои посещения» (`/api/attendance/mine`) только со своего устройства: токен устройства = HMAC(секрет, "device-token")
+регистрируется (SHA-256) при первой отметке и восстанавливается вместе с резервным кодом. Админка и Excel показывают ID студентов,
+преподавателя, кружок и занятие — без имён.
+
+**Хранение.** Отметки старше 21 дня удаляются автоматически (при старте сервера, раз в сутки и при обращениях к посещаемости);
+журнал ошибок клиентов хранится не дольше 21 дня (`LOGS_RETENTION_DAYS`, по умолчанию 14). Миграция 0005 удаляет старые отметки
+с именами (формата phase C).
+
+## Версии (общие для всех платформ)
+
+Полный идентификатор: `v<X.Y.Z><канал><стадия><платформа>`, например `v0.4.312pdA`.
+
+- `X.Y.Z` — общий номер для APK, веба и iPhone PWA, лежит в `version.json` в корне. Повышается по смыслу изменений: Z — исправления, Y — новые возможности, X — несовместимые изменения.
+- Канал (задаёте вы): `l` — local, личная проверочная сборка (демо-данные, подключение к тестовому серверу, логи, вход в демо одной кнопкой); `i` — internal, для команды ИТС (пока как `l`, но со своим конфигом); `p` — public, ровно то, что видят пользователи: без тестового сервера, логов, демо-входа и прочих отладочных опций, окно QR-отметки как на сервере.
+- Стадия (задаёте вы): `a` — alpha (первый выпуск, возможны ошибки), `d` — сборка с исправлениями после alpha (те же функции), `r` — release.
+- Платформа (её дописывает скрипт, вручную не вводится): `A` — Android APK, `W` — веб в браузере, `M` — iPhone PWA.
+
+Сборка:
+
+```
+cd android
+node scripts/build.mjs --version v0.4.312pd --platform android   # → builds/android/v0.4.312pdA/itc-kruzhki-v0.4.312pdA.apk
+node scripts/build.mjs --version v0.4.312la --platform all       # android + web + pwa
+```
+
+Формат проверяется регулярным выражением `^v\d+\.\d+\.\d+[lip][adr]$`. Номер из `--version` записывается в общий `version.json`. `versionCode` Android растёт на 1 при каждой сборке (`--no-bump` — не поднимать); он хранится в `android/version.json`. Результат кладётся в `builds/<платформа>/<полный id>/`: сборки с разными id лежат рядом, а пересборка того же id заменяет только свою папку. В PWA номер доступен как `/version.json` и `window.ITC_VERSION`.

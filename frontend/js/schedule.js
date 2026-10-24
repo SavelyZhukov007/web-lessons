@@ -1,11 +1,15 @@
-import { USE_MOCKS, getSchedule, getCategories, getLeaders, getRooms } from './api.js';
+import { getSchedule, getCategories, getLeaders, getRooms } from './api.js';
 import { DAY_NAMES, DAY_SHORT, parseDate, dateKey, addDays, monday, moscowToday, formatDate, minutes, eventLanes } from './schedule-dates.js';
 import { icon } from './icons.js';
 
 const $ = selector => document.querySelector(selector);
 const content = $('#content');
+const MAX_READABLE_LANES = 3;
 const mobile = window.matchMedia('(max-width: 999px)');
 const today = moscowToday();
+// Те же границы, что у API (понедельники недель): иначе сервер ответит 422
+const WEEK_MIN = '2000-01-03';
+const WEEK_MAX = '2100-12-27';
 const state = { week: monday(today), day: Math.min((today.getDay() + 6) % 7, 5), view: 'grid', filtersOpen: false, events: [], phase: 'loading', error: '' };
 const fields = { search: $('#search'), category_id: $('#category'), weekday: $('#weekday'), leader_id: $('#leader'), room_id: $('#room') };
 const statusNames = { scheduled: 'По расписанию', moved: 'Перенос', cancelled: 'Отменено' };
@@ -44,8 +48,8 @@ function updateControls() {
   const end = addDays(state.week, 5);
   $('#week-year').textContent = state.week.getFullYear() === end.getFullYear() ? String(state.week.getFullYear()) : `${state.week.getFullYear()} / ${end.getFullYear()}`;
   $('#week-date').value = dateKey(addDays(state.week, state.day));
-  $('#prev-week').disabled = dateKey(addDays(state.week, -7)) < '1900-01-08';
-  $('#next-week').disabled = dateKey(addDays(state.week, 12)) > '9998-12-25';
+  $('#prev-week').disabled = dateKey(addDays(state.week, -7)) < WEEK_MIN;
+  $('#next-week').disabled = dateKey(addDays(state.week, 7)) > WEEK_MAX;
   $('#prev-day').disabled = state.day === 0 && $('#prev-week').disabled;
   $('#next-day').disabled = state.day === 5 && $('#next-week').disabled;
   $('#selected-day-label').textContent = `${DAY_NAMES[state.day]}, ${formatDate(addDays(state.week, state.day))}`;
@@ -144,7 +148,7 @@ async function loadReferences() {
 
 function showWeek(date) {
   const week = monday(date);
-  if (dateKey(week) < '1900-01-08' || dateKey(addDays(week, 5)) > '9998-12-25') return;
+  if (dateKey(week) < WEEK_MIN || dateKey(week) > WEEK_MAX) return;
   state.week = week;
   loadSchedule();
 }
@@ -266,6 +270,7 @@ function renderGrid(events, days) {
     scale.append(tick);
   }
   tracks.append(scale);
+  let maxLanes = 1;
   for (const day of days) {
     const date = addDays(state.week, day);
     const track = node('div', 'day-track');
@@ -277,6 +282,7 @@ function renderGrid(events, days) {
     if (daily.length === 0) track.append(node('span', 'track-empty', 'Нет занятий'));
     for (const { event, lane, lanes } of eventLanes(daily)) {
       const duration = (minutes(event.end_time) - minutes(event.start_time)) / 60 * hourHeight;
+      maxLanes = Math.max(maxLanes, lanes);
       const card = eventCard(event, duration < 110 || lanes > 1);
       card.style.top = `${(minutes(event.start_time) / 60 - start) * hourHeight + 2}px`;
       card.style.height = `${Math.max(4, duration - 4)}px`;
@@ -287,6 +293,16 @@ function renderGrid(events, days) {
     tracks.append(track);
   }
   grid.append(headings, tracks);
+  if (maxLanes > MAX_READABLE_LANES) {
+    // PUB-03: при большом числе параллельных занятий колонки слишком узкие — предлагаем список, не прячем занятия.
+    const notice = node('div', 'schedule-notice grid-crowded');
+    notice.setAttribute('role', 'status');
+    const toList = node('button', 'btn btn--small', 'Показать списком');
+    toList.type = 'button';
+    toList.addEventListener('click', () => { state.view = 'list'; render(); });
+    notice.append(node('span', '', `Параллельно идёт до ${maxLanes} занятий — в сетке они узкие. `), toList);
+    content.append(notice);
+  }
   content.append(grid);
   content.append(node('p', 'grid-hint', 'Нажмите на занятие, чтобы открыть подробности. Короткие занятия удобнее смотреть списком.'));
 }
@@ -355,7 +371,6 @@ $('#toggle-filters').addEventListener('click', () => { state.filtersOpen = !stat
 $('#retry-references').addEventListener('click', loadReferences);
 $('#close-event').addEventListener('click', () => $('#event-dialog').close());
 mobile.addEventListener('change', render);
-$('#mock-notice').hidden = !USE_MOCKS;
 for (const key of ['category_id', 'leader_id', 'room_id']) fields[key].disabled = true;
 loadReferences();
 loadSchedule();

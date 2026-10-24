@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from ..database import Base
 
 
@@ -18,9 +19,9 @@ class Club(Base):
         ForeignKey("leaders.id", ondelete="RESTRICT")
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    category: Mapped["Category"] = relationship(back_populates="clubs")
-    leader: Mapped["Leader"] = relationship(back_populates="clubs")
-    sessions: Mapped[list["ClubSession"]] = relationship(
+    category: Mapped[Category] = relationship(back_populates="clubs")
+    leader: Mapped[Leader] = relationship(back_populates="clubs")
+    sessions: Mapped[list[ClubSession]] = relationship(
         back_populates="club",
         cascade="all, delete-orphan",
     )

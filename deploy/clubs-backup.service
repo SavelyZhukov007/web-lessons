@@ -1,0 +1,10 @@
+[Unit]
+Description=КИПФИН: резервная копия БД
+
+[Service]
+Type=oneshot
+User=clubs
+WorkingDirectory=/opt/clubs
+EnvironmentFile=/etc/clubs/clubs.env
+Environment=CLUBS_SCHEDULE_DB_PATH=/var/lib/clubs/clubs.sqlite3
+ExecStart=/opt/clubs/.venv/bin/python server.py backup --dir /var/backups/clubs --keep 14

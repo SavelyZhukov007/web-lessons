@@ -3,27 +3,49 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Вход администратора</title>
-    <link rel="stylesheet" href="/css/common.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex">
+    <title>Вход — кружки</title>
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Кружки">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <script src="/js/theme-init.js"></script>
+    <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="/css/campus.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
     <link rel="stylesheet" href="/css/admin.css">
+    <link rel="stylesheet" href="/css/platform.css">
 </head>
 
-<body>
-    <header>
-        <nav aria-label="Основная навигация"><a href="/">Расписание</a><a href="/clubs.html">Кружки</a><a
-                href="/admin/login.html">Админка</a></nav>
+<body class="campus-page admin-page admin-login">
+    <header class="campus-header">
+        <a class="campus-brand" href="/" aria-label="Кружки — главная"><span>кружки<i aria-hidden="true"></i></span><small>КИПФИН</small></a>
+        <nav aria-label="Основная навигация"><a href="/">Расписание</a><a href="/clubs.html">Все кружки</a></nav>
+        <div class="admin-tools" data-settings-slot></div>
     </header>
-    <main>
-        <h1>Вход администратора</h1>
-        <p class="notice">Шаблон: вымышленные данные, функции ещё не реализованы полностью.</p>
-        <form id="login-form"><label>Логин<input name="login" autocomplete="username"
-                    required></label><label>Пароль<input type="password" name="password" autocomplete="current-password"
-                    required></label><button>Войти</button>
-            <p id="message" role="status"></p>
-        </form>
+    <main id="login-main" tabindex="-1">
+        <section class="card login-card">
+            <h1>Вход для сотрудников</h1>
+            <form id="login-form" class="form-grid" novalidate>
+                <label class="field" for="login"><span class="field-label">Логин</span><input id="login" name="login" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required></label>
+                <label class="field" for="password"><span class="field-label">Пароль</span><input id="password" name="password" type="password" autocomplete="current-password" maxlength="255" required></label>
+                <p id="message" role="status" aria-live="polite" class="field-hint"></p>
+                <button type="submit" class="btn btn--filled btn--block">Войти</button>
+            </form>
+            <p class="field-hint">Забыл пароль — попроси администратора сервера выполнить <code>python server.py admin reset-password</code>.</p>
+        </section>
     </main>
     <script type="module" src="/js/admin/login.js"></script>
+    <script type="module" src="/js/settings.js"></script>
+    <script type="module" src="/js/pwa-register.js"></script>
 </body>
 
 </html>

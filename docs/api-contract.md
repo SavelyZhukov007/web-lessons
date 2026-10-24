@@ -1,78 +1,52 @@
-# Актуальный API-контракт
+# API-контракт (актуальный)
+
+Источник истины — OpenAPI (`/docs` в dev; в production отключён, `ENABLE_DOCS=true` включает). Этот файл — человекочитаемая сводка.
 
 ## Общие правила
+- ID — `integer`; дата `YYYY-MM-DD`; время `HH:MM` (24 ч, занятия 08:00–21:00, начало раньше конца); `weekday` — `1..6` (1 = понедельник … 6 = суббота, воскресных занятий нет).
+- Все ошибки — JSON с ключом `detail`, но **тип `detail` зависит от кода**:
 
-- ID сущностей: `integer`.
-- Формат даты: `YYYY-MM-DD`.
-- Формат времени: `HH:MM`.
-- `weekday`: `1–6` (`1 = понедельник`, `6 = суббота`).
-- Неавторизованные запросы к административному API получают `401`.
-- Ошибка приложения возвращается в формате `{"detail": "Сообщение"}`.
+| Код | `detail` | Когда |
+|---|---|---|
+| 401 | строка | нет/просрочена сессия админа, неверный логин/пароль |
+| 403 | строка | CSRF-проверка Origin не пройдена (запись по cookie с чужого Origin) |
+| 404 | строка | сущность/маршрут не найден (`/api/*` неизвестный → «API-маршрут не найден») |
+| 409 | **объект** `{code:"CONFLICT", message, conflicts:[{event_id, club_name, date, start_time, end_time, room_name, leader_name, reasons:["room"\|"leader"]}]}` для пересечения расписания; **строка** для нарушения уникальности/внешнего ключа |
+| 422 | строка (наши проверки) или **массив** ошибок Pydantic (`[{loc, msg, type}]`) | валидация |
+| 429 | строка + заголовок `Retry-After` | лимит входа (5 неудач / 15 мин на пару IP+логин), лимит push-подписок на устройство |
+| 503 | `{"status": …}` | `/readyz`: БД недоступна или миграции не применены |
 
-## Публичные маршруты
+Фронтенд (`js/api.js`, `js/admin/api.js`) сводит все формы к одному `ApiError{status, message, detail}`.
 
-- `GET /api/categories`
-- `GET /api/leaders`
-- `GET /api/rooms`
-- `GET /api/clubs?search=...&category_id=...` — только активные кружки
-- `GET /api/clubs/{id}` — активный кружок с `category`, `leader`, `sessions`, `upcoming_exceptions`
-- `GET /api/schedule?week=2026-10-12[&category_id=...&weekday=...&leader_id=...&room_id=...&search=...]`
+## Служебные
+- `GET /healthz` — процесс жив. `GET /readyz` — БД отвечает и ревизия Alembic = head. `GET /api/health` — совместимость.
+- `GET /install` — страница установки PWA. `GET /robots.txt`, `/favicon.ico`, `/manifest.webmanifest`, `/sw.js`.
 
-`GET /api/schedule` возвращает массив `ScheduleEvent` из `backend/app/schemas/contracts.py`. Для перенесённого занятия `event_id` сохраняет идентификатор исходного occurrence (`session_id:original_date`), а `status` принимает значения `scheduled`, `cancelled` или `moved`.
+## Публичные
+- `GET /api/categories`; `GET /api/rooms`.
+- `GET /api/leaders` — только руководители **активных** кружков, **без** поля `contact` (SEC-07).
+- `GET /api/clubs?search=&category_id=` — только активные; поиск регистронезависимый (в т. ч. кириллица), `%`/`_` — обычные символы.
+- `GET /api/clubs/{id}` — `category`, `leader` (с `contact`), `sessions`, `upcoming_exceptions`.
+- `GET /api/clubs/{id}/calendar.ics` — iCalendar кружка (повторяющиеся занятия + исключения).
+- `GET /api/schedule?week=YYYY-MM-DD[&category_id&weekday&leader_id&room_id&search]` — `week` — **понедельник**, диапазон 2000-01-03…2100-12-27, иначе 422. Ответ — массив `ScheduleEvent` (`schemas/contracts.py`); `status`: `scheduled|cancelled|moved`; `event_id` = `session_id:original_date`.
 
-## Административные маршруты
+## Web Push (публичные, без авторизации)
+- `GET /api/push/vapid-public-key` → `{public_key}`.
+- `POST /api/push/subscribe` `{endpoint, keys:{p256dh,auth}, club_id?}` → 201 `subscribed` / 200 `already-subscribed` (идемпотентно). `endpoint` — только из списка push-сервисов (иначе 422); не более N подписок на устройство (429).
+- `POST /api/push/unsubscribe` `{endpoint, club_id?}`; `POST /api/push/status` `{endpoint, club_id?}`.
+- Отправка — фоновая задача после отмены/переноса; ошибки отправки не влияют на ответ API; «мёртвые» подписки (404/410) удаляются.
 
-### Авторизация
+## Админские (`/api/admin/*`)
+Авторизация: cookie `admin_session` (HttpOnly, SameSite=Lax, Secure в production) **или** `Authorization: Bearer <access_token>` (токен возвращает `login`; Bearer приоритетнее cookie). Запись по cookie требует совпадения `Origin`/`Host` (или `TRUSTED_ORIGINS`).
 
-- `POST /api/admin/login` — `{login, password}`, устанавливает cookie-сессию
-- `POST /api/admin/logout`
-- `GET /api/admin/status`
+- `POST /login` `{login, password}` → `{admin, access_token, refresh_token, token_type:"bearer", expires_in, refresh_expires_in}` + cookies `admin_session` и `admin_refresh` (path `/api/admin/refresh`). `POST /refresh` (refresh из cookie или `{refresh_token}`) → новая пара в том же формате; старый refresh отзывается; повтор старого: 409 в пределах `REFRESH_GRACE_SECONDS`, позже 401 + отзыв сессии; невалидный → 401. Access живёт `ACCESS_MINUTES` (15). `POST /logout` → 204. `GET /status` → 200 с данными админа или 401, если не авторизован (используется фронтом как проверка сессии). `POST /password` `{current_password, new_password}` → 204; текущая сессия сохраняется, остальные отзываются.
+- CRUD: `categories` (цвет `#RRGGBB` обязателен), `leaders`, `rooms`, `clubs`, `sessions` — `GET|POST /…`, `PATCH|DELETE /…/{id}`. Удаление записи, на которую есть ссылки → 409.
+- Исключения: `GET /exceptions`, `POST /exceptions/cancellations`, `POST /exceptions/moves`, `PATCH|DELETE /exceptions/{id}`.
 
-### CRUD-справочники и кружки
-
-- `GET|POST /api/admin/categories`
-- `PATCH|DELETE /api/admin/categories/{id}`
-- `GET|POST /api/admin/leaders`
-- `PATCH|DELETE /api/admin/leaders/{id}`
-- `GET|POST /api/admin/rooms`
-- `PATCH|DELETE /api/admin/rooms/{id}`
-- `GET|POST /api/admin/clubs`
-- `PATCH|DELETE /api/admin/clubs/{id}`
-- `GET|POST /api/admin/sessions`
-- `PATCH|DELETE /api/admin/sessions/{id}`
-
-### Исключения из регулярного расписания
-
-- `GET /api/admin/exceptions`
-- `POST /api/admin/exceptions/cancellations`
-- `POST /api/admin/exceptions/moves`
-- `PATCH /api/admin/exceptions/{id}`
-- `DELETE /api/admin/exceptions/{id}`
-
-### Формы исключений
-
-Отмена:
-
+Формы исключений:
 ```json
-{
-  "session_id": 1,
-  "original_date": "2026-10-13",
-  "type": "cancelled",
-  "comment": "Праздничный день"
-}
+{"session_id": 1, "original_date": "2026-10-13", "type": "cancelled", "comment": "Праздничный день"}
+{"session_id": 1, "original_date": "2026-10-20", "type": "moved", "new_date": "2026-10-22",
+ "new_start_time": "17:00", "new_end_time": "18:00", "new_room_id": 2, "comment": "Перенос на вечер"}
 ```
-
-Перенос:
-
-```json
-{
-  "session_id": 1,
-  "original_date": "2026-10-20",
-  "type": "moved",
-  "new_date": "2026-10-22",
-  "new_start_time": "17:00",
-  "new_end_time": "18:00",
-  "new_room_id": 2,
-  "comment": "Перенос на вечер"
-}
-```
+Правила: `original_date` должна выпадать на день недели занятия; перенос на воскресенье запрещён (422); одно исключение на пару `(session_id, original_date)`; перенос «в прошлое» **разрешён** (журнал можно править задним числом — решение зафиксировано в `PROD_STATUS.md`). Конфликты — `docs/conflicts.md`.

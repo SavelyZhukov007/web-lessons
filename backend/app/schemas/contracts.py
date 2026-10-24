@@ -2,6 +2,7 @@
 
 from datetime import date, time
 from typing import Literal
+
 from pydantic import BaseModel, field_serializer
 
 
@@ -24,7 +25,10 @@ class ScheduleEvent(BaseModel):
     status: Literal["scheduled", "cancelled", "moved"]
     original_date: date
     comment: str = ""
+    # только для status="moved": исходное время (до переноса) — приложение рисует «Перенесено» в старом слоте
+    original_start_time: time | None = None
+    original_end_time: time | None = None
 
-    @field_serializer("start_time", "end_time")
-    def serialize_time(self, value: time) -> str:
-        return value.strftime("%H:%M")
+    @field_serializer("start_time", "end_time", "original_start_time", "original_end_time")
+    def serialize_time(self, value: time | None) -> str | None:
+        return value.strftime("%H:%M") if value is not None else None

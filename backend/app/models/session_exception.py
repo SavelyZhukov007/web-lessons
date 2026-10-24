@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from ..database import Base
 
 
@@ -10,6 +11,13 @@ class SessionException(Base):
     __table_args__ = (
         UniqueConstraint(
             "session_id", "original_date", name="uq_session_exceptions_occurrence"
+        ),
+        CheckConstraint(
+            "original_date GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]' "
+            "AND (new_date IS NULL OR new_date GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]') "
+            "AND (new_start_time IS NULL OR new_start_time GLOB '[0-2][0-9]:[0-5][0-9]') "
+            "AND (new_end_time IS NULL OR new_end_time GLOB '[0-2][0-9]:[0-5][0-9]')",
+            name="ck_session_exceptions_format",
         ),
         CheckConstraint(
             "type IN ('cancelled', 'moved')", name="ck_session_exceptions_type"
@@ -40,5 +48,5 @@ class SessionException(Base):
         nullable=True,
     )
     comment: Mapped[str] = mapped_column(Text, default="")
-    session: Mapped["ClubSession"] = relationship(back_populates="exceptions")
-    new_room: Mapped["Room | None"] = relationship(back_populates="moved_exceptions")
+    session: Mapped[ClubSession] = relationship(back_populates="exceptions")
+    new_room: Mapped[Room | None] = relationship(back_populates="moved_exceptions")

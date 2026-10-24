@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Монохромная иконка уведомлений: кольцо и квадрат-акцент из логотипа. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M12,4.6a7.4,7.4 0,1 0,0.01 0zM12,7.1a4.9,4.9 0,1 1,-0.01 0z" android:fillType="evenOdd" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M15.6,15.6h4v4h-4z" />
+</vector>

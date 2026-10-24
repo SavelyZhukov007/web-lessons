@@ -1,0 +1,197 @@
+/* Экран «Расписание» в APK (js/app-schedule.js). Только www/ приложения. */
+html.is-native body.app-schedule .campus-header { border-bottom: 0; box-shadow: none; }
+html.is-native body.app-schedule main { padding-top: 4px; }
+html.is-native body.app-schedule .schedule-controls { margin: 0; padding: 0; border: 0; background: none; }
+html.is-native body.app-schedule #schedule-filters { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin: 0; }
+body.app-schedule #schedule-filters > .filter-options { margin-top: 2px; }
+.app-search-row { display: flex; gap: 8px; align-items: stretch; position: relative; }
+.app-search-row .search-field { flex: 1 1 auto; min-width: 0; margin: 0; }
+.app-search-row .search-input { width: 100%; }
+.app-search-row input#search { width: 100%; min-height: 44px; }
+html.is-native .app-date-btn, html.is-native .app-filter-btn { flex: 0 0 auto; width: 44px; height: 44px; min-width: 44px; padding: 0;
+  display: inline-grid; place-items: center; border-radius: var(--radius-control, 4px); position: relative; }
+.app-date-btn .ui-icon, .app-filter-btn .ui-icon { width: 22px; height: 22px; }
+.app-date-input { position: absolute; right: 0; bottom: 0; width: 44px; height: 44px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+.app-row2 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.app-row2-spacer { flex: 1 1 auto; }
+html.is-native .app-row2 .itc-mybar { margin: 0; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
+html.is-native button.app-today { flex: 0 0 auto; min-height: 40px; padding: 0 14px; white-space: nowrap; }
+html.is-native button.app-today[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); }
+html.is-native .app-filter-btn > span { display: none; }
+html.is-native .app-filter-btn.has-count > span.app-filter-count { display: grid; place-items: center; position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 8px; font-size: 11px; line-height: 1; background: var(--primary); color: var(--on-primary); }
+html.is-native .app-filter-btn[aria-expanded="true"] { border-color: var(--primary); color: var(--primary); }
+html.is-native body.app-schedule #filter-options:not([hidden]) { display: grid; gap: 10px; }
+/* полоса дней: всегда под управлением, прилипает */
+.app-days { position: sticky; top: var(--safe-top, 0px); z-index: 20; margin: 10px calc(-1 * var(--app-gutter, 16px)) 0; padding: 8px var(--app-gutter, 16px) 6px;
+  background: var(--paper, var(--bg)); }
+html.is-native body.app-schedule #day-buttons { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 0; }
+html.is-native body.app-schedule #day-buttons > button { min-width: 0; min-height: 52px; padding: 4px 0; display: grid; place-items: center; gap: 0; }
+.app-days.is-stuck { box-shadow: 0 1px 0 var(--line); }
+/* список дня + свайп */
+html.is-native .app-content { position: relative; overflow-x: clip; margin-top: 8px; min-height: 50vh; }
+.app-pane { display: grid; gap: 10px; will-change: transform; }
+.app-pane-out { position: absolute; inset: 0 0 auto 0; pointer-events: none; }
+html.is-native .app-pane .calendar-event { position: relative; width: 100%; }
+html.is-native .app-pane .event-name { overflow-wrap: anywhere; word-break: break-word; }
+/* параллельные занятия */
+.app-slot { display: grid; gap: 6px; padding: 8px; border-radius: var(--radius-l, 8px); background: var(--surface-1, var(--quiet)); border: 1px solid var(--line); }
+.app-slot-head { display: flex; justify-content: space-between; gap: 8px; font-size: calc(13px * var(--text-scale, 1)); color: var(--muted); padding: 0 4px; }
+.app-slot-time { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.app-slot-cards { display: grid; gap: 6px; }
+@media (min-width: 600px) { .app-slot-cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
+.app-slot .event-room, .app-slot .event-leader { display: inline-block; justify-self: start; width: max-content; max-width: 100%; padding: 1px 8px; border-radius: 999px;
+  background: var(--surface-2, var(--quiet)); font-size: calc(12px * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* скелетон: высота как у карточек — без сдвига вёрстки */
+.app-skeleton { display: grid; gap: 10px; }
+.app-skel-card { height: 92px; border-radius: var(--radius-l, 8px); background: linear-gradient(90deg, var(--surface-1, #f3f4f3) 0%, var(--surface-2, #e9ebe9) 50%, var(--surface-1, #f3f4f3) 100%);
+  position: relative; overflow: hidden; }
+/* t100 perf: блик скелетона двигаем transform'ом (композитор), а не background-position (перерисовка каждый кадр) */
+.app-skel-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .35), transparent);
+  transform: translateX(-100%); animation: app-shimmer 1.2s linear infinite; will-change: transform; }
+html[data-theme=dark] .app-skel-card::after { background: linear-gradient(90deg, transparent, rgb(255 255 255 / .06), transparent); }
+@keyframes app-shimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .app-skel-card::after { animation: none; } }
+html.is-native body.app-schedule .schedule-state { margin: 0; }
+
+/* строка управления: «Сегодня» слева, справа иконки QR · колокольчик · фильтры — 44×44, шаг 8, форма как у поля поиска */
+html.is-native .app-row2 { gap: 8px; flex-wrap: nowrap; }
+html.is-native button.app-today { flex: 0 1 auto; min-width: 0; height: 44px; min-height: 44px; border-radius: var(--radius-control, 4px);
+  overflow: hidden; text-overflow: ellipsis; font-size: min(calc(15px * var(--text-scale, 1)), 18px); }
+html.is-native .app-row2 .itc-mybar { flex: 0 0 auto; overflow: visible; gap: 8px; }
+html.is-native .app-row2 .itc-chip, html.is-native .app-row2 .app-filter-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0;
+  border-radius: var(--radius-control, 4px); justify-content: center; margin: 0; }
+html.is-native .app-row2 .itc-chip svg, html.is-native .app-row2 .app-filter-btn .ui-icon { width: 22px; height: 22px; }
+.itc-only-mine { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 4px; font-weight: 500; cursor: pointer; }
+.itc-only-mine-text { min-width: 0; overflow-wrap: anywhere; }
+.itc-switch { appearance: none; flex: 0 0 auto; width: 44px; height: 26px; border-radius: 13px; background: var(--outline, #8889); position: relative; transition: background .2s; margin: 0; }
+.itc-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 2px #0004; }
+.itc-switch:checked { background: var(--primary); } .itc-switch:checked::after { transform: translateX(18px); }
+.itc-switch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* полоса дней: все ячейки одного размера; выбранная — сплошная заливка с контрастным текстом; сегодня — тонкая метка-точка */
+html.is-native body.app-schedule #day-buttons > button { position: relative; box-sizing: border-box; height: 56px; border: 1px solid transparent;
+  border-radius: 12px; background: var(--surface-2, transparent); color: var(--ink); transform: none !important; transition: background-color .18s, color .18s; }
+html.is-native body.app-schedule #day-buttons > button > span { font-size: calc(12px * min(var(--text-scale, 1), 1.3)); opacity: .75; line-height: 1.2; }
+html.is-native body.app-schedule #day-buttons > button > strong { font-size: calc(17px * min(var(--text-scale, 1), 1.3)); line-height: 1.2; font-variant-numeric: tabular-nums; }
+html.is-native body.app-schedule #day-buttons > button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); box-shadow: none; }
+html.is-native body.app-schedule #day-buttons > button[aria-pressed="true"] > span { opacity: .92; }
+html.is-native body.app-schedule #day-buttons > button.is-today::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 5px; height: 5px; margin-left: -2.5px;
+  border-radius: 50%; background: var(--primary); }
+html.is-native body.app-schedule #day-buttons > button.is-today[aria-pressed="true"]::after { background: var(--on-primary); }
+html.is-native body.app-schedule #day-buttons > button.is-today:not([aria-pressed="true"]) { border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+/* «Сейчас / Далее» */
+.app-now { display: grid; gap: 6px; margin: 0 0 12px; padding: 10px; border-radius: 16px; background: color-mix(in srgb, var(--primary) 10%, var(--paper, var(--bg))); }
+.app-now-row { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: baseline; text-align: left; width: 100%; padding: 8px 10px; border: 0; border-radius: 12px;
+  background: none; color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.app-now-row:active { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.app-now-label { grid-row: span 2; align-self: center; padding: 2px 8px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: calc(12px * var(--text-scale, 1)); font-weight: 600; }
+.app-now-row + .app-now-row .app-now-label { background: var(--surface-2); color: var(--ink); }
+.app-now-title { min-width: 0; overflow-wrap: anywhere; } .app-now-meta { min-width: 0; color: var(--muted); font-size: calc(13px * var(--text-scale, 1)); overflow-wrap: anywhere; }
+/* pull-to-refresh */
+.itc-ptr { position: fixed; left: 50%; top: calc(var(--safe-top, 0px) + 8px); z-index: 60; width: 40px; height: 40px; margin-left: -20px; border-radius: 50%;
+  background: var(--paper, var(--bg)); box-shadow: 0 2px 10px rgb(0 0 0 / .2); display: grid; place-items: center; transform: translateY(-60px); opacity: 0; pointer-events: none; }
+.itc-ptr i { width: 20px; height: 20px; border: 2.5px solid var(--primary); border-right-color: transparent; border-radius: 50%; }
+.itc-ptr.spin i { animation: itc-spin .8s linear infinite; } @keyframes itc-spin { to { transform: rotate(360deg); } }
+/* 320px: выбранный «сегодня» — текст на заливке (раньше accent на accent = пустое пятно); полоса строго по ширине контейнера */
+html.is-native body.app-schedule #day-buttons { width: 100%; box-sizing: border-box; border: 0; overflow: hidden; }
+html.is-native body.app-schedule #day-buttons > button { width: 100%; margin: 0; padding: 4px 0; overflow: hidden; }
+html.is-native body.app-schedule #day-buttons > button[aria-pressed="true"] > span,
+html.is-native body.app-schedule #day-buttons > button[aria-pressed="true"] > strong { color: var(--on-primary) !important; }
+html.is-native body.app-schedule #day-buttons > button.is-today:not([aria-pressed="true"]) > strong { color: var(--primary); }
+/* одна форма для всей панели: поле поиска, кнопка даты, «Сегодня», QR, колокольчик, фильтры — 44px, один радиус */
+html.is-native body.app-schedule { --itc-ctl-radius: 12px; }
+html.is-native body.app-schedule #search,
+html.is-native body.app-schedule .app-today,
+html.is-native body.app-schedule .app-filter-btn,
+html.is-native body.app-schedule .app-row2 .icon-button,
+html.is-native body.app-schedule .itc-mybar > *, html.is-native body.app-schedule .app-date-btn,
+html.is-native body.app-schedule .search-row button { border-radius: var(--itc-ctl-radius) !important; }
+/* t93: «Сегодня» занимает всю свободную ширину; иконки справа — один класс .itc-ctl, одинаковая рамка/фон/радиус; поиск той же высоты и радиуса */
+html.is-native body.app-schedule .app-row2 { display: flex !important; align-items: center; gap: 8px; flex-wrap: nowrap; }
+html.is-native body.app-schedule .app-row2 .app-today { flex: 1 1 auto !important; min-width: 0; height: 44px; border-radius: var(--itc-ctl-radius) !important; }
+html.is-native body.app-schedule .app-row2-spacer { display: none !important; }
+html.is-native body.app-schedule .itc-mybar { display: flex; gap: 8px; flex: none; }
+html.is-native body.app-schedule .itc-ctl { box-sizing: border-box; flex: none; width: 44px !important; height: 44px !important; min-width: 44px; padding: 0 !important;
+  display: grid !important; place-items: center; border: 1px solid var(--line, rgba(127,127,127,.35)) !important; border-radius: var(--itc-ctl-radius) !important;
+  background: var(--bg) !important; color: var(--ink) !important; box-shadow: none !important; outline-offset: 2px; }
+html.is-native body.app-schedule .itc-ctl > span:not(.app-filter-count) { display: none !important; }
+html.is-native body.app-schedule .itc-ctl svg { width: 22px; height: 22px; }
+html.is-native body.app-schedule .itc-ctl[aria-pressed="true"], html.is-native body.app-schedule .itc-ctl.is-active { border-color: var(--primary) !important; }
+html.is-native body.app-schedule #search { height: 44px; box-sizing: border-box; border-radius: var(--itc-ctl-radius) !important; border: 1px solid var(--line, rgba(127,127,127,.35)) !important; }
+html.is-native body.app-schedule #search:focus-visible { border-color: var(--primary) !important; }
+html.is-native body.app-schedule .app-now { display: none !important; }
+/* фильтры: одна колонка, поля во всю ширину 44px; «Только мои кружки» — строка-переключатель */
+html.is-native body.app-schedule #filter-options { display: grid !important; grid-template-columns: 1fr !important; gap: 12px; padding: 4px 0 0; border: 0 !important; }
+html.is-native body.app-schedule #filter-options > label { display: grid; gap: 6px; margin: 0; min-width: 0; }
+html.is-native body.app-schedule #filter-options select { width: 100%; height: 44px; min-height: 44px; box-sizing: border-box; padding: 0 36px 0 12px; font-size: 16px;
+  border: 1px solid var(--line, rgba(127,127,127,.35)) !important; border-radius: var(--itc-ctl-radius, 12px) !important; background-color: var(--bg); color: var(--ink); text-overflow: ellipsis; }
+html.is-native body.app-schedule #filter-options > label.itc-only-mine { display: flex !important; flex-direction: row; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 12px;
+  border: 1px solid var(--line, rgba(127,127,127,.35)); border-radius: var(--itc-ctl-radius, 12px); font-size: 16px; font-weight: 500; }
+html.is-native body.app-schedule #filter-options .itc-switch { all: unset; flex: none; box-sizing: border-box; width: 44px; height: 26px; border-radius: 13px; background: var(--outline, #8889); position: relative; cursor: pointer; transition: background .2s; }
+html.is-native body.app-schedule #filter-options .itc-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px #0004; transition: transform .2s; }
+html.is-native body.app-schedule #filter-options .itc-switch:checked { background: var(--primary); }
+html.is-native body.app-schedule #filter-options .itc-switch:checked::after { transform: translateX(18px); }
+html.is-native body.app-schedule #filter-options .itc-switch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* без лишних разделителей вокруг полосы дней и пустого состояния */
+html.is-native body.app-schedule #day-buttons, html.is-native body.app-schedule .day-navigation, html.is-native body.app-schedule #content,
+html.is-native body.app-schedule .schedule-state, html.is-native body.app-schedule #schedule-filters, html.is-native body.app-schedule .schedule-panel,
+html.is-native body.app-schedule .filter-options, html.is-native body.app-schedule .schedule-list { border-top: 0 !important; border-bottom: 0 !important; box-shadow: none !important; }
+html.is-native body.app-schedule .schedule-state { text-align: center; padding: 28px 16px 8px !important; margin: 0 !important; }
+html.is-native body.app-schedule .schedule-state::before { content: ""; display: block; width: 40px; height: 40px; margin: 0 auto 10px; opacity: .45; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='3'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='3'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E") center / contain no-repeat; }
+html.is-native body.app-schedule .schedule-state h3 { font-size: 18px !important; line-height: 1.3; margin: 0 0 6px !important; }
+html.is-native body.app-schedule .schedule-state p { font-size: 14px; margin: 0 auto 12px !important; max-width: 32ch; color: var(--muted); }
+/* t96: нижний лист фильтров */
+html.itc-fsheet-open, html.itc-fsheet-open body { overflow: hidden; }
+.itc-fsheet { position: fixed; inset: 0; z-index: 2147481000; display: flex; align-items: flex-end; justify-content: center; }
+/* t100 perf: затемнение — opacity отдельного слоя вместо анимации background */
+.itc-fsheet::before { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / .45); opacity: 0; transition: opacity .25s ease; }
+.itc-fsheet.in::before { opacity: 1; }
+.itc-fsheet-panel { position: relative; }
+.itc-fsheet-panel { width: 100%; max-width: 560px; max-height: 88vh; display: flex; flex-direction: column; box-sizing: border-box;
+  background: var(--surface-1, var(--bg)); color: var(--ink); border-radius: 20px 20px 0 0; box-shadow: 0 -8px 32px rgb(0 0 0 / .25);
+  transform: translateY(100%); transition: transform .3s cubic-bezier(.2,.8,.2,1); padding: 8px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+.itc-fsheet.in .itc-fsheet-panel { transform: translateY(0); }
+.itc-fsheet-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--muted, #888); opacity: .5; margin: 4px auto 10px; flex: none; }
+.itc-fsheet h2 { margin: 0 0 12px; font-size: 20px; }
+.itc-fsheet-body { overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 16px; padding-bottom: 12px; min-height: 0; }
+.itc-fsheet-body > .itc-only-mine { display: flex !important; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 14px; margin: 0;
+  border: 1px solid var(--line, rgba(127,127,127,.35)); border-radius: 12px; font-size: 16px; font-weight: 500; }
+.itc-fsheet-body .itc-switch { all: unset; flex: none; box-sizing: border-box; width: 44px; height: 26px; border-radius: 13px; background: var(--outline, #8889); position: relative; cursor: pointer; transition: background .2s; }
+.itc-fsheet-body .itc-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px #0004; transition: transform .2s; }
+.itc-fsheet-body .itc-switch:checked { background: var(--primary); }
+.itc-fsheet-body .itc-switch:checked::after { transform: translateX(18px); }
+.itc-fgroup h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .02em; color: var(--muted); text-transform: uppercase; }
+.itc-fchips { display: flex; flex-wrap: wrap; gap: 8px; max-height: 196px; overflow-y: auto; }
+.itc-fchip { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--line, rgba(127,127,127,.4)); background: transparent; color: var(--ink);
+  font: inherit; font-size: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.itc-fchip[aria-checked="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary, #fff); font-weight: 600; }
+.itc-fsheet-foot { flex: none; display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line, rgba(127,127,127,.25)); }
+.itc-fbtn { min-height: 48px; border-radius: 12px; border: 1px solid var(--line, rgba(127,127,127,.4)); background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.itc-fbtn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary, #fff); }
+@media (prefers-reduced-motion: reduce) { .itc-fsheet, .itc-fsheet-panel { transition: none; } }
+html.is-native body.app-schedule .itc-ctl { position: relative; }
+html.is-native body.app-schedule .app-filter-btn .app-filter-count { display: none !important; }
+html.is-native body.app-schedule .app-filter-btn.has-count .app-filter-count { display: grid !important; place-items: center; position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box;
+  border-radius: 9px; background: var(--primary); color: var(--on-primary, #fff); font-size: 11px; font-weight: 700; line-height: 1; border: 2px solid var(--bg, var(--surface-1, var(--bg))); }
+html.is-native body.app-schedule #filter-options[hidden] { display: none !important; }
+html.is-native body.app-schedule .app-filter-btn.has-count .app-filter-count { top: 3px !important; right: 3px !important; border: 0 !important; }
+.itc-fsheet-panel { background: var(--surface-1, var(--bg)); }
+
+/* t102: старый слот перенесённого занятия + подсветка нового (только transform/opacity) */
+.itc-ghost { opacity: .78; background: transparent !important; border: 1px dashed var(--outline, #8886) !important; box-shadow: none !important; cursor: default; }
+.itc-ghost .event-name, .itc-ghost-time { color: var(--muted); }
+.itc-ghost-time s { text-decoration-thickness: 1.5px; }
+.itc-ghost .event-badge { background: var(--surface-2, #8882); color: var(--muted); }
+.itc-ghost-link { grid-column: 1 / -1; justify-self: start; margin: 4px 0 0; padding: 6px 0; min-height: 36px; border: 0; background: none; color: var(--primary); font: 600 14px var(--font-ui, system-ui);
+  text-decoration: underline; text-underline-offset: 3px; text-align: left; cursor: pointer; }
+.calendar-event.itc-flash { position: relative; animation: itc-pop .5s cubic-bezier(.2,.8,.2,1); }
+.calendar-event.itc-flash::after { content: ""; position: absolute; inset: -3px; border-radius: inherit; border: 3px solid var(--primary); pointer-events: none; animation: itc-flash 1.8s ease-out forwards; }
+@keyframes itc-pop { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
+@keyframes itc-flash { 0%, 50% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .calendar-event.itc-flash { animation: none; } }
+
+/* t100 perf: длинные списки дней/карточек — браузер не верстает и не рисует то, что за экраном */
+html.is-native body.app-schedule .calendar-event { content-visibility: auto; contain-intrinsic-size: auto 92px; }
+html.is-native body.app-schedule .itc-ghost { content-visibility: auto; contain-intrinsic-size: auto 72px; }

@@ -1,0 +1,58 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ matrix.python }}", cache: pip, cache-dependency-path: backend/requirements-dev.lock.txt }
+      - run: pip install -r backend/requirements-dev.lock.txt
+      - run: ruff check .
+      - run: pytest --cov=backend/app --cov-report=term-missing --cov-fail-under=92
+      - name: Сборка web/ios (PWA)
+        run: python server.py build web && python server.py build pwa && python server.py build back
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pip-audit
+      - run: pip-audit -r backend/requirements.lock.txt --no-deps --disable-pip
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test frontend/tests/*.test.mjs
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip, cache-dependency-path: backend/requirements-dev.lock.txt }
+      - run: pip install -r backend/requirements-dev.lock.txt && playwright install --with-deps chromium
+      - run: pytest e2e -p no:cacheprovider
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t clubs:ci .
+      - name: Smoke
+        run: |
+          docker run -d --name clubs -p 8000:8000 -e JWT_SECRET=$(python3 -c "import secrets;print(secrets.token_urlsafe(48))") -e ALLOWED_HOSTS=localhost clubs:ci
+          for i in $(seq 1 20); do curl -fsS localhost:8000/readyz && exit 0; sleep 2; done
+          docker logs clubs; exit 1

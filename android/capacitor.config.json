@@ -1,0 +1,28 @@
+{
+  "appId": "ru.kipfin.clubs",
+  "appName": "Кружки КИПФИН",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true,
+    "allowNavigation": [
+      "*"
+    ]
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "CapacitorCookies": {
+      "enabled": true
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DEFAULT",
+      "initialViewportFitValueHint": "cover"
+    }
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

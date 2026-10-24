@@ -1,19 +1,9 @@
-from datetime import date, time
+from datetime import time
 
-def intervals_overlap(start_a : time, end_a: time, start_b: time, end_b: time) -> bool:
-    flag = False
-    if start_a == start_b and end_a == end_b:
-        flag = True
-    elif start_a >= start_b and end_a <= end_b:
-        flag = True
-    elif start_a <= start_b and end_a >= end_b:
-        flag = True
-    elif start_a < start_b < end_a < end_b or start_b < start_a < end_b < end_a:
-        flag = True
-    else:
-        pass
-    
-    return flag
+
+def intervals_overlap(start_a: time, end_a: time, start_b: time, end_b: time) -> bool:
+    """Полуинтервалы [start, end): совпадающие и вложенные пересекаются, «встык» (конец == начало) — нет."""
+    return start_a < end_b and start_b < end_a
 
 
 def find_conflicts(candidate: dict, events: list[dict], exclude_event_id: str | None = None) -> list[dict]:
@@ -32,14 +22,14 @@ def find_conflicts(candidate: dict, events: list[dict], exclude_event_id: str | 
 
         if candidate["date"] != event["date"]:
             continue
-        
+
         time_check = intervals_overlap(
             candidate["start_time"],
             candidate["end_time"],
             event["start_time"],
             event["end_time"],
         )
-        
+
         if not time_check:
             continue
 
@@ -54,11 +44,5 @@ def find_conflicts(candidate: dict, events: list[dict], exclude_event_id: str | 
                 "event_id": event["event_id"],
                 "reasons" : reasons,
             })
-        
+
     return conflicts
-
-
-
-
-
-    

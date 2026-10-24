@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Превью виджета «Сегодня» в списке виджетов (Android 12+): статичные примерные строки вместо ListView. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+   
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/widget_bg" android:orientation="vertical"
+    android:paddingTop="12dp" android:paddingBottom="6dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="16dp" android:paddingEnd="16dp"
+        android:paddingBottom="6dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Сегодня" android:textColor="@color/widget_accent" android:textSize="15sp" android:textStyle="bold" android:maxLines="1" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:gravity="end" android:text="Понедельник, 26 октября" android:textColor="@color/widget_muted" android:textSize="13sp"
+            android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="48dp"
+    android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="5dp" android:paddingBottom="5dp">
+    <LinearLayout android:layout_width="48dp" android:layout_height="wrap_content" android:orientation="vertical">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="10:00" android:textColor="@color/widget_fg" android:textSize="14sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="11:30" android:textColor="@color/widget_muted" android:textSize="12sp" />
+    </LinearLayout>
+    <FrameLayout android:layout_width="3dp" android:layout_height="32dp"
+        android:layout_marginEnd="10dp" android:background="@drawable/widget_bar" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Робототехника" android:textColor="@color/widget_fg" android:textSize="14sp" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Ауд. 214 · Иванова А. П." android:textColor="@color/widget_muted" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginStart="8dp" android:background="@drawable/widget_chip" android:paddingStart="8dp" android:paddingEnd="8dp"
+        android:paddingTop="2dp" android:paddingBottom="2dp" android:text="Отменено" android:textColor="@color/widget_chip_fg"
+        android:textSize="11sp" android:visibility="gone" />
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="48dp"
+    android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="5dp" android:paddingBottom="5dp">
+    <LinearLayout android:layout_width="48dp" android:layout_height="wrap_content" android:orientation="vertical">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="13:00" android:textColor="@color/widget_fg" android:textSize="14sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="14:30" android:textColor="@color/widget_muted" android:textSize="12sp" />
+    </LinearLayout>
+    <FrameLayout android:layout_width="3dp" android:layout_height="32dp"
+        android:layout_marginEnd="10dp" android:background="@drawable/widget_bar" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Английский клуб" android:textColor="@color/widget_fg" android:textSize="14sp" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Ауд. 105 · Смирнов Д. В." android:textColor="@color/widget_muted" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginStart="8dp" android:background="@drawable/widget_chip" android:paddingStart="8dp" android:paddingEnd="8dp"
+        android:paddingTop="2dp" android:paddingBottom="2dp" android:text="Отменено" android:textColor="@color/widget_chip_fg"
+        android:textSize="11sp" android:visibility="gone" />
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="48dp"
+    android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="5dp" android:paddingBottom="5dp">
+    <LinearLayout android:layout_width="48dp" android:layout_height="wrap_content" android:orientation="vertical">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="15:30" android:textColor="@color/widget_fg" android:textSize="14sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="17:00" android:textColor="@color/widget_muted" android:textSize="12sp" />
+    </LinearLayout>
+    <FrameLayout android:layout_width="3dp" android:layout_height="32dp"
+        android:layout_marginEnd="10dp" android:background="@drawable/widget_bar" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Шахматы" android:textColor="@color/widget_fg" android:textSize="14sp" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Ауд. 301 · Петров И. С." android:textColor="@color/widget_muted" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginStart="8dp" android:background="@drawable/widget_chip" android:paddingStart="8dp" android:paddingEnd="8dp"
+        android:paddingTop="2dp" android:paddingBottom="2dp" android:text="Отменено" android:textColor="@color/widget_chip_fg"
+        android:textSize="11sp" android:visibility="gone" />
+</LinearLayout>
+    </LinearLayout>
+</LinearLayout>

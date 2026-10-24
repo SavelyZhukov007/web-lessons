@@ -1,27 +1,34 @@
-import { login } from './api.js';
+import { login, getAdminStatus } from './api.js';
 
-const form = document.querySelector("#login-form");
-const message = document.querySelector("#message");
-const submitButton = form.querySelector("button")
+const form = document.querySelector('#login-form');
+const message = document.querySelector('#message');
+const submit = form.querySelector('button[type=submit]');
+// ADM-06: ?next=#/раздел — вернуть на страницу, с которой выбросило по истёкшей сессии (только внутренние хэш-маршруты)
+const rawNext = new URLSearchParams(location.search).get('next') || '';
+const ADMIN_PAGE = '/admin/' + (/^#\/[\w\-/]*$/.test(rawNext) ? rawNext : '');
 
-const ADMIN_PAGE_URL = "/admin/"; // valid url goes here
+// Уже вошёл — сразу в админку.
+getAdminStatus().then(() => location.replace(ADMIN_PAGE), () => {});
 
-form.addEventListener("submit", async (event) => {
+function show(text, isError) {
+  message.textContent = text;
+  message.className = isError ? 'field-error' : 'field-hint';
+}
+
+form.addEventListener('submit', async event => {
   event.preventDefault();
-  message.textContent = "";
-
-  const lgn = form.elements.login.value.trim() ?? "";
-  const password = form.elements.password.value ?? "";
-
-  submitButton.disabled = true;
-  message.textContent = "Выполняется вход...";
-
+  const loginName = form.elements.login.value.trim();
+  const password = form.elements.password.value;
+  if (!loginName || !password) { show('Введи логин и пароль.', true); return; }
+  submit.disabled = true;
+  show('Выполняется вход…', false);
   try {
-    await login(lgn, password);
-    window.location.assign(ADMIN_PAGE_URL);
+    await login(loginName, password);
+    location.assign(ADMIN_PAGE);
   } catch (error) {
-    message.textContent = error.message;
-  } finally {
-    submitButton.disabled = false;
-  };
+    form.elements.password.value = '';
+    form.elements.password.focus();
+    show(error.status === 401 ? 'Неверный логин или пароль.' : error.message, true);
+    submit.disabled = false;
+  }
 });

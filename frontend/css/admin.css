@@ -1,10 +1,115 @@
-form {
-    display: grid;
-    gap: 12px;
-    max-width: 400px;
-}
+/* ===== Админка: только токены из tokens.css. Раскладка: шапка с навигацией (десктоп) / нижняя панель (телефон). ===== */
+.admin-page { --bottom-nav-h: 0px; }
+.admin-header { gap: 24px; }
+.admin-header .admin-nav { margin-left: auto; }
+.admin-tools { display: flex; align-items: center; gap: 4px; margin-left: 12px; }
+.admin-header .admin-nav + .admin-tools { margin-left: 0; }
+.campus-page .admin-tools .settings-button { text-decoration: none; color: inherit; border: 0; background: transparent; padding: 0; min-height: var(--tap); }
+.campus-page .admin-tools .settings-button:hover { background: var(--surface-2); }
+.campus-page .admin-tools .settings-button[aria-current="page"] { background: var(--primary-container); color: var(--on-primary-container); }
+.admin-nav a[aria-current="page"] { border-color: var(--primary) !important; font-weight: 600; }
+.settings-button[aria-current="page"] { background: var(--primary-container); color: var(--on-primary-container); }
 
-label {
-    display: grid;
-    gap: 4px;
+.admin-main { min-height: calc(100vh - 160px); }
+.admin-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+.admin-head h1 { margin: 0; font-size: calc(32px * var(--text-scale)); }
+.admin-head-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.admin-head h1:focus { outline: none; }
+
+.toolbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 280px)); gap: 16px; margin-bottom: 20px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; padding: 18px; border-radius: var(--radius-card, var(--radius-l)); background: var(--surface-1); border: 1px solid var(--outline-variant); color: var(--ink); text-decoration: none; }
+.platform-android .stat-card, .platform-ios .stat-card { border-color: transparent; }
+.stat-card:hover { border-color: var(--primary); text-decoration: none; }
+.stat-card .ui-icon { grid-row: span 2; width: 28px; height: 28px; color: var(--primary); }
+.stat-card strong { font-size: calc(28px * var(--text-scale)); line-height: 1.1; }
+.stat-card span { color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+.card + .card, .stat-grid + .card { margin-top: 16px; }
+
+.admin-tabs { display: inline-flex; margin-bottom: 20px; }
+.admin-tabs a { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; min-height: var(--tap); color: var(--muted); text-decoration: none; border: 1px solid var(--outline); margin-left: -1px; font-size: calc(14px * var(--text-scale)); }
+.admin-tabs a.is-current { background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; }
+.platform-android .admin-tabs a:first-child { border-radius: 20px 0 0 20px; margin-left: 0; }
+.platform-android .admin-tabs a:last-child { border-radius: 0 20px 20px 0; }
+.platform-ios .admin-tabs { background: var(--surface-2); padding: 2px; border-radius: 9px; }
+.platform-ios .admin-tabs a { border: 0; margin: 0; border-radius: 7px; min-height: 32px; }
+.platform-ios .admin-tabs a.is-current { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+
+.color-chip { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); }
+.campus-page input[type=color] { padding: 2px; min-height: var(--tap); width: 88px; cursor: pointer; }
+.btn--danger-text { color: var(--danger) !important; }
+.btn-label { display: inline; }
+.admin-main table.data .ui-icon { width: 18px; height: 18px; }
+
+.conflict-box { margin-top: 12px; border-left: 3px solid var(--status-cancelled-line); background: var(--status-cancelled-bg); color: var(--status-cancelled-fg); padding: 12px 14px; border-radius: 0 var(--radius-m) var(--radius-m) 0; }
+.conflict-box ul { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.conflict-box li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.conflict-title { font-weight: 600; }
+.form-feedback:empty { display: none; }
+.skeleton-block { display: grid; gap: 12px; }
+.skeleton-block .skeleton { height: 52px; }
+
+/* ---------- Вход ---------- */
+.admin-login main { display: grid; place-items: start center; padding-top: 48px; min-height: calc(100vh - 100px); }
+.login-card { width: min(440px, 100%); display: grid; gap: 20px; }
+.login-card h1 { margin: 0; font-size: calc(26px * var(--text-scale)) !important; }
+.login-card code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; }
+
+/* ---------- Нижняя навигация (телефон) ---------- */
+.bottom-nav { display: none; }
+@media (max-width: 719px) {
+    .admin-page { --bottom-nav-h: calc(72px + var(--safe-bottom)); }
+    .admin-header .admin-nav { display: none; }
+    .admin-header { flex-wrap: nowrap; min-height: calc(64px + var(--safe-top)); padding-top: calc(8px + var(--safe-top)); padding-bottom: 8px; gap: 8px; }
+    .admin-header .campus-brand { flex-direction: row; align-items: baseline; gap: 10px; }
+    .admin-header .admin-tools { margin-left: auto; }
+    .admin-main { padding-bottom: calc(var(--bottom-nav-h) + 16px) !important; }
+    .admin-head h1 { font-size: calc(26px * var(--text-scale)) !important; }
+    .admin-head-actions { width: 100%; }
+    .admin-head-actions .btn { flex: 1 1 auto; }
+    .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .toolbar > :first-child:nth-last-child(n+3) { grid-column: 1 / -1; }
+    .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .stat-card { grid-template-columns: 1fr; row-gap: 4px; padding: 14px; }
+    .stat-card .ui-icon { grid-row: auto; }
+    .stat-card { align-content: start; }
+    .admin-header .campus-brand small { display: none; }
+    .bottom-nav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 8px 4px calc(8px + var(--safe-bottom)); background: var(--surface-1); border-top: 1px solid var(--outline-variant); justify-content: space-around; }
+    .bottom-nav a { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); text-decoration: none; font-size: calc(11px * var(--text-scale)); min-height: 48px; }
+    .bottom-nav .bn-pill { display: flex; align-items: center; justify-content: center; width: 56px; height: 30px; border-radius: 15px; }
+    .bottom-nav .ui-icon { width: 22px; height: 22px; }
+    .bottom-nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+    .bottom-nav a[aria-current="page"] .bn-pill { background: var(--primary-container); color: var(--on-primary-container); }
+    .platform-ios .bottom-nav { background: color-mix(in srgb, var(--surface-1) 88%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+    .platform-ios .bottom-nav a[aria-current="page"] { color: var(--primary); }
+    .platform-ios .bottom-nav a[aria-current="page"] .bn-pill { background: transparent; color: var(--primary); }
+    .platform-ios .bottom-nav .bn-pill { height: 26px; }
+    .platform-ios .bottom-nav .bn-label { font-size: calc(10px * var(--text-scale)); }
+    .admin-tabs { display: flex; width: 100%; }
+    .admin-tabs a { flex: 1 1 0; text-align: center; padding: 8px 4px; }
+    .snackbar-host { bottom: calc(var(--bottom-nav-h) + 12px); }
+    .admin-main table.data.cards td.actions .btn-label { display: inline; }
 }
+.admin-main:focus { outline: none; }
+
+/* Посещаемость (QR) */
+.attendance-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 12px; }
+.attendance-form label { display: grid; gap: 4px; min-width: 0; flex: 1 1 160px; }
+.attendance-qr { display: grid; justify-items: center; gap: 8px; text-align: center; }
+.attendance-qr-code { width: min(320px, 80vw); background: #fff; padding: 8px; border-radius: 12px; }
+.attendance-qr-code svg { display: block; width: 100%; height: auto; }
+.attendance-qr-title { font-weight: 600; margin: 0; }
+.attendance-total { font-weight: 600; }
+.attendance-card { margin-bottom: 16px; }
+
+/* идентификатор преподавателя (показ один раз) */
+.secret-code { display: block; padding: 14px 12px; border-radius: 10px; background: var(--surface-2); font: 600 calc(17px * var(--text-scale))/1.5 ui-monospace, "Roboto Mono", monospace; letter-spacing: .04em; word-break: break-all; user-select: all; text-align: center; }
+/* посещаемость: живой список и QR */
+.attendance-state { font-weight: 600; margin: 4px 0; }
+.attendance-live { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.attendance-live li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); animation: att-in .35s ease-out; min-width: 0; }
+.attendance-live li code { font: 600 calc(14px * var(--text-scale)) ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.attendance-live li time { color: var(--ink-muted, inherit); font-variant-numeric: tabular-nums; }
+@keyframes att-in { from { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .attendance-live li { animation: none; } }

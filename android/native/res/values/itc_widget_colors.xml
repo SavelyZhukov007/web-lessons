@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Фирменные цвета виджетов (Android < 12 или без Material You). Светлая тема. -->
+<resources>
+    <color name="widget_bg">#FFFFFF</color>
+    <color name="widget_fg">#202722</color>
+    <color name="widget_muted">#566059</color>
+    <color name="widget_accent">#B83B29</color>
+    <color name="widget_chip_bg">#FDE4DF</color>
+    <color name="widget_chip_fg">#5B160C</color>
+    <color name="widget_divider">#1F202722</color>
+</resources>

@@ -1,0 +1,151 @@
+/* ===== Только нативное приложение (Capacitor) =====
+   Подключается prepare-web.mjs лишь в www/ APK; сайт (frontend/) этот файл не видит.
+   Дополнительно все правила ограничены html.is-native — класс ставит js/native-shell.js
+   только при Capacitor.isNativePlatform(). */
+
+/* --- 8. Safe area: env() + переменные, которые инжектирует Capacitor SystemBars (insetsHandling: "css") --- */
+html.is-native {
+    --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+    --safe-right: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
+    --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+    --safe-left: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+}
+/* «Подложка» под прозрачным статус-баром: контент при прокрутке не просвечивает под часами */
+html.is-native body::before {
+    content: ""; position: fixed; z-index: 2147482000; top: 0; left: 0; right: 0;
+    height: var(--safe-top); background: var(--paper, var(--bg)); pointer-events: none;
+}
+@media (max-width: 599px) {
+    /* в мобильной вёрстке сайта padding-top: 14px перебивал --safe-top — заголовок уходил под часы */
+    html.is-native .campus-header { padding-top: calc(14px + var(--safe-top)); }
+}
+html.is-native .campus-page main { padding-bottom: calc(24px + var(--safe-bottom)); min-height: 0; }
+html.is-native .admin-page main { padding-bottom: calc(var(--bottom-nav-h, 0px) + 16px); }
+
+/* --- 1. Без ripple/«волны» и синей подсветки тапа; лёгкое затемнение при нажатии --- */
+html.is-native, html.is-native * { -webkit-tap-highlight-color: transparent; }
+html.is-native .ripple { display: none !important; }
+html.is-native .btn:hover::after, html.is-native .campus-page button:hover::after,
+html.is-native .btn:focus-visible::after, html.is-native .campus-page button:focus-visible::after { opacity: 0; }
+html.is-native .btn:active::after, html.is-native .campus-page button:active::after { opacity: .08; transition-duration: 0s; }
+html.is-native .campus-page a:hover { text-decoration: none; }
+html.is-native .campus-page button:hover { border-color: var(--line); }
+html.is-native .campus-page button[aria-pressed="true"]:hover { border-color: var(--primary); }
+html.is-native a.club-card:active, html.is-native .club-directory > a:active, html.is-native .settings-button:active,
+html.is-native .bottom-nav a:active .bn-pill { opacity: .72; }
+html.is-native :focus:not(:focus-visible) { outline: none; }
+
+/* --- 2. Горизонтальная прокрутка: ripple-пятна (2× ширины кнопки) больше не рисуются (см. п.1),
+   у кнопок «Пн–Сб» рамки не выходят за сетку; плюс страховка clip (без побочек для position: sticky) --- */
+html.is-native, html.is-native body { overflow-x: clip; max-width: 100%; }
+html.is-native body { overscroll-behavior-x: none; }
+
+/* --- 3. Полосы прокрутки скрыты, прокрутка работает --- */
+html.is-native, html.is-native * { scrollbar-width: none; }
+html.is-native ::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+/* --- 4. Легенда «Перенос / Отменено» под списком --- */
+html.is-native .schedule-legend { display: none !important; }
+
+/* --- 5. Нижняя панель «Время московское · Пн–Сб» / «Все кружки →» --- */
+html.is-native .campus-footer { display: none !important; }
+
+/* --- 11. Заголовок «ИТС Кружки» --- */
+html.is-native .campus-brand > span.native-brand { letter-spacing: -.04em; white-space: nowrap; }
+@media (max-width: 599px) { html.is-native .campus-brand > span.native-brand { font-size: calc(24px * var(--text-scale, 1)); } }
+
+/* --- 7. Экран входа: демо-кнопка --- */
+html.is-native .native-demo-login { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid var(--outline-variant, var(--line)); }
+html.is-native .admin-login main { min-height: 0; }
+
+/* --- 10. Кнопка календаря: состояние «занято» --- */
+html.is-native .club-actions .btn[aria-busy="true"] { opacity: .6; pointer-events: none; }
+
+/* --- Синяя «плашка» при тапе (кнопка «Добавить в календарь» и др.): без подсветки, выделения текста и колец фокуса от касания;
+   кольцо фокуса остаётся только для клавиатуры (:focus-visible) --- */
+html.is-native a, html.is-native button, html.is-native [role="button"], html.is-native [role="tab"], html.is-native label,
+html.is-native .btn, html.is-native .calendar-event, html.is-native .club-card, html.is-native summary {
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+html.is-native a:focus:not(:focus-visible), html.is-native button:focus:not(:focus-visible),
+html.is-native .btn:focus:not(:focus-visible) { outline: none !important; box-shadow: none; }
+html.is-native .club-actions .btn:active { background-color: var(--secondary-container, var(--surface-2)); }
+
+/* --- 12. Нижняя навигация админки: без «Справочников» (они внутри «Занятий»), подписи всегда в одну строку --- */
+html.is-native .admin-page [data-route="reference"] { display: none !important; }
+html.is-native .admin-page .bottom-nav .bn-label { display: block; max-width: 100%; padding: 0 2px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; font-size: min(calc(11px * var(--text-scale, 1)), 3.1vw); line-height: 1.3; }
+html.is-native .admin-page .bottom-nav .bn-pill { width: min(56px, 100%); }
+html.is-native .admin-page .reference-tabs-hidden, html.is-native .admin-main .admin-tabs[aria-label="Справочники"] { display: none; }
+html.is-native .native-sessions-tabs { display: flex; overflow-x: auto; scrollbar-width: none; margin-bottom: 12px; }
+html.is-native .native-sessions-tabs a { flex: 0 0 auto; white-space: nowrap; }
+
+/* --- 13. Открытая клавиатура не закрывает результаты поиска --- */
+html.is-native.native-kb-open body { padding-bottom: var(--native-kb, 0px); }
+html.is-native #content, html.is-native #result-status { scroll-margin-top: calc(72px + var(--safe-top, 0px)); }
+
+/* --- F2. Шапка APK: одна ссылка-переключатель + меню ⋮ (шестерёнка и «Вход для сотрудников» — в меню) --- */
+html.is-native .campus-header[data-app-header] { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+html.is-native .campus-header[data-app-header] nav { margin-left: auto; display: flex; }
+html.is-native .campus-header[data-app-header] [data-settings-button] { display: none !important; }
+html.is-native .app-nav-toggle { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; white-space: nowrap; font-weight: 600; color: var(--ink); text-decoration: none; }
+html.is-native .app-menu-btn { flex: 0 0 auto; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; background: none; color: var(--ink); border-radius: 50%; }
+html.is-native .app-menu-btn svg { width: 22px; height: 22px; fill: currentColor; }
+html.is-native .app-menu { position: fixed; z-index: 2147482500; top: calc(var(--safe-top, 0px) + 58px); right: calc(10px + var(--safe-right, 0px)); width: min(300px, calc(100vw - 20px));
+  display: grid; padding: 8px 0; border-radius: 14px; background: var(--surface-1, var(--paper)); color: var(--ink); box-shadow: var(--shadow); border: 1px solid var(--line);
+  animation: app-menu-in .16s ease-out; transform-origin: top right; }
+@keyframes app-menu-in { from { opacity: 0; transform: scale(.94); } }
+@media (prefers-reduced-motion: reduce) { html.is-native .app-menu { animation: none; } }
+html.is-native .app-menu-theme { display: grid; gap: 6px; padding: 6px 14px 10px; border-bottom: 1px solid var(--line); }
+html.is-native .app-menu-label { font-size: 13px; color: var(--muted); }
+html.is-native .app-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--outline, var(--line)); border-radius: 999px; overflow: hidden; }
+html.is-native .app-seg button { min-height: 40px; min-width: 0; padding: 0 4px; border: 0; border-radius: 0; background: none; color: var(--ink); font-size: calc(13px * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; }
+html.is-native .app-seg button + button { border-left: 1px solid var(--outline, var(--line)); }
+html.is-native .app-seg button[aria-checked="true"] { background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; }
+html.is-native .app-menu-item { display: flex; align-items: center; min-height: 48px; padding: 0 16px; border: 0; background: none; color: var(--ink); text-align: left; font: inherit; text-decoration: none; width: 100%; }
+html.is-native .app-menu-item:active { background: var(--surface-2, var(--quiet)); }
+html.is-native .app-menu-ver { margin: 4px 0 0; padding: 8px 16px 4px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+
+/* --- F11/12. Админка APK: без крупных заголовков разделов (остаются для экранного диктора), подсказки и перекрёстные ссылки --- */
+html.is-native .admin-main .admin-head h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+html.is-native .admin-main .admin-head { min-height: 0; margin-bottom: 8px; justify-content: flex-end; }
+html.is-native .admin-main .admin-head-actions:empty { display: none; }
+html.is-native .admin-main { padding-top: 8px; }
+html.is-native .app-admin-hint { margin: 0 0 12px; font-size: calc(13px * var(--text-scale, 1)); color: var(--muted); line-height: 1.45; }
+html.is-native .app-xlink { color: var(--primary); text-decoration: none; font-weight: 500; overflow-wrap: anywhere; }
+html.is-native .app-xlink.strong { font-weight: 700; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+html.is-native .app-par { margin-left: 6px; font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--surface-2, var(--quiet)); white-space: nowrap; }
+html.is-native .app-par.conflict { background: var(--status-cancelled-bg); color: var(--status-cancelled-fg); }
+/* шапка: «Все кружки» по центру строки и прижата вправо к ⋮ (не к логотипу, не по базовой линии) */
+html.is-native .campus-header[data-app-header] { display: flex !important; align-items: center !important; grid-template-columns: none !important; }
+html.is-native .campus-header[data-app-header] nav { margin: 0 0 0 auto !important; padding: 0 !important; align-self: center !important; border: 0 !important; }
+html.is-native .campus-header[data-app-header] > :first-child { margin-bottom: 0 !important; align-self: center; }
+html.is-native .app-menu-btn { flex: none; align-self: center; }
+html.is-native .campus-header[data-app-header] nav { height: 44px; align-items: center; }
+html.is-native .campus-header[data-app-header] .app-nav-toggle { min-height: 44px; line-height: 1; }
+/* «Все кружки» на одной базовой линии с названием (а не по центру иконки ⋮) */
+html.is-native .campus-header[data-app-header] { align-items: baseline !important; }
+html.is-native .campus-header[data-app-header] nav, html.is-native .campus-header[data-app-header] .app-nav-toggle { height: auto !important; min-height: 0 !important; align-items: baseline !important; }
+html.is-native .campus-header[data-app-header] .app-nav-toggle { padding: 12px 10px !important; margin: -12px 0 !important; font-weight: 500; font-size: 15px; color: var(--primary); }
+html.is-native .campus-header[data-app-header] .app-menu-btn { align-self: center !important; }
+
+/* ---------- t99 ---------- */
+html.is-native .app-gear svg { fill: none; }
+html.is-native .campus-header [data-settings-button] { display: none !important; }
+html.is-native .admin-header .admin-nav { display: none !important; } /* разделы — только в нижней навигации */
+html.is-native .admin-header .app-nav-toggle { margin-left: auto; color: var(--primary); font-weight: 500; }
+/* вкладки «Расписание · Направления · Руководители · Аудитории · Посещаемость» — сетка равных чипов в 2 ряда, без обрезки на 320px */
+html.is-native .native-sessions-tabs { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; overflow: visible; padding: 0; background: none; border: 0; }
+html.is-native .native-sessions-tabs a { display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 6px; border-radius: 12px !important; border: 1px solid var(--outline, #8886) !important; margin: 0 !important; box-sizing: border-box; width: auto !important;
+  white-space: normal; text-align: center; font-size: 14px; line-height: 1.15; color: var(--ink); text-decoration: none; min-width: 0; overflow-wrap: anywhere; }
+html.is-native .native-sessions-tabs a.is-current, html.is-native .native-sessions-tabs a[aria-current] { background: var(--primary-container, #fde4df); border-color: var(--primary-container, #fde4df) !important; color: #5a1a10; font-weight: 600; }
+/* шит настроек сайта: шапка не обрезается, прокручивается только тело */
+html.is-native #settings-dialog { display: flex; flex-direction: column; max-height: calc(100dvh - 24px); }
+html.is-native #settings-dialog:not([open]) { display: none; }
+html.is-native #settings-dialog .sheet-head { flex: none; position: sticky; top: 0; z-index: 1; background: inherit; }
+html.is-native #settings-dialog .sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+html.is-native .native-sessions-tabs > *:not(a) { display: none; }
+/* 5 разделов → ровно 2 ряда: 3 сверху, 2 широких снизу */
+html.is-native .native-sessions-tabs { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+html.is-native .native-sessions-tabs a { grid-column: span 2; }
+html.is-native .native-sessions-tabs a:nth-child(4):nth-last-child(2), html.is-native .native-sessions-tabs a:nth-child(5):last-child { grid-column: span 3; }

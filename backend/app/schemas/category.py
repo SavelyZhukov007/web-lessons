@@ -1,4 +1,5 @@
 from pydantic import ConfigDict
+
 from .common import Color, InputSchema, Name, UpdateSchema
 
 

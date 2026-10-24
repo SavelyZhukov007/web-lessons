@@ -1,5 +1,7 @@
 from datetime import date
+
 import pytest
+
 from backend.app.services.schedule import build_week
 
 

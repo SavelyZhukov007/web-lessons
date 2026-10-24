@@ -1,30 +1,12 @@
-@font-face {
-    font-family: "Golos Text";
-    src: url("/fonts/GolosText-Variable.ttf") format("truetype");
-    font-weight: 400 900;
-    font-style: normal;
-    font-display: swap;
-}
-
 * {
     box-sizing: border-box;
-}
-
-:root {
-    --paper: #fff;
-    --ink: #202722;
-    --muted: #606963;
-    --line: #d9deda;
-    --accent: #b83b29;
-    --quiet: #f6f7f5;
-    --mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 }
 
 .campus-page {
     margin: 0;
     background: var(--paper);
     color: var(--ink);
-    font: 15px/1.5 "Golos Text", Arial, sans-serif;
+    font: calc(15px * var(--text-scale, 1))/1.5 var(--font-ui, "Golos Text", Arial, sans-serif);
 }
 
 .campus-page [hidden] {
@@ -60,14 +42,20 @@
     cursor: pointer;
     background: var(--paper);
     border: 1px solid var(--line);
-    border-radius: 2px;
+    border-radius: var(--radius-control, 2px);
     min-height: 44px;
     padding: 10px 15px;
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale, 1));
 }
 
 .campus-page button:hover {
     border-color: var(--ink);
+}
+
+.campus-page button[aria-pressed="true"] {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    border-color: var(--primary);
 }
 
 .campus-page button:disabled,
@@ -79,12 +67,12 @@
 .campus-page input,
 .campus-page select {
     background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: 2px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-field, var(--radius-control, 2px));
     width: 100%;
     min-height: 44px;
     padding: 10px 12px;
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale, 1));
 }
 
 .campus-page select {
@@ -96,7 +84,7 @@
     min-width: 0;
     display: grid;
     gap: 5px;
-    font-size: 11px;
+    font-size: calc(11px * var(--text-scale, 1));
     color: var(--muted);
 }
 
@@ -106,7 +94,7 @@
 }
 
 .campus-page h1 {
-    font-size: clamp(36px, 3.8vw, 54px);
+    font-size: calc(clamp(36px, 3.8vw, 54px) * var(--text-scale, 1));
     line-height: 1.04;
     font-weight: 650;
     letter-spacing: -.055em;
@@ -123,14 +111,15 @@
 .campus-footer {
     width: min(100%, 1520px);
     margin: 0 auto;
-    padding-left: 40px;
-    padding-right: 40px;
+    padding-left: max(40px, var(--safe-left, 0px));
+    padding-right: max(40px, var(--safe-right, 0px));
 }
 
 .campus-header {
     display: flex;
     align-items: center;
-    min-height: 76px;
+    padding-top: var(--safe-top, 0px);
+    min-height: calc(76px + var(--safe-top, 0px));
     gap: 32px;
     border-bottom: 1px solid var(--line);
 }
@@ -145,7 +134,7 @@
 .campus-brand>span {
     display: inline-flex;
     align-items: baseline;
-    font-size: 30px;
+    font-size: calc(30px * var(--text-scale, 1));
     line-height: 1;
     font-weight: 750;
     letter-spacing: -.065em;
@@ -160,7 +149,7 @@
 }
 
 .campus-brand small {
-    font-size: 11px;
+    font-size: calc(11px * var(--text-scale, 1));
     font-weight: 450;
     letter-spacing: .035em;
 }
@@ -178,7 +167,7 @@
     align-items: center;
     padding: 0 2px;
     border-bottom: 2px solid transparent;
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale, 1));
     white-space: nowrap;
 }
 
@@ -188,7 +177,7 @@
 }
 
 .staff-link {
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale, 1));
     border-left: 1px solid var(--line);
     padding: 6px 0 6px 28px;
     white-space: nowrap;
@@ -202,12 +191,13 @@
 
 .campus-footer {
     min-height: 76px;
+    padding-bottom: var(--safe-bottom, 0px);
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-top: 1px solid var(--line);
     color: var(--muted);
-    font-size: 11px;
+    font-size: calc(11px * var(--text-scale, 1));
     gap: 20px;
 }
 
@@ -282,14 +272,23 @@
 
 .public-title h1 {
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+@media (max-width: 640px) {
+    /* длинные слова («Программирование») не должны рваться посреди слова на 360–390 px */
+    .public-title h1 {
+        font-size: calc(clamp(26px, 8vw, 37px) * var(--text-scale, 1));
+    }
 }
 
 .public-back {
     display: inline-flex;
     gap: 8px;
     align-items: center;
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale, 1));
     color: var(--muted);
     margin-bottom: 28px;
 }
@@ -305,7 +304,7 @@
     gap: 24px;
     padding: 26px 0;
     border-bottom: 1px solid var(--line);
-    font-size: clamp(18px, 2.2vw, 26px);
+    font-size: calc(clamp(18px, 2.2vw, 26px) * var(--text-scale, 1));
     font-weight: 450;
     letter-spacing: -.025em;
 }
@@ -324,7 +323,7 @@
 .directory-copy,
 .detail-copy {
     color: var(--muted);
-    font-size: 16px;
+    font-size: calc(16px * var(--text-scale, 1));
     max-width: 760px;
     line-height: 1.8;
     white-space: pre-line;
@@ -337,14 +336,14 @@
 }
 
 .detail-content h2 {
-    font-size: 30px;
+    font-size: calc(30px * var(--text-scale, 1));
     letter-spacing: -.035em;
     margin: 0 0 20px;
 }
 
 .detail-content p {
     max-width: 760px;
-    font-size: 16px;
+    font-size: calc(16px * var(--text-scale, 1));
     line-height: 1.8;
     overflow-wrap: anywhere;
 }
@@ -354,8 +353,8 @@
     .campus-header,
     .campus-page main,
     .campus-footer {
-        padding-left: 24px;
-        padding-right: 24px;
+        padding-left: max(24px, var(--safe-left, 0px));
+        padding-right: max(24px, var(--safe-right, 0px));
     }
 
     .campus-header {
@@ -368,8 +367,8 @@
     .campus-header,
     .campus-page main,
     .campus-footer {
-        padding-left: 18px;
-        padding-right: 18px;
+        padding-left: max(18px, var(--safe-left, 0px));
+        padding-right: max(18px, var(--safe-right, 0px));
     }
 
     .campus-header {
@@ -388,11 +387,11 @@
     }
 
     .campus-brand>span {
-        font-size: 27px;
+        font-size: calc(27px * var(--text-scale, 1));
     }
 
     .campus-brand small {
-        font-size: 9px;
+        font-size: calc(9px * var(--text-scale, 1));
         letter-spacing: .12em;
     }
 
@@ -403,7 +402,7 @@
     }
 
     .campus-header nav a {
-        font-size: 11px;
+        font-size: calc(11px * var(--text-scale, 1));
     }
 
     .staff-link {
@@ -411,7 +410,7 @@
         margin-left: auto;
         border-left: 0;
         padding: 0;
-        font-size: 10px;
+        font-size: calc(10px * var(--text-scale, 1));
     }
 
     .campus-page main {
@@ -420,12 +419,12 @@
     }
 
     .campus-page h1 {
-        font-size: 37px;
+        font-size: calc(37px * var(--text-scale, 1));
     }
 
     .campus-footer {
         min-height: 64px;
-        font-size: 10px;
+        font-size: calc(10px * var(--text-scale, 1));
         gap: 12px;
     }
 
@@ -438,13 +437,13 @@
     }
 
     .club-directory>a {
-        font-size: 20px;
+        font-size: calc(20px * var(--text-scale, 1));
         padding: 22px 0;
         gap: 16px;
     }
 
     .detail-content p {
-        font-size: 15px;
+        font-size: calc(15px * var(--text-scale, 1));
     }
 }
 
@@ -458,3 +457,4 @@
         scroll-behavior: auto !important;
     }
 }
+.not-found { min-height: 60vh; display: grid; place-content: center; text-align: center; }

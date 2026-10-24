@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Как установить расписание кружков на iPhone, iPad и Android.">
+    <title>Установка на телефон — КИПФИН</title>
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Кружки">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <script src="/js/theme-init.js"></script>
+        <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="/css/campus.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/platform.css">
+</head>
+<body class="campus-page">
+    <a class="skip-link" href="#public-main">К содержимому</a>
+    <header class="campus-header">
+        <a class="campus-brand" href="/" aria-label="Кружки — главная"><span>кружки<i
+                    aria-hidden="true"></i></span><small>КИПФИН</small></a>
+        <nav aria-label="Основная навигация">
+            <a href="/">Расписание</a>
+            <a href="/clubs.html">Все кружки</a>
+        </nav>
+        <a class="staff-link" href="/admin/login.html">Вход для сотрудников</a>
+    </header>
+    <main id="public-main" tabindex="-1">
+        <div class="public-title"><h1>Установка на телефон</h1></div>
+        <p id="install-detected" class="directory-copy" role="status" aria-live="polite">Определяем устройство…</p>
+        <div id="install-already" class="card" hidden><h2>Уже установлено</h2><p>Ты открыл сайт как приложение. Уведомления о переносах включаются на странице нужного кружка.</p></div>
+        <div id="install-actions" class="club-actions" hidden>
+            <button id="install-button" class="btn btn--filled" type="button" hidden>Установить приложение</button>
+        </div>
+        <div class="install-grid">
+            <section id="install-ios" class="card" aria-labelledby="ios-title">
+                <h2 id="ios-title">iPhone и iPad (Safari)</h2>
+                <ol class="steps">
+                    <li>Открой этот сайт в <strong>Safari</strong> (не во встроенном браузере мессенджера).</li>
+                    <li>Нажми кнопку <strong>«Поделиться»</strong> (квадрат со стрелкой вверх) внизу экрана.</li>
+                    <li>Выбери <strong>«На экран “Домой”»</strong>, затем <strong>«Добавить»</strong>.</li>
+                    <li>Открой «Кружки» с экрана «Домой» — уведомления можно включить на странице кружка (нужен iOS/iPadOS 16.4+).</li>
+                </ol>
+                <p class="field-hint">Без установки на экран «Домой» уведомления в Safari на iPhone не работают — это ограничение Apple.</p>
+            </section>
+            <section id="install-android" class="card" aria-labelledby="android-title">
+                <h2 id="android-title">Android (Chrome)</h2>
+                <ol class="steps">
+                    <li>Открой сайт в <strong>Chrome</strong>.</li>
+                    <li>Нажми <strong>⋮</strong> → <strong>«Установить приложение»</strong> (или кнопку выше).</li>
+                    <li>Иконка «Кружки» появится среди приложений.</li>
+                </ol>
+                <p class="field-hint">Есть и отдельный APK-клиент: см. docs/ANDROID.md в репозитории.</p>
+            </section>
+            <section id="install-desktop" class="card" aria-labelledby="desktop-title">
+                <h2 id="desktop-title">Компьютер (Chrome, Edge)</h2>
+                <p>В адресной строке нажми значок установки или меню → «Установить “Кружки”».</p>
+            </section>
+        </div>
+    </main>
+    <footer class="campus-footer"><span>Время московское · Пн–Сб</span><a href="/clubs.html">Все кружки <svg
+                class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14m-5-5 5 5-5 5" />
+            </svg></a></footer>
+    <script type="module" src="/js/install.js"></script>
+    <script type="module" src="/js/settings.js"></script>
+    <script type="module" src="/js/pwa-register.js"></script>
+</body>
+
+</html>

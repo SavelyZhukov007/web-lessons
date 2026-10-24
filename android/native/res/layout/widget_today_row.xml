@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/row_container" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="48dp"
+    android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="5dp" android:paddingBottom="5dp">
+    <LinearLayout android:layout_width="48dp" android:layout_height="wrap_content" android:orientation="vertical">
+        <TextView android:id="@+id/row_start" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="15:30" android:textColor="@color/widget_fg" android:textSize="14sp" android:textStyle="bold" />
+        <TextView android:id="@+id/row_end" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="17:00" android:textColor="@color/widget_muted" android:textSize="12sp" />
+    </LinearLayout>
+    <FrameLayout android:id="@+id/row_bar" android:layout_width="3dp" android:layout_height="32dp"
+        android:layout_marginEnd="10dp" android:background="@drawable/widget_bar" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+        <TextView android:id="@+id/row_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Робототехника" android:textColor="@color/widget_fg" android:textSize="14sp" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/row_room" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Ауд. 214" android:textColor="@color/widget_muted" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <TextView android:id="@+id/row_status" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginStart="8dp" android:background="@drawable/widget_chip" android:paddingStart="8dp" android:paddingEnd="8dp"
+        android:paddingTop="2dp" android:paddingBottom="2dp" android:text="Отменено" android:textColor="@color/widget_chip_fg"
+        android:textSize="11sp" android:visibility="gone" />
+</LinearLayout>

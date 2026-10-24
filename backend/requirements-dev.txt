@@ -1,0 +1,10 @@
+# Разработка и CI: прод + тесты, e2e, линтер, аудит.
+-r requirements.txt
+pytest>=8,<10
+pytest-cov>=5
+httpx>=0.27,<1
+playwright>=1.45,<2
+ruff>=0.6
+pip-audit>=2.7
+# необязательно: объявление сервера в локальной сети (MDNS_ENABLED=1) для демо-приложения
+zeroconf>=0.130,<1

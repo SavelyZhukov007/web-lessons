@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Как установить расписание кружков КИПФИН на iPhone через Safari.">
+    <title>Установка на iPhone — КИПФИН</title>
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Кружки">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <script src="/js/theme-init.js"></script>
+    <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="/css/campus.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/platform.css">
+    <link rel="stylesheet" href="/css/distribution.css">
+</head>
+<body class="campus-page dist-page" data-dist-page="ios">
+    <a class="skip-link" href="#public-main">К содержимому</a>
+    <header class="campus-header">
+        <a class="campus-brand" href="/" aria-label="Кружки — главная"><span>кружки<i
+                    aria-hidden="true"></i></span><small>КИПФИН</small></a>
+        <nav aria-label="Основная навигация">
+            <a href="/">Расписание</a>
+            <a href="/clubs.html">Все кружки</a>
+        </nav>
+        <a class="staff-link" href="/admin/login.html">Вход для сотрудников</a>
+    </header>
+    <main id="public-main" class="dist-main" tabindex="-1">
+        <section class="dist-hero">
+            <img class="dist-hero__icon" src="/icons/apple-touch-icon.png" alt="" width="72" height="72">
+            <div>
+                <h1>Кружки на iPhone</h1>
+                <p class="dist-lead">Добавьте расписание на экран «Домой» — оно откроется как обычное приложение, без App Store, и будет присылать уведомления о переносах.</p>
+            </div>
+        </section>
+
+        <section id="ios-open-in-safari" class="dist-alert" role="alert" hidden>
+            <div class="dist-alert__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg></div>
+            <div class="dist-alert__body">
+                <h2>Откройте страницу в Safari</h2>
+                <p id="ios-browser-note">Установить приложение на iPhone можно только из Safari. Скопируйте ссылку и вставьте её в адресную строку Safari.</p>
+                <div class="dist-copy">
+                    <input id="dist-link" class="dist-copy__field" type="text" readonly aria-label="Ссылка на страницу">
+                    <button id="dist-copy-btn" class="btn btn--filled" type="button">Скопировать ссылку</button>
+                </div>
+                <p id="dist-copy-status" class="field-hint" role="status" aria-live="polite"></p>
+            </div>
+        </section>
+
+        <section id="ios-installed" class="dist-alert dist-alert--ok" hidden>
+            <div class="dist-alert__icon"><img src="/icons/apple-touch-icon.png" alt="" width="40" height="40"></div>
+            <div class="dist-alert__body">
+                <h2>Приложение уже установлено</h2>
+                <p>Вы открыли «Кружки» с экрана «Домой». <a href="/">Перейти к расписанию</a></p>
+            </div>
+        </section>
+
+        <h2 class="dist-subtitle">Как установить</h2>
+        <ol class="dist-steps">
+            <li class="dist-step">
+                <span class="dist-step__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg></span>
+                <div><h3>Откройте сайт в Safari</h3><p>Именно в Safari, а не во встроенном браузере Telegram, VK или Chrome.</p></div>
+            </li>
+            <li class="dist-step">
+                <span class="dist-step__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10H6.5A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5H16"/></svg></span>
+                <div><h3>Нажмите «Поделиться»</h3><p>Квадрат со стрелкой вверх — внизу экрана (на iPad — вверху справа).</p></div>
+            </li>
+            <li class="dist-step">
+                <span class="dist-step__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M12 8.5v7M8.5 12h7"/></svg></span>
+                <div><h3>Выберите «На экран “Домой”»</h3><p>Если пункта не видно, прокрутите список действий вниз.</p></div>
+            </li>
+            <li class="dist-step">
+                <span class="dist-step__icon dist-step__icon--app"><img src="/icons/apple-touch-icon.png" alt="" width="40" height="40"></span>
+                <div><h3>Нажмите «Добавить»</h3><p>Иконка «Кружки» появится на экране «Домой». Запускайте приложение с неё.</p></div>
+            </li>
+        </ol>
+
+        <section class="dist-card">
+            <h2>Уведомления о переносах</h2>
+            <p>Откройте нужный кружок в установленном приложении и нажмите «Уведомлять». Нужен iOS 16.4 или новее — в обычной вкладке Safari уведомления не работают, это ограничение Apple.</p>
+        </section>
+        <p class="dist-foot">Android? <a href="/android/">Скачать приложение для Android</a></p>
+    </main>
+    <script type="module" src="/js/distribution.js"></script>
+    <script type="module" src="/js/settings.js"></script>
+    <script type="module" src="/js/pwa-register.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,29 @@
+{
+  "name": "clubs-schedule-android",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Android (Capacitor) клиент для сайта «Расписание кружков». Исходники сайта не меняются: копия frontend/ + shim.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepare-web": "node scripts/prepare-web.mjs",
+    "apk": "node scripts/build-apk.mjs",
+    "apk:release-check": "node scripts/build-apk.mjs --check-only",
+    "test:web": "python tests/run_shim_tests.py"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/status-bar": "^8.0.4",
+    "@ebarooni/capacitor-calendar": "^8.10.0",
+    "jsqr": "^1.4.0"
+  }
+}

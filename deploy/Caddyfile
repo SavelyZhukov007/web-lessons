@@ -1,0 +1,18 @@
+# Домен из .env (SITE_ADDRESS). Примеры:
+#   SITE_ADDRESS=clubs.school.example   — публичный домен, сертификат Let's Encrypt автоматически
+#   SITE_ADDRESS=clubs.lan              — внутренний адрес: сертификат от внутреннего CA Caddy (tls internal), см. docs/DEPLOY_COLLEGE.md
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	request_body {
+		max_size 1MB
+	}
+	{$CADDY_TLS:}
+	reverse_proxy app:8000 {
+		health_uri /readyz
+		health_interval 15s
+	}
+	log {
+		output stdout
+		format json
+	}
+}

@@ -1,7 +1,6 @@
-from datetime import date
-import hashlib
 import pytest
 from sqlalchemy import select
+
 from backend.app.database import Base, SessionLocal
 from backend.app.models.category import Category
 from backend.app.models.club import Club

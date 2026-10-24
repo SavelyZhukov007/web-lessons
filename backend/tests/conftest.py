@@ -1,21 +1,20 @@
 import os
 from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 TEST_DB = Path(__file__).resolve().parents[2] / "test.sqlite3"
 os.environ["CLUBS_SCHEDULE_DB_PATH"] = str(TEST_DB)
+os.environ["ENV"] = "test"
+os.environ["CLUBS_USE_CREATE_ALL"] = "1"  # быстрые тесты; миграции проверяет test_migrations.py
+os.environ.setdefault("SCRYPT_LOG_N", "12")  # быстрые хэши в тестах; прод-параметры проверяются отдельно
+os.environ.setdefault("JWT_SECRET", "test-secret-" + "x" * 40)
+os.environ.setdefault("VAPID_KEYS_FILE", str(TEST_DB.with_name("test_vapid_keys.json")))
 
 from backend.app import models  # noqa: F401
 from backend.app.database import Base, engine
 from backend.app.main import app
-from backend.app.routers import admin as admin_router
-
-
-@pytest.fixture(autouse=True)
-def isolated_login_attempts(monkeypatch):
-    # Каждый тест начинает с чистого счётчика, включая тесты блокировки входа.
-    monkeypatch.setattr(admin_router, "login_attempts_by_ip", {})
 
 
 @pytest.fixture(autouse=True)
@@ -30,8 +29,13 @@ def clean_database():
 def cleanup_database_file():
     yield
     engine.dispose()
-    if TEST_DB.exists():
-        TEST_DB.unlink()
+    for suffix in ("", "-wal", "-shm"):
+        path = Path(str(TEST_DB) + suffix)
+        if path.exists():
+            path.unlink()
+    vapid = TEST_DB.with_name("test_vapid_keys.json")
+    if vapid.exists():
+        vapid.unlink()
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
-from pydantic import ConfigDict
-from pydantic import StrictBool
-from .common import InputSchema, Name, PositiveId, Text, UpdateSchema
+from pydantic import ConfigDict, StrictBool
+
 from .category import CategoryRead
+from .common import InputSchema, Name, PositiveId, Text, UpdateSchema
 from .leader import LeaderRead
 from .session import SessionWithRoomRead
 from .session_exception import SessionExceptionRead

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Отметиться на занятии — Кружки</title>
+    <script src="/js/theme-init.js"></script>
+    <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="/css/campus.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/platform.css">
+    <script src="/js/jsQR.js"></script>
+</head>
+<body class="campus-page">
+    <header class="campus-header">
+        <a class="campus-brand" href="/" aria-label="Кружки — главная"><span>кружки<i aria-hidden="true"></i></span><small>КИПФИН</small></a>
+    </header>
+    <main id="public-main" tabindex="-1" class="itc-qr">
+        <a class="public-back" href="/">← К расписанию</a>
+        <h1>Отметиться на занятии</h1>
+        <p class="itc-muted">Наведите камеру на QR-код, который показывает преподаватель. Отправляется только ваш анонимный ID.</p>
+        <div id="qr-who" class="itc-qr-name"></div>
+        <button type="button" id="qr-start" class="itc-scan-card">
+            <span class="itc-scan-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10"/></svg></span>
+            <span class="itc-scan-tx"><b>Сканировать</b><small>Откроется камера — наведите её на QR-код преподавателя</small></span>
+        </button>
+        <p id="qr-status" role="status" aria-live="polite" class="itc-qr-status"></p>
+        <div id="qr-cam" class="itc-cam" hidden>
+            <video id="qr-video" playsinline muted></video><canvas id="qr-canvas" hidden></canvas>
+            <div class="itc-cam-win" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+            <button type="button" id="qr-close" class="itc-cam-btn itc-cam-close" aria-label="Закрыть">✕</button>
+            <p class="itc-cam-hint">Наведите камеру на QR-код преподавателя</p>
+            <button type="button" id="qr-torch" class="itc-cam-btn itc-cam-torch" aria-label="Фонарик" hidden><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M7 2h10v4l-3 4v12h-4V10L7 6z"/></svg></button>
+        </div>
+        <details class="itc-qr-manual"><summary>Ввести код вручную</summary>
+            <form id="qr-manual"><input id="qr-code" placeholder="itc-att2…" autocapitalize="off" autocomplete="off"><button type="submit">Отметиться</button></form>
+        </details>
+    </main>
+    <script src="/js/vendor/qrcode.js"></script>
+    <script src="/js/qr-checkin.js"></script>
+</body>
+</html>

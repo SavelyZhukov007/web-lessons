@@ -1,0 +1,71 @@
+/* Анимации APK (только www/ приложения): общие токены движения Material 3, только transform/opacity.
+ * prefers-reduced-motion: сдвиги/масштаб обнуляются — остаются короткие затухания. */
+:root {
+  --m-ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --m-ease-decel: cubic-bezier(.05, .7, .1, 1);      /* emphasized decelerate — вход */
+  --m-ease-accel: cubic-bezier(.3, 0, .8, .15);       /* emphasized accelerate — выход */
+  --m-dur-short: 180ms; --m-dur-medium: 240ms; --m-dur-long: 280ms;
+  --m-shift: 28px; --m-scale-from: .92; --m-stagger: 30ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --m-shift: 0px; --m-scale-from: 1; --m-stagger: 0ms; --m-dur-medium: 150ms; --m-dur-long: 150ms; }
+}
+
+/* тапы блокируются, пока идёт переход */
+html.m-busy body { pointer-events: none; }
+
+/* ---- переходы между экранами: View Transitions (кросс-документные), иначе — запасной вход/выход ---- */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: m-out-fwd var(--m-dur-short) var(--m-ease-accel) both; }
+::view-transition-new(root) { animation: m-in-fwd var(--m-dur-long) var(--m-ease-decel) both; }
+html:active-view-transition-type(back)::view-transition-old(root) { animation-name: m-out-back; }
+html:active-view-transition-type(back)::view-transition-new(root) { animation-name: m-in-back; }
+html:active-view-transition-type(theme)::view-transition-old(root),
+html:active-view-transition-type(theme)::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+html:active-view-transition-type(theme)::view-transition-old(root) { animation: m-fade-out var(--m-dur-long) var(--m-ease-standard) both; }
+@keyframes m-in-fwd { from { opacity: 0; transform: translateX(var(--m-shift)); } }
+@keyframes m-out-fwd { to { opacity: 0; transform: translateX(calc(var(--m-shift) * -.4)); } }
+@keyframes m-in-back { from { opacity: 0; transform: translateX(calc(var(--m-shift) * -1)); } }
+@keyframes m-out-back { to { opacity: 0; transform: translateX(calc(var(--m-shift) * .4)); } }
+@keyframes m-fade-in { from { opacity: 0; } }
+@keyframes m-fade-out { to { opacity: 0; } }
+@keyframes m-rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes m-sheet-in { from { transform: translateY(100%); } }
+@keyframes m-pop-in { from { opacity: 0; transform: scale(var(--m-scale-from)); } }
+
+html.m-enter-fwd body > :not(.m-fixed) { animation: m-in-fwd var(--m-dur-long) var(--m-ease-decel) both; }
+html.m-enter-back body > :not(.m-fixed) { animation: m-in-back var(--m-dur-long) var(--m-ease-decel) both; }
+html.m-leave-fwd body > * { animation: m-out-fwd var(--m-dur-short) var(--m-ease-accel) both; }
+html.m-leave-back body > * { animation: m-out-back var(--m-dur-short) var(--m-ease-accel) both; }
+
+/* ---- вкладки админки (hash-маршруты): кросс-фейд содержимого ---- */
+html.is-native #admin-main.m-swap { animation: m-fade-in var(--m-dur-medium) var(--m-ease-standard) both; }
+
+/* ---- нижняя навигация: подвижный индикатор-«пилюля» ---- */
+html.is-native .bottom-nav { isolation: isolate; }
+html.is-native .bottom-nav.m-has-ind a[aria-current="page"] .bn-pill { background: transparent !important; }
+html.is-native .bottom-nav .m-ind { position: absolute; z-index: -1; top: 8px; left: 0; height: 30px; width: 56px; border-radius: 15px;
+  background: var(--primary-container); transition: transform var(--m-dur-medium) var(--m-ease-standard); will-change: transform; pointer-events: none; }
+html.is-native .bottom-nav .bn-label { transition: opacity var(--m-dur-short) var(--m-ease-standard); }
+
+/* ---- дни недели: подвижный индикатор выбранного дня + кросс-фейд списка ---- */
+html.is-native .m-xfade { animation: m-fade-in var(--m-dur-medium) var(--m-ease-standard) both; }
+
+/* ---- шторки и диалоги ---- */
+html.is-native dialog.sheet--bottom[open], html.is-native .itc-sheet .itc-sheet-card { animation: m-sheet-in var(--m-dur-long) var(--m-ease-decel) both; }
+html.is-native dialog[open]:not(.sheet--bottom) { animation: m-pop-in var(--m-dur-medium) var(--m-ease-decel) both; }
+html.is-native dialog[open]::backdrop, html.is-native .itc-sheet { animation: m-fade-in var(--m-dur-medium) var(--m-ease-standard) both; }
+html.is-native dialog.m-closing, html.is-native .itc-sheet-card.m-closing { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  html.is-native dialog.sheet--bottom[open], html.is-native .itc-sheet .itc-sheet-card { animation-name: m-fade-in; }
+}
+
+/* ---- элементы списков: появление с небольшой задержкой по очереди ---- */
+html.is-native .m-item-in { animation: m-rise var(--m-dur-medium) var(--m-ease-decel) both; animation-delay: calc(var(--m-i, 0) * var(--m-stagger)); }
+@media (prefers-reduced-motion: reduce) { html.is-native .m-item-in { animation-name: m-fade-in; } }
+
+/* ---- уведомления (snackbar/toast) ---- */
+html.is-native .snackbar { animation: m-rise var(--m-dur-medium) var(--m-ease-decel) both; }
+
+/* ---- раскрывающиеся блоки ---- */
+html.is-native #filter-options, html.is-native details > :not(summary) { transform-origin: top center; }

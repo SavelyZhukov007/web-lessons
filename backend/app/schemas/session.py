@@ -1,4 +1,5 @@
 from pydantic import ConfigDict
+
 from .common import Clock, IntervalSchema, PositiveId, UpdateSchema, Weekday
 from .room import RoomRead
 

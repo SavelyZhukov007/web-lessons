@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_next_name">Следующее занятие</string>
+    <string name="widget_next_desc">Ближайшее занятие ваших кружков: время, аудитория, переносы</string>
+    <string name="widget_today_name">Сегодня</string>
+    <string name="widget_today_desc">Все занятия ваших кружков на сегодня</string>
+    <string name="shortcut_schedule">Расписание</string>
+    <string name="shortcut_my">Мои кружки</string>
+    <string name="shortcut_clubs">Все кружки</string>
+    <string name="shortcut_qr">Отметиться</string>
+    <string name="shortcut_today">Сегодня</string>
+    <string name="shortcut_teacher_qr">Мой QR</string>
+    <string name="shortcut_teacher_qr_long">QR для отметки на моём занятии</string>
+    <string name="shortcut_qr_long">Отметиться на занятии по QR-коду</string>
+</resources>

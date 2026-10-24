@@ -1,30 +1,13 @@
 # Быстрый старт
 
-## Что уже реализовано
+Полная инструкция — в `README.md` (раздел «Быстрый запуск»). Кратко:
 
-- единый FastAPI-сервер для страниц и API;
-- SQLite-модели и автоматическое создание таблиц;
-- публичные маршруты чтения расписания и справочников;
-- защищённая админка со входом, выходом и CRUD-операциями;
-- создание администратора через отдельную Python-команду;
-- тесты API и бизнес-логики для базовых сценариев.
-
-## Как запустить
-
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r backend\requirements.lock.txt
-.\.venv\Scripts\python.exe server.py
+```bash
+python3 -m venv .venv && ./.venv/bin/pip install -r backend/requirements.lock.txt   # Windows: .venv\Scripts\pip
+./.venv/bin/python server.py admin create admin      # пароль ≥ 10 символов
+./.venv/bin/python server.py seed                    # демо-данные (по желанию)
+./.venv/bin/python server.py                         # http://127.0.0.1:8000
 ```
 
-## Как создать администратора
-
-```powershell
-.\.venv\Scripts\python.exe -m backend.scripts.create_admin --login admin
-```
-
-## Что ещё остаётся вне текущей задачи
-
-- `backend.scripts.seed` всё ещё заглушка;
-- автоматическая доменная проверка конфликтов расписания ещё не встроена в административные маршруты;
-- публичные страницы используют тот же backend API, но начальные данные нужно добавить через админку или напрямую в базу.
+Что где: `docs/api-contract.md` (API), `docs/security.md`, `docs/database.md`, `docs/conflicts.md`, `docs/deploy.md` + `docs/DEPLOY_COLLEGE.md`, `docs/runbook.md`, `docs/qa-checklist.md` (ручная проверка).
+Открытые вопросы: `docs/domain-term.md` (учебный период/каникулы).

@@ -1,0 +1,150 @@
+/* ===== Общие компоненты: кнопки, поля, карточки, диалоги, segmented, snackbar, бейджи =====
+   Один набор разметки, внешний вид — через токены и классы .platform-* (см. platform.css). */
+
+.campus-page { font-family: var(--font-ui); }
+
+/* ---------- Кнопки ---------- */
+.campus-page .btn,
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: var(--tap); padding: 10px 18px; border-radius: var(--radius-control);
+    border: 1px solid var(--outline); background: transparent; color: var(--primary);
+    font: inherit; font-size: calc(14px * var(--text-scale)); font-weight: 500; line-height: 1.2; text-align: center; cursor: pointer;
+    text-decoration: none;
+}
+.campus-page .btn:hover { border-color: var(--primary); text-decoration: none; }
+.campus-page .btn--filled { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.campus-page .btn--filled:hover { border-color: var(--primary); filter: brightness(1.06); }
+.campus-page .btn--tonal { background: var(--primary-container); color: var(--on-primary-container); border-color: transparent; }
+.campus-page .btn--text { border-color: transparent; padding-left: 12px; padding-right: 12px; }
+.campus-page .btn--text:hover { background: var(--surface-2); border-color: transparent; }
+.campus-page .btn--danger { background: var(--danger); color: var(--on-danger); border-color: var(--danger); }
+.campus-page .btn--outline-danger { color: var(--danger); border-color: var(--danger); }
+.campus-page .btn--small { min-height: 36px; padding: 6px 12px; font-size: calc(13px * var(--text-scale)); }
+.campus-page .btn--block { width: 100%; }
+.campus-page .icon-button { color: inherit; }
+
+/* ---------- Поля ---------- */
+.field { display: grid; gap: 6px; font-size: calc(12px * var(--text-scale)); color: var(--muted); min-width: 0; }
+.field > .field-label { font-weight: 500; }
+.campus-page .field input, .campus-page .field select, .campus-page .field textarea,
+.campus-page input[type=text], .campus-page input[type=password], .campus-page input[type=url], .campus-page input[type=search], .campus-page input[type=time], .campus-page input[type=date], .campus-page input[type=number], .campus-page textarea {
+    background: var(--bg); color: var(--ink); border: 1px solid var(--outline); border-radius: var(--radius-field, var(--radius-control));
+    min-height: var(--tap); padding: 10px 12px; font: inherit; font-size: calc(14px * var(--text-scale)); width: 100%;
+}
+.campus-page textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
+.campus-page input:focus-visible, .campus-page select:focus-visible, .campus-page textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; border-color: var(--primary); }
+.field-hint { font-size: calc(12px * var(--text-scale)); color: var(--muted); }
+.field-error { font-size: calc(12px * var(--text-scale)); color: var(--danger); }
+.campus-page input[aria-invalid=true], .campus-page select[aria-invalid=true], .campus-page textarea[aria-invalid=true] { border-color: var(--danger); }
+.checkbox { display: flex; align-items: center; gap: 10px; min-height: var(--tap); color: var(--ink); font-size: calc(14px * var(--text-scale)); }
+.checkbox input { width: 20px; height: 20px; min-height: 0; accent-color: var(--primary); }
+.form-grid { display: grid; gap: 16px; }
+.form-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-actions { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+legend { padding: 0; font-weight: 500; color: var(--ink); font-size: calc(14px * var(--text-scale)); margin-bottom: 8px; }
+
+/* ---------- Карточки, списки ---------- */
+.card { background: var(--surface-1); border: 1px solid var(--outline-variant); border-radius: var(--radius-card, var(--radius-l)); padding: 20px; }
+.platform-android .card { border-color: transparent; background: var(--surface-1); }
+.platform-ios .card { border-color: transparent; background: var(--surface-1); }
+.card h2, .card h3 { margin: 0 0 8px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink); font-size: calc(12px * var(--text-scale)); font-weight: 500; line-height: 1.6; }
+.badge--moved { background: var(--status-moved-bg); color: var(--status-moved-fg); }
+.badge--cancelled { background: var(--status-cancelled-bg); color: var(--status-cancelled-fg); }
+.badge--ok { background: var(--status-ok-bg); color: var(--status-ok-fg); }
+.empty-state { padding: 40px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--outline-variant); border-radius: var(--radius-card, var(--radius-l)); }
+.empty-state strong { display: block; color: var(--ink); font-size: calc(17px * var(--text-scale)); margin-bottom: 6px; }
+.error-state { border-left: 3px solid var(--danger); background: var(--status-cancelled-bg); color: var(--status-cancelled-fg); padding: 14px 16px; border-radius: 0 var(--radius-m) var(--radius-m) 0; }
+.skeleton { background: linear-gradient(90deg, var(--surface-1), var(--surface-2), var(--surface-1)); background-size: 200% 100%; animation: shimmer 1.3s linear infinite; border-radius: var(--radius-m); min-height: 20px; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ---------- Диалог / bottom sheet ---------- */
+dialog.sheet {
+    border: 0; padding: 0; background: var(--bg); color: var(--ink); border-radius: var(--radius-dialog);
+    width: min(520px, calc(100vw - 32px)); max-height: min(88vh, 760px); box-shadow: var(--shadow); overflow: hidden;
+}
+dialog.sheet[open] { display: flex; flex-direction: column; }
+dialog.sheet::backdrop { background: var(--scrim); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 8px; }
+.sheet-head h2 { margin: 0; font-size: calc(20px * var(--text-scale)); font-weight: 600; letter-spacing: -.01em; }
+.sheet-body { padding: 8px 20px 20px; overflow-y: auto; display: grid; gap: 22px; }
+.sheet-foot { padding: 12px 20px calc(16px + var(--safe-bottom)); display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--outline-variant); }
+.sheet-section > h3 { margin: 0 0 10px; font-size: calc(13px * var(--text-scale)); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.platform-android dialog.sheet .sheet-head h2 { font-weight: 400; }
+@media (max-width: 599px) {
+    dialog.sheet.sheet--bottom { width: 100vw; max-width: 100vw; margin: auto 0 0; border-radius: 28px 28px 0 0; max-height: 92vh; }
+    .platform-ios dialog.sheet.sheet--bottom { border-radius: 14px 14px 0 0; }
+    dialog.sheet.sheet--bottom[open] { animation: sheet-up .22s ease-out; }
+}
+@keyframes sheet-up { from { transform: translateY(40px); opacity: .4; } }
+@media (max-width: 599px) {
+    .sheet--bottom .sheet-head { position: relative; padding-top: 26px; }
+    .sheet--bottom .sheet-head::before { content: ""; position: absolute; top: 8px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--outline); opacity: .6; }
+}
+
+/* ---------- Segmented control (тема, размер текста…) ---------- */
+.segmented { display: inline-flex; max-width: 100%; }
+.segmented label { position: relative; display: flex; min-width: 0; }
+.segmented input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.segmented span { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; min-height: 40px; font-size: calc(13px * var(--text-scale)); font-weight: 500; color: var(--ink); white-space: nowrap; }
+.segmented input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* По умолчанию (десктоп): плоский segmented */
+.segmented { border: 1px solid var(--outline); border-radius: var(--radius-control); overflow: hidden; }
+.segmented label + label { border-left: 1px solid var(--outline); }
+.segmented input:checked + span { background: var(--primary-container); color: var(--on-primary-container); }
+/* Android — M3 segmented button: «таблетка», галочка у выбранного */
+.platform-android .segmented { border-radius: 20px; }
+.platform-android .segmented input:checked + span::before { content: "✓"; font-weight: 700; }
+/* iOS — UISegmentedControl: серая дорожка + белый «бегунок» */
+.platform-ios .segmented { border: 0; background: var(--surface-2); padding: 2px; border-radius: 9px; }
+.platform-ios .segmented label + label { border-left: 0; }
+.platform-ios .segmented span { border-radius: 7px; min-height: 32px; padding: 4px 12px; }
+.platform-ios .segmented input:checked + span { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+
+/* Выбор акцента: цветные «чипы» */
+.swatches { display: flex; gap: 12px; flex-wrap: wrap; }
+.swatch { position: relative; width: 44px; height: 44px; }
+.swatch input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; }
+.swatch span { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--sw); border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--outline); }
+.swatch input:checked + span { box-shadow: 0 0 0 3px var(--ink); }
+.swatch input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 4px; }
+
+/* ---------- Snackbar (live region) ---------- */
+.snackbar-host { position: fixed; left: 0; right: 0; bottom: calc(16px + var(--safe-bottom)); display: grid; justify-items: center; gap: 8px; z-index: 60; pointer-events: none; padding: 0 16px; }
+.snackbar { pointer-events: auto; max-width: 560px; background: var(--ink); color: var(--bg); padding: 12px 16px; border-radius: var(--radius-m); box-shadow: var(--shadow); font-size: calc(14px * var(--text-scale)); display: flex; gap: 16px; align-items: center; }
+.platform-android .snackbar { border-radius: 6px; }
+.platform-ios .snackbar { border-radius: 14px; }
+.snackbar--error { background: var(--danger); color: var(--on-danger); }
+.snackbar button { color: inherit; background: transparent; border: 0; font-weight: 600; cursor: pointer; padding: 4px 8px; min-height: 32px; }
+
+/* ---------- Таблицы ---------- */
+.table-wrap { overflow-x: auto; border: 1px solid var(--outline-variant); border-radius: var(--radius-card, var(--radius-l)); }
+table.data { width: 100%; border-collapse: collapse; font-size: calc(14px * var(--text-scale)); }
+table.data th { text-align: left; font-weight: 600; color: var(--muted); font-size: calc(12px * var(--text-scale)); text-transform: uppercase; letter-spacing: .05em; padding: 12px 14px; background: var(--surface-1); white-space: nowrap; }
+table.data td { padding: 12px 14px; border-top: 1px solid var(--outline-variant); vertical-align: top; }
+table.data td.actions { white-space: nowrap; text-align: right; }
+@media (max-width: 719px) {
+    table.data.cards, table.data.cards tbody, table.data.cards tr, table.data.cards td { display: block; width: 100%; }
+    table.data.cards thead { display: none; }
+    table.data.cards tr { padding: 12px 14px; border-top: 1px solid var(--outline-variant); }
+    table.data.cards td { border: 0; padding: 3px 0; }
+    table.data.cards td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-size: calc(12px * var(--text-scale)); }
+    table.data.cards td.actions { text-align: left; padding-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .table-wrap { border: 0; }
+}
+
+/* ---------- Кнопка настроек в шапке ---------- */
+.campus-page .settings-button, .settings-button { display: inline-flex; align-items: center; justify-content: center; width: var(--tap); height: var(--tap); padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; flex-shrink: 0; }
+.campus-page .settings-button:hover, .settings-button:hover { background: var(--surface-2); }
+.settings-button .ui-icon { width: 22px; height: 22px; }
+
+/* Образцы акцентов в настройках (цвет следует теме) */
+.swatch[data-accent="brick"] { --sw: #b83b29; } .swatch[data-accent="blue"] { --sw: #1a5fb4; } .swatch[data-accent="green"] { --sw: #17683a; } .swatch[data-accent="violet"] { --sw: #6a3fc4; }
+:root[data-theme="dark"] .swatch[data-accent="brick"] { --sw: #ff9a85; } :root[data-theme="dark"] .swatch[data-accent="blue"] { --sw: #9bc2ff; }
+:root[data-theme="dark"] .swatch[data-accent="green"] { --sw: #86d9a1; } :root[data-theme="dark"] .swatch[data-accent="violet"] { --sw: #cdb6ff; }
+
+/* Поле поиска с иконкой слева (иконка позиционируется в schedule.css; здесь — отступ, чтобы перебить общее правило полей) */
+.campus-page .search-input input[type=search] { padding-left: 40px; }
+@media (max-width: 599px) { .campus-page .search-input input[type=search] { padding-left: 36px; } }

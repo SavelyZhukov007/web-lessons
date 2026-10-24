@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ярлыки приложения (долгое нажатие на иконку). Ведут на itckruzhki://open/…, маршрут разбирает js/native-features.js. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="qr" android:enabled="true" android:icon="@drawable/ic_shortcut_qr"
+        android:shortcutShortLabel="@string/shortcut_qr" android:shortcutLongLabel="@string/shortcut_qr_long">
+        <intent android:action="android.intent.action.VIEW" android:data="itckruzhki://open/scan"
+            android:targetPackage="PACKAGE_NAME" android:targetClass="ru.kipfin.clubs.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="schedule" android:enabled="true" android:icon="@drawable/ic_shortcut_schedule"
+        android:shortcutShortLabel="@string/shortcut_today">
+        <intent android:action="android.intent.action.VIEW" android:data="itckruzhki://open/today"
+            android:targetPackage="PACKAGE_NAME" android:targetClass="ru.kipfin.clubs.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="my" android:enabled="true" android:icon="@drawable/ic_shortcut_my"
+        android:shortcutShortLabel="@string/shortcut_my">
+        <intent android:action="android.intent.action.VIEW" android:data="itckruzhki://open/my"
+            android:targetPackage="PACKAGE_NAME" android:targetClass="ru.kipfin.clubs.MainActivity" />
+    </shortcut>
+</shortcuts>

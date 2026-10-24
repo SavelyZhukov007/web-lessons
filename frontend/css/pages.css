@@ -1,0 +1,41 @@
+/* Публичные страницы: каталог кружков и страница кружка. Только токены из tokens.css. */
+.directory-meta { margin: 0; color: var(--muted); font-size: calc(14px * var(--text-scale)); }
+.club-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 16px; align-items: end; margin-bottom: 28px; }
+.club-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.club-card { display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid var(--outline-variant); border-radius: var(--radius-card, var(--radius-l)); background: var(--bg); color: inherit; min-height: 150px; }
+.platform-android .club-card, .platform-ios .club-card { background: var(--surface-1); border-color: transparent; }
+.campus-page a.club-card:hover { border-color: var(--primary); text-decoration: none; }
+.club-card h2 { margin: 0; font-size: calc(19px * var(--text-scale)); font-weight: 600; letter-spacing: -.02em; line-height: 1.25; overflow-wrap: anywhere; }
+.club-card p { margin: 0; color: var(--muted); font-size: calc(14px * var(--text-scale)); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.club-card .club-meta { margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: calc(13px * var(--text-scale)); color: var(--muted); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--dot, var(--muted)); flex-shrink: 0; }
+.club-detail { display: grid; gap: 28px; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+.club-detail > .detail-copy { grid-column: 1 / -1; }
+.club-detail section { min-width: 0; }
+.club-detail h2, .club-detail h3 { margin: 0 0 12px; font-size: calc(18px * var(--text-scale)); letter-spacing: -.015em; }
+.club-detail .column { display: grid; gap: 28px; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+.facts dt { color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.slot-list, .change-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.slot-list li, .change-list li { display: flex; gap: 12px; justify-content: space-between; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--outline-variant); border-radius: var(--radius-card, var(--radius-l)); }
+.slot-day { font-weight: 600; }
+.slot-time { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.change-list li { flex-direction: column; justify-content: flex-start; gap: 4px; }
+.change-list .badge { align-self: flex-start; }
+.club-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.push-card .btn { margin-top: 8px; }
+.push-card p { margin: 0 0 4px; }
+@media (max-width: 899px) { .club-detail { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 599px) {
+    .club-filters { grid-template-columns: minmax(0, 1fr); }
+    .club-grid { grid-template-columns: minmax(0, 1fr); }
+    .public-title { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+.club-card .club-arrow { margin-left: auto; color: var(--primary); }
+
+/* Страница установки */
+.install-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 24px; }
+.install-grid .is-current { outline: 2px solid var(--primary); order: -1; }
+.install-grid .is-other { opacity: .85; }
+.steps { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 10px; line-height: 1.5; }

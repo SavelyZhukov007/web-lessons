@@ -1,32 +1,78 @@
 import { getClub } from './api.js';
+import { h, icon } from './ui.js';
+import { mountClubPush } from './push.js';
 
 const content = document.querySelector('#content');
 const heading = document.querySelector('#club-name');
+const badge = document.querySelector('#club-category');
 const id = Number(new URLSearchParams(location.search).get('id'));
+
+const DAYS = { 1: 'Понедельник', 2: 'Вторник', 3: 'Среда', 4: 'Четверг', 5: 'Пятница', 6: 'Суббота', 7: 'Воскресенье' };
+const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const formatDate = key => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key || '');
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : String(key || '');
+};
+
+function sessionsBlock(club) {
+  const items = [...club.sessions].sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time));
+  return h('section', { 'aria-labelledby': 'sessions-title' }, h('h2', { id: 'sessions-title' }, 'Расписание'),
+    items.length
+      ? h('ul', { class: 'slot-list' }, items.map(s => h('li', {}, h('span', { class: 'slot-day' }, DAYS[s.weekday] || `День ${s.weekday}`),
+        h('span', { class: 'slot-time' }, `${s.start_time}–${s.end_time}`), h('span', {}, s.room?.name || ''))))
+      : h('div', { class: 'empty-state' }, 'Занятий в расписании пока нет.'));
+}
+
+function changesBlock(club) {
+  const sessions = new Map(club.sessions.map(s => [s.id, s]));
+  const items = [...club.upcoming_exceptions].sort((a, b) => a.original_date.localeCompare(b.original_date));
+  return h('section', { 'aria-labelledby': 'changes-title' }, h('h2', { id: 'changes-title' }, 'Ближайшие изменения'),
+    items.length
+      ? h('ul', { class: 'change-list' }, items.map(x => {
+        const moved = x.type === 'moved';
+        const s = sessions.get(x.session_id);
+        return h('li', {}, h('span', { class: `badge ${moved ? 'badge--moved' : 'badge--cancelled'}` }, moved ? 'Перенос' : 'Отмена'),
+          h('span', {}, moved
+            ? `${formatDate(x.original_date)}${s ? ` ${s.start_time}` : ''} → ${formatDate(x.new_date)}, ${x.new_start_time}–${x.new_end_time}`
+            : `${formatDate(x.original_date)}${s ? `, ${s.start_time}–${s.end_time}` : ''} — занятия не будет`),
+          x.comment ? h('span', { class: 'field-hint' }, x.comment) : null);
+      }))
+      : h('p', { class: 'directory-copy' }, 'Изменений нет — занятия идут по расписанию.'));
+}
+
+function render(club) {
+  heading.textContent = club.name;
+  document.title = `${club.name} — КИПФИН`;
+  if (club.category?.name) {
+    badge.textContent = club.category.name;
+    badge.hidden = false;
+  }
+  const leader = club.leader;
+  const facts = h('dl', { class: 'facts' });
+  if (leader) {
+    facts.append(h('dt', {}, 'Руководитель'), h('dd', {}, leader.name));
+    if (leader.position) facts.append(h('dt', {}, 'Должность'), h('dd', {}, leader.position));
+    if (leader.contact) facts.append(h('dt', {}, 'Контакты'), h('dd', {}, leader.contact));
+  }
+  const side = h('div', { class: 'column' },
+    h('section', { class: 'card' }, h('h2', {}, 'О кружке'), facts.children.length ? facts : h('p', {}, 'Сведений о руководителе пока нет.'),
+      h('div', { class: 'club-actions' }, h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics` }, icon('calendar'), 'В календарь (.ics)'))));
+  const main = h('div', { class: 'column' }, sessionsBlock(club), changesBlock(club));
+  content.replaceChildren(
+    h('p', { class: 'detail-copy' }, club.description || 'Описание кружка пока не добавлено.'), main, side);
+  mountClubPush(side, club.id).catch(() => {});
+}
 
 async function load() {
   content.setAttribute('aria-busy', 'true');
   try {
-    const club = await getClub(id);
-    heading.textContent = club.name;
-    document.title = `${club.name} — кружки.`;
-    const description = document.createElement('p');
-    description.className = 'detail-copy';
-    description.textContent = club.description || 'Описание кружка пока не добавлено.';
-    content.replaceChildren(description);
+    render(await getClub(id));
   } catch (error) {
-    if (error.status === 404) heading.textContent = 'Кружок не найден';
-    const message = document.createElement('p');
-    message.className = 'detail-copy';
-    message.textContent = error.message;
-    content.replaceChildren(message);
-    if (error.status !== 404) {
-      const retry = document.createElement('button');
-      retry.type = 'button';
-      retry.textContent = 'Повторить попытку';
-      retry.addEventListener('click', load);
-      content.append(retry);
-    }
+    if (error.status === 404) { heading.textContent = 'Кружок не найден'; document.title = 'Кружок не найден — КИПФИН'; }
+    const box = h('div', { class: error.status === 404 ? 'empty-state' : 'error-state', role: error.status === 404 ? undefined : 'alert' }, h('p', {}, error.message));
+    if (error.status !== 404) box.append(h('button', { type: 'button', class: 'btn btn--small', onclick: load }, 'Повторить попытку'));
+    else box.append(h('a', { class: 'btn btn--tonal', href: '/clubs.html' }, 'К списку кружков'));
+    content.replaceChildren(box);
   } finally {
     content.setAttribute('aria-busy', 'false');
   }

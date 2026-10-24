@@ -1,16 +1,17 @@
 from pydantic import ConfigDict
-from .common import InputSchema, Name, PositiveCapacity, Text, UpdateSchema
+
+from .common import InputSchema, Name, PositiveCapacity, ShortText, UpdateSchema
 
 
 class RoomCreate(InputSchema):
     name: Name
-    building: Text = ""
+    building: ShortText = ""
     capacity: PositiveCapacity
 
 
 class RoomUpdate(UpdateSchema):
     name: Name | None = None
-    building: Text | None = None
+    building: ShortText | None = None
     capacity: PositiveCapacity | None = None
 
 
@@ -19,5 +20,5 @@ class RoomRead(InputSchema):
 
     id: int
     name: Name
-    building: Text
+    building: ShortText
     capacity: PositiveCapacity

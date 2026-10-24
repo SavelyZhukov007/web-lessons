@@ -1,18 +1,18 @@
 from copy import deepcopy
-from datetime import date, timedelta
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Any, Literal
 
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from ..models.category import Category
+from ..models.club import Club
 from ..models.leader import Leader
 from ..models.room import Room
-from ..models.club import Club
 from ..models.session import ClubSession
 from ..models.session_exception import SessionException
-
+from .clock import today_msk
 from .conflicts import find_conflicts
 from .schedule import build_week
 
@@ -412,7 +412,7 @@ class ScheduleConflictService:
                         normalize_date(exception["new_date"])
                     )
 
-            today = date.today()
+            today = today_msk()
             normal_week_start = get_week_start(today) + timedelta(days=7)
 
             while any(

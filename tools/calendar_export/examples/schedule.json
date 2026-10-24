@@ -1,0 +1,34 @@
+{
+  "club_name": "Кружок «Робототехника, шаг за шагом»",
+  "events": [
+    {
+      "event_id": "session-42:2026-10-19",
+      "date": "2026-10-19",
+      "start_time": "15:00",
+      "end_time": "16:30",
+      "room_name": "Лаборатория 303, корпус «Технопарк»",
+      "leader_name": "Анна Смирнова",
+      "status": "scheduled"
+    },
+    {
+      "event_id": "session-42:2026-10-26",
+      "date": "2026-10-26",
+      "start_time": "17:00",
+      "end_time": "18:00",
+      "room_name": "Лаборатория 303",
+      "leader_name": "Анна Смирнова",
+      "status": "moved",
+      "comment": "Перенос; вход через корпус «Б». Уточнение: https://example.test/a,b"
+    },
+    {
+      "event_id": "session-42:2026-11-02",
+      "date": "2026-11-02",
+      "start_time": "15:00",
+      "end_time": "16:30",
+      "room_name": "Лаборатория 303",
+      "leader_name": "Анна Смирнова",
+      "status": "cancelled",
+      "comment": "Занятие отменено"
+    }
+  ]
+}

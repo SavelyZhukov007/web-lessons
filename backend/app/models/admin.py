@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from ..database import Base
 
 
@@ -16,7 +18,7 @@ class Admin(Base):
         DateTime,
         default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
     )
-    sessions: Mapped[list["AdminSession"]] = relationship(
+    sessions: Mapped[list[AdminSession]] = relationship(
         back_populates="admin",
         cascade="all, delete-orphan",
     )
@@ -36,4 +38,8 @@ class AdminSession(Base):
         default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
-    admin: Mapped["Admin"] = relationship(back_populates="sessions")
+    # refresh-токен с ротацией: хранится только sha256; предыдущий — для обнаружения повторного использования
+    refresh_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
+    refresh_prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    refresh_rotated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    admin: Mapped[Admin] = relationship(back_populates="sessions")

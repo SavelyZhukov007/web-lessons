@@ -1,0 +1,26 @@
+/* Установленное PWA (phase 2 D/E). Только html.is-pwa — класс ставит pwa-standalone.js в режиме standalone;
+   в обычной вкладке браузера эти правила не срабатывают. Основной вид — css/native-shell.css (html.is-native, общий с APK). */
+html.is-pwa { overscroll-behavior-y: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html.is-pwa body { overscroll-behavior-y: none; }
+/* в PWA нечего «устанавливать» */
+html.is-pwa .install-banner, html.is-pwa a[href="/install"], html.is-pwa a[href="/ios"], html.is-pwa a[href="/android/"] { display: none !important; }
+/* без выделения/лупы iOS на «хроме» интерфейса; текст занятий выделять можно */
+html.is-pwa .campus-header, html.is-pwa .bottom-nav, html.is-pwa .itc-mybar, html.is-pwa .segmented, html.is-pwa .btn,
+html.is-pwa button, html.is-pwa .itc-chip { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* iOS: поля ввода < 16px увеличивают страницу при фокусе */
+html.is-pwa-ios input, html.is-pwa-ios select, html.is-pwa-ios textarea { font-size: max(16px, 1em); }
+/* боковые вырезы в альбомной ориентации (Dynamic Island / чёлка) */
+html.is-pwa .campus-header, html.is-pwa main, html.is-pwa .admin-main {
+  padding-left: max(var(--pwa-pad, 16px), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--pwa-pad, 16px), env(safe-area-inset-right, 0px)); }
+/* предложение включить уведомления (после звёздочки; разрешение — только по нажатию «Включить») */
+.itc-offer { position: fixed; z-index: 2147482500; left: 12px; right: 12px; bottom: calc(16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)) + var(--bottom-nav-h, 0px));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; border-radius: 16px;
+  background: var(--inverse-surface, #2f3130); color: var(--inverse-on-surface, #f1f1f1); box-shadow: 0 6px 24px rgb(0 0 0 / .25);
+  font-size: calc(14px * var(--text-scale, 1)); animation: itc-offer-in var(--m-dur-medium, 240ms) var(--m-ease-decel, cubic-bezier(.05,.7,.1,1)) both; }
+.itc-offer span { flex: 1 1 200px; min-width: 0; }
+.itc-offer button { min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; font: inherit; font-weight: 600; cursor: pointer;
+  background: var(--inverse-primary, #ffb4a8); color: var(--on-primary-container, #3b0907); }
+.itc-offer button[data-a="no"] { background: transparent; color: inherit; }
+@keyframes itc-offer-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { @keyframes itc-offer-in { from { opacity: 0; } to { opacity: 1; } } }

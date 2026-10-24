@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Иконка системного сплэша Android 12+: передний слой уменьшен (inset 9%), чтобы уголки логотипа
+     (рамка 52% слоя, диагональ ≈ 0.37 от размера) попали в безопасный круг 2/3 (радиус 0.333) и не обрезались. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@mipmap/ic_launcher_foreground"
+    android:inset="9%" />

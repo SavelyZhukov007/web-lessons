@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -23,7 +24,16 @@ engine = create_engine(
 
 @event.listens_for(engine, "connect")
 def enable_foreign_keys(connection, _):
-    connection.execute("PRAGMA foreign_keys=ON")
+    # foreign_keys — целостность; WAL + busy_timeout — параллельные чтения при записи и без "database is locked" (DB-02)
+    cursor = connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA busy_timeout=10000")
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+    except Exception:  # noqa: BLE001 — например, :memory:
+        pass
+    cursor.close()
 
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

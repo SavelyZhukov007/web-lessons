@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Следующее занятие», обычный размер (высота ≥ 2 клеток). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+   
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/widget_bg" android:orientation="horizontal"
+    android:padding="@dimen/widget_pad">
+    <FrameLayout android:layout_width="4dp" android:layout_height="match_parent"
+        android:layout_marginEnd="12dp" android:background="@drawable/widget_bar" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+        android:orientation="vertical" android:gravity="center_vertical">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Следующее занятие" android:textColor="@color/widget_accent" android:textSize="12sp"
+            android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp" android:text="Робототехника" android:textColor="@color/widget_fg"
+            android:textSize="18sp" android:textStyle="bold" android:maxLines="2" android:ellipsize="end" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp" android:text="Сегодня, 15:30–17:00" android:textColor="@color/widget_fg"
+            android:textSize="14sp" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Ауд. 214 · Иванова А. П." android:textColor="@color/widget_muted" android:textSize="13sp"
+            android:maxLines="1" android:ellipsize="end" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" android:background="@drawable/widget_chip" android:paddingStart="10dp"
+            android:paddingEnd="10dp" android:paddingTop="2dp" android:paddingBottom="2dp" android:text="Перенесено"
+            android:textColor="@color/widget_chip_fg" android:textSize="12sp" android:visibility="gone" />
+    </LinearLayout>
+</LinearLayout>

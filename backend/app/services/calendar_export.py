@@ -1,6 +1,7 @@
 from datetime import date
 
 from tools.calendar_export.generate_ics import generate_ics
+
 from .schedule import build_week
 
 

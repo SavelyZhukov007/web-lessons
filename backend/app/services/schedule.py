@@ -79,6 +79,8 @@ def build_week(week_start: date, data: dict) -> list[dict]:
                     "end_time": exception["new_end_time"],
                     "status": "moved",
                     "original_date": original_date_text,
+                    "original_start_time": session["start_time"],
+                    "original_end_time": session["end_time"],
                     "comment": exception["comment"],
                 }
             )
@@ -111,6 +113,8 @@ def build_week(week_start: date, data: dict) -> list[dict]:
                 "end_time": exception["new_end_time"],
                 "status": "moved",
                 "original_date": exception["original_date"],
+                "original_start_time": session["start_time"],
+                "original_end_time": session["end_time"],
                 "comment": exception["comment"],
             }
         )

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <script src="/js/theme-init.js"></script>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <title>Сервер — Кружки</title>
+  <script src="/js/app-shim.js"></script>
+  <style>
+    body{font:16px/1.4 var(--font-ui);margin:0;padding:calc(20px + var(--safe-top)) 20px 20px;max-width:520px;margin-inline:auto;background:var(--bg);color:var(--on-surface)}
+    h1{font-size:26px;margin:8px 0 4px} p.hint{color:var(--on-surface-muted);margin:0 0 16px}
+    label{display:block;font-weight:600;margin:16px 0 6px}
+    input{width:100%;box-sizing:border-box;min-height:48px;padding:10px 12px;font-size:17px;border:1px solid var(--outline);border-radius:8px;background:var(--bg);color:var(--on-surface)}
+    .row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap} button{min-height:48px;padding:0 18px;font-size:16px;border-radius:8px;border:1px solid var(--outline);background:var(--bg);color:var(--on-surface);cursor:pointer}
+    button.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary)} button[hidden]{display:none}
+    #status{margin-top:16px;padding:12px;border-radius:8px;min-height:1.4em;white-space:pre-wrap}
+    #status.ok{background:var(--status-ok-bg);color:var(--status-ok-fg)} #status.err{background:var(--status-cancelled-bg);color:var(--status-cancelled-fg)} #status.busy{background:var(--surface-2)}
+    details{margin-top:24px;color:var(--on-surface-muted)} code{background:var(--surface-2);padding:1px 4px;border-radius:4px}
+    a{color:var(--primary)}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Сервер расписания</h1>
+    <p class="hint" id="first-hint">Укажи адрес сервера в формате <code>http://IP:ПОРТ</code>.</p>
+    <form id="form" novalidate>
+      <label for="server-url">Server: http://IP:PORT</label>
+      <input id="server-url" name="server" inputmode="url" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="http://192.168.1.50:8000">
+      <div class="row">
+        <button type="button" id="test">Проверить соединение</button>
+        <button type="submit" id="save" class="primary">Сохранить и открыть</button>
+        <button type="button" id="force" hidden>Всё равно сохранить</button>
+      </div>
+    </form>
+    <div id="status" role="status" aria-live="polite"></div>
+    <div class="row">
+      <a href="/" id="back" hidden><button type="button">← К расписанию</button></a>
+      <button type="button" id="direct" hidden>Открыть сайт целиком (режим браузера)</button>
+      <button type="button" id="reset" hidden>Забыть сервер</button>
+    </div>
+    <details>
+      <summary>Подсказки</summary>
+      <ul>
+        <li>Эмулятор Android: <code>http://10.0.2.2:8000</code> (это компьютер‑хост).</li>
+        <li>Телефон: IP компьютера в Wi‑Fi (<code>ipconfig</code>), сервер запускать с <code>--host 0.0.0.0</code>.</li>
+        <li>Порт по умолчанию у проекта — 8000.</li>
+      </ul>
+    </details>
+  </main>
+  <script src="/js/server-setup.js"></script>
+</body>
+</html>

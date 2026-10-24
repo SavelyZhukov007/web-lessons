@@ -1,6 +1,4 @@
-// В итоговой версии все публичные страницы работают с настоящим backend.
-// true — только для локальной разработки; скрытого перехода на заглушки нет.
-export const USE_MOCKS = false;
+// Публичные страницы всегда работают с настоящим backend: мок-режима и скрытых заглушек нет.
 
 export class ApiError extends Error {
   constructor(message, status = 0, detail = null) {
@@ -21,8 +19,87 @@ function errorMessage(status, detail) {
   return `Не удалось выполнить запрос (${status}).`;
 }
 
+// В Android-приложении (есть window.AppServer) cookie сессии между origin'ами не ходят — используем Bearer-токен из ответа /login.
+// В обычном браузере токен НЕ хранится в JS: сессия живёт в HttpOnly-cookie.
+const TOKEN_KEY = 'clubs.adminToken';
+export const usesBearer = () => typeof window !== 'undefined' && !!window.AppServer;
+const REFRESH_KEY = 'clubs.adminRefresh';
+export function setAdminToken(token, refreshToken) {
+  try {
+    if (!usesBearer() || !token) return;
+    localStorage.setItem(TOKEN_KEY, token);
+    if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
+  } catch { /* ignore */ }
+}
+export function clearAdminToken() { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(REFRESH_KEY); } catch { /* ignore */ } }
+function adminToken() { try { return usesBearer() ? localStorage.getItem(TOKEN_KEY) : null; } catch { return null; } }
+
+// Ротация refresh-токена: access живёт ~15 минут; на 401 один раз обновляем пару (single-flight) и повторяем запрос.
+// В браузере refresh лежит в HttpOnly-cookie (JS его не видит), в приложении — в localStorage и уходит в теле.
+let refreshing = null;
+let generation = 0; // растёт после каждой успешной ротации: параллельные запросы с «старым» access просто повторяются
+async function refreshSession() {
+  if (!refreshing) {
+    refreshing = (async () => {
+      let body;
+      if (usesBearer()) {
+        const refresh_token = (() => { try { return localStorage.getItem(REFRESH_KEY); } catch { return null; } })();
+        if (!refresh_token) return false;
+        body = JSON.stringify({ refresh_token });
+      }
+      const response = await fetch('/api/admin/refresh', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body });
+      if (response.status === 409) { generation += 1; return true; } // другая вкладка/запрос только что обновил токены — берём актуальные
+      if (!response.ok) return false;
+      const data = await response.json();
+      setAdminToken(data.access_token, data.refresh_token);
+      generation += 1;
+      return true;
+    })().catch(() => false).finally(() => { refreshing = null; });
+  }
+  return refreshing;
+}
+
 export async function request(path, options = {}) {
+  const adminPath = path.startsWith('/api/admin') && path !== '/api/admin/login' && path !== '/api/admin/refresh';
+  const usedGeneration = generation;
+  try {
+    return await send(path, options);
+  } catch (error) {
+    if (!adminPath || error?.status !== 401) throw error;
+    const renewed = usedGeneration !== generation || (await refreshSession());
+    if (renewed) {
+      try { return await send(path, options); } catch (retryError) { if (retryError?.status !== 401) throw retryError; }
+    }
+    clearAdminToken();
+    window.dispatchEvent?.(new CustomEvent('admin:unauthorized'));
+    throw error;
+  }
+}
+
+// Файл (например, .xlsx) с авторизацией админки: {blob, name}. 401 → одна попытка обновить сессию.
+export async function requestBlob(path, { signal } = {}) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const headers = adminToken() ? { Authorization: `Bearer ${adminToken()}` } : {};
+    let response;
+    try { response = await fetch(path, { credentials: 'same-origin', headers, signal }); }
+    catch (e) { if (e.name === 'AbortError') throw e; throw new ApiError('Не удалось связаться с сервером. Проверь подключение и повтори попытку.'); }
+    if (response.status === 401 && attempt === 0 && (await refreshSession())) continue;
+    if (!response.ok) {
+      let detail; try { detail = (await response.json())?.detail; } catch { /* не JSON */ }
+      throw new ApiError(errorMessage(response.status, detail), response.status, detail);
+    }
+    const cd = response.headers.get('Content-Disposition') || '';
+    const name = decodeURIComponent((cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="?([^";]+)/i) || [])[1] || 'download');
+    return { blob: await response.blob(), name };
+  }
+  throw new ApiError(errorMessage(401));
+}
+
+async function send(path, options = {}) {
   const { signal, timeout = 15000, ...fetchOptions } = options;
+  if (path.startsWith('/api/admin') && adminToken()) {
+    fetchOptions.headers = { ...(fetchOptions.headers || {}), Authorization: `Bearer ${adminToken()}` };
+  }
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (signal?.aborted) controller.abort();
@@ -37,6 +114,10 @@ export async function request(path, options = {}) {
     try { body = raw ? JSON.parse(raw) : null; }
     catch {
       if (response.ok) throw new ApiError('Сервер вернул данные в неожиданном формате.', response.status);
+    }
+    if (response.status === 429) {
+      const wait = Number(response.headers.get('Retry-After'));
+      throw new ApiError(wait > 0 ? `Слишком много попыток. Повтори через ${Math.ceil(wait / 60)} мин.` : 'Слишком много попыток. Повтори позже.', 429, body?.detail);
     }
     if (!response.ok) throw new ApiError(errorMessage(response.status, body?.detail), response.status, body?.detail);
     return body;
@@ -59,44 +140,14 @@ function query(values) {
   return params.toString();
 }
 
-async function mockData(options) { return request('/mock-data.json', options); }
-
-export async function getCategories(options) {
-  return USE_MOCKS ? (await mockData(options)).categories : request('/api/categories', options);
-}
-
-export async function getLeaders(options) {
-  return USE_MOCKS ? (await mockData(options)).leaders : request('/api/leaders', options);
-}
-
-export async function getRooms(options) {
-  return USE_MOCKS ? (await mockData(options)).rooms : request('/api/rooms', options);
-}
-
-export async function getClubs(filters = {}, options) {
-  if (!USE_MOCKS) return request(`/api/clubs?${query(filters)}`, options);
-  return (await mockData(options)).clubs.filter(club => club.is_active
-    && (!filters.category_id || club.category_id === Number(filters.category_id))
-    && (!filters.search || `${club.name} ${club.description}`.toLocaleLowerCase('ru').includes(filters.search.toLocaleLowerCase('ru'))));
-}
+export const getCategories = options => request('/api/categories', options);
+export const getLeaders = options => request('/api/leaders', options);
+export const getRooms = options => request('/api/rooms', options);
+export const getClubs = (filters = {}, options) => request(`/api/clubs?${query(filters)}`, options);
 
 export async function getClub(id, options) {
   if (!Number.isInteger(id) || id <= 0) throw new ApiError('Кружок не найден.', 404);
-  if (!USE_MOCKS) return request(`/api/clubs/${id}`, options);
-  const club = (await getClubs({}, options)).find(item => item.id === id);
-  if (!club) throw new ApiError('Кружок не найден.', 404);
-  return club;
+  return request(`/api/clubs/${id}`, options);
 }
 
-export async function getSchedule(week, filters = {}, options) {
-  if (!USE_MOCKS) return request(`/api/schedule?${query({ week, ...filters })}`, options);
-  const { parseDate, addDays, dateKey } = await import('./schedule-dates.js');
-  const start = parseDate(week);
-  if (!start) throw new ApiError('Некорректная дата недели.', 422);
-  const end = dateKey(addDays(start, 6));
-  // В макете отбираем готовые события; генерацией повторений занимается backend.
-  return (await mockData(options)).schedule_events.filter(event => event.date >= week && event.date <= end
-    && ['category_id', 'leader_id', 'room_id'].every(key => !filters[key] || event[key] === Number(filters[key]))
-    && (!filters.weekday || parseDate(event.date)?.getDay() === Number(filters.weekday))
-    && (!filters.search || event.club_name.toLocaleLowerCase('ru').includes(filters.search.toLocaleLowerCase('ru'))));
-}
+export const getSchedule = (week, filters = {}, options) => request(`/api/schedule?${query({ week, ...filters })}`, options);

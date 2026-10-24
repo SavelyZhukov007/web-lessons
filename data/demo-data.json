@@ -1,0 +1,303 @@
+{
+  "meta": {
+    "fictional": true,
+    "description": "Демо-набор для проверки интерфейса: `python server.py seed --file data/demo-data.json`"
+  },
+  "categories": [
+    {
+      "id": 1,
+      "name": "Программирование",
+      "color": "#2563eb"
+    },
+    {
+      "id": 2,
+      "name": "Творчество",
+      "color": "#db2777"
+    },
+    {
+      "id": 3,
+      "name": "Спорт",
+      "color": "#16a34a"
+    },
+    {
+      "id": 4,
+      "name": "Наука",
+      "color": "#d97706"
+    },
+    {
+      "id": 5,
+      "name": "Языки",
+      "color": "#7c3aed"
+    }
+  ],
+  "leaders": [
+    {
+      "id": 1,
+      "name": "Иванов Пётр Сергеевич",
+      "position": "Преподаватель информатики",
+      "contact": "ivanov@example.test"
+    },
+    {
+      "id": 2,
+      "name": "Смирнова Анна Олеговна",
+      "position": "Преподаватель ИЗО",
+      "contact": "smirnova@example.test"
+    },
+    {
+      "id": 3,
+      "name": "Кузнецов Дмитрий Иванович",
+      "position": "Тренер",
+      "contact": "+7 900 000-00-01"
+    },
+    {
+      "id": 4,
+      "name": "Орлова Мария Андреевна",
+      "position": "Преподаватель физики",
+      "contact": "orlova@example.test"
+    },
+    {
+      "id": 5,
+      "name": "Петрова Елена Викторовна",
+      "position": "Преподаватель английского",
+      "contact": "petrova@example.test"
+    }
+  ],
+  "rooms": [
+    {
+      "id": 1,
+      "name": "101",
+      "building": "Главный корпус",
+      "capacity": 20
+    },
+    {
+      "id": 2,
+      "name": "205",
+      "building": "Главный корпус",
+      "capacity": 15
+    },
+    {
+      "id": 3,
+      "name": "Спортзал",
+      "building": "Корпус Б",
+      "capacity": 40
+    },
+    {
+      "id": 4,
+      "name": "Лаборатория",
+      "building": "Корпус Б",
+      "capacity": 12
+    }
+  ],
+  "clubs": [
+    {
+      "id": 1,
+      "name": "Программирование для начинающих",
+      "description": "Основы Python и веб. Приходи с ноутбуком!",
+      "category_id": 1,
+      "leader_id": 1,
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "name": "Робототехника",
+      "description": "Собираем и программируем роботов на Arduino.",
+      "category_id": 1,
+      "leader_id": 1,
+      "is_active": true
+    },
+    {
+      "id": 3,
+      "name": "Рисунок и живопись",
+      "description": "Академический рисунок, акварель, гуашь.",
+      "category_id": 2,
+      "leader_id": 2,
+      "is_active": true
+    },
+    {
+      "id": 4,
+      "name": "Театральная студия",
+      "description": "Сценическая речь и постановки.",
+      "category_id": 2,
+      "leader_id": 2,
+      "is_active": true
+    },
+    {
+      "id": 5,
+      "name": "Волейбол",
+      "description": "Секция для всех уровней.",
+      "category_id": 3,
+      "leader_id": 3,
+      "is_active": true
+    },
+    {
+      "id": 6,
+      "name": "Юный физик",
+      "description": "Опыты и олимпиадная физика.",
+      "category_id": 4,
+      "leader_id": 4,
+      "is_active": true
+    },
+    {
+      "id": 7,
+      "name": "Английский разговорный клуб",
+      "description": "Speaking practice.",
+      "category_id": 5,
+      "leader_id": 5,
+      "is_active": true
+    },
+    {
+      "id": 8,
+      "name": "Шахматы",
+      "description": "Турниры и разбор партий.",
+      "category_id": 4,
+      "leader_id": 1,
+      "is_active": true
+    },
+    {
+      "id": 9,
+      "name": "Архивный кружок (скрыт)",
+      "description": "неактивный",
+      "category_id": 1,
+      "leader_id": 1,
+      "is_active": false
+    }
+  ],
+  "sessions": [
+    {
+      "id": 1,
+      "club_id": 1,
+      "room_id": 1,
+      "weekday": 1,
+      "start_time": "15:00",
+      "end_time": "16:30"
+    },
+    {
+      "id": 2,
+      "club_id": 1,
+      "room_id": 1,
+      "weekday": 3,
+      "start_time": "15:00",
+      "end_time": "16:30"
+    },
+    {
+      "id": 3,
+      "club_id": 2,
+      "room_id": 1,
+      "weekday": 2,
+      "start_time": "16:45",
+      "end_time": "18:15"
+    },
+    {
+      "id": 4,
+      "club_id": 3,
+      "room_id": 2,
+      "weekday": 2,
+      "start_time": "14:00",
+      "end_time": "16:00"
+    },
+    {
+      "id": 5,
+      "club_id": 3,
+      "room_id": 2,
+      "weekday": 5,
+      "start_time": "10:00",
+      "end_time": "12:00"
+    },
+    {
+      "id": 6,
+      "club_id": 4,
+      "room_id": 2,
+      "weekday": 4,
+      "start_time": "17:00",
+      "end_time": "18:30"
+    },
+    {
+      "id": 7,
+      "club_id": 5,
+      "room_id": 3,
+      "weekday": 1,
+      "start_time": "18:00",
+      "end_time": "20:00"
+    },
+    {
+      "id": 8,
+      "club_id": 5,
+      "room_id": 3,
+      "weekday": 4,
+      "start_time": "18:00",
+      "end_time": "20:00"
+    },
+    {
+      "id": 9,
+      "club_id": 6,
+      "room_id": 4,
+      "weekday": 2,
+      "start_time": "15:00",
+      "end_time": "16:30"
+    },
+    {
+      "id": 10,
+      "club_id": 7,
+      "room_id": 2,
+      "weekday": 3,
+      "start_time": "16:00",
+      "end_time": "17:00"
+    },
+    {
+      "id": 11,
+      "club_id": 7,
+      "room_id": 2,
+      "weekday": 5,
+      "start_time": "16:00",
+      "end_time": "17:00"
+    },
+    {
+      "id": 12,
+      "club_id": 8,
+      "room_id": 1,
+      "weekday": 4,
+      "start_time": "13:00",
+      "end_time": "14:30"
+    },
+    {
+      "id": 13,
+      "club_id": 1,
+      "room_id": 1,
+      "weekday": 6,
+      "start_time": "09:00",
+      "end_time": "10:30"
+    },
+    {
+      "id": 14,
+      "club_id": 2,
+      "room_id": 1,
+      "weekday": 5,
+      "start_time": "12:00",
+      "end_time": "13:00"
+    }
+  ],
+  "session_exceptions": [
+    {
+      "session_id": 1,
+      "original_date": "2026-10-26",
+      "type": "cancelled",
+      "comment": "Праздничный день"
+    },
+    {
+      "session_id": 5,
+      "original_date": "2026-10-23",
+      "type": "cancelled",
+      "comment": "Преподаватель на больничном"
+    },
+    {
+      "session_id": 11,
+      "original_date": "2026-10-23",
+      "type": "moved",
+      "new_date": "2026-10-24",
+      "new_start_time": "11:00",
+      "new_end_time": "12:30",
+      "new_room_id": 2,
+      "comment": "Перенос на субботу"
+    }
+  ]
+}

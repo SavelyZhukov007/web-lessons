@@ -1,17 +1,18 @@
 from pydantic import ConfigDict
-from .common import InputSchema, Name, Text, UpdateSchema
+
+from .common import InputSchema, Name, ShortText, UpdateSchema
 
 
 class LeaderCreate(InputSchema):
     name: Name
-    position: Text = ""
-    contact: Text = ""
+    position: ShortText = ""
+    contact: ShortText = ""
 
 
 class LeaderUpdate(UpdateSchema):
     name: Name | None = None
-    position: Text | None = None
-    contact: Text | None = None
+    position: ShortText | None = None
+    contact: ShortText | None = None
 
 
 class LeaderRead(InputSchema):
@@ -19,5 +20,15 @@ class LeaderRead(InputSchema):
 
     id: int
     name: Name
-    position: Text
-    contact: Text
+    position: ShortText
+    contact: ShortText
+
+
+class LeaderPublic(InputSchema):
+    """Публичный список руководителей: без контактов (SEC-07). Контакт отдаёт только карточка активного кружка."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: Name
+    position: ShortText

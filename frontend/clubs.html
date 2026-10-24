@@ -3,9 +3,25 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Каталог кружков КИПФИН: направления, руководители, расписание.">
     <title>Кружки — КИПФИН</title>
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Кружки">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <script src="/js/theme-init.js"></script>
+        <link rel="stylesheet" href="/css/tokens.css">
     <link rel="stylesheet" href="/css/campus.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/platform.css">
 </head>
 
 <body class="campus-page">
@@ -22,8 +38,14 @@
     <main id="public-main" tabindex="-1">
         <div class="public-title">
             <h1>Кружки</h1>
+            <p id="clubs-count" class="directory-meta" role="status" aria-live="polite"></p>
         </div>
-        <div id="content" class="club-directory" aria-live="polite" aria-busy="true">
+        <form id="club-filters" class="club-filters" role="search" aria-label="Поиск кружков">
+            <label class="field"><span class="field-label">Поиск</span><input id="club-search" type="search" maxlength="200" placeholder="Название или описание" autocomplete="off"></label>
+            <label class="field"><span class="field-label">Направление</span><select id="club-category"><option value="">Все направления</option></select></label>
+            <button id="club-reset" class="btn btn--text" type="button" hidden>Сбросить</button>
+        </form>
+        <div id="content" class="club-grid" aria-busy="true">
             <p class="directory-copy">Загружаем кружки…</p>
         </div>
     </main>
@@ -33,6 +55,9 @@
                 <path d="M5 12h14m-5-5 5 5-5 5" />
             </svg></a></footer>
     <script type="module" src="/js/clubs.js"></script>
+    <script type="module" src="/js/settings.js"></script>
+    <script type="module" src="/js/pwa-register.js"></script>
+    <script type="module" src="/js/install-banner.js"></script>
 </body>
 
 </html>

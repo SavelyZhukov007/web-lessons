@@ -1,8 +1,9 @@
 """Независимые входные типы"""
 
-from datetime import date
 import re
+from datetime import date
 from typing import Annotated
+
 from pydantic import (
     BaseModel,
     BeforeValidator,
@@ -15,10 +16,12 @@ from pydantic import (
 PositiveId = Annotated[int, Field(strict=True, gt=0)]
 PositiveCapacity = PositiveId
 Weekday = Annotated[int, Field(strict=True, ge=1, le=6)]
+# SEC-09: верхние границы на все строки (иначе мегабайты в БД и в ответ)
 Name = Annotated[
-    str, StringConstraints(strict=True, strip_whitespace=True, min_length=1)
+    str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=120)
 ]
-Text = Annotated[str, StringConstraints(strict=True)]
+Text = Annotated[str, StringConstraints(strict=True, max_length=4000)]
+ShortText = Annotated[str, StringConstraints(strict=True, max_length=300)]
 Clock = Annotated[
     str,
     StringConstraints(strict=True, pattern=r"^(?:0[89]|1[0-9]|20):[0-5][0-9]$|^21:00$"),

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Следующее занятие», одна клетка по высоте. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/widget_bg" android:orientation="horizontal" android:gravity="center_vertical"
+    android:paddingStart="14dp" android:paddingEnd="14dp" android:paddingTop="6dp" android:paddingBottom="6dp">
+    <FrameLayout android:id="@+id/widget_bar" android:layout_width="4dp" android:layout_height="match_parent"
+        android:layout_marginEnd="10dp" android:background="@drawable/widget_bar" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+        <TextView android:id="@+id/widget_label" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="@color/widget_accent" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:visibility="gone" />
+        <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Робототехника" android:textColor="@color/widget_fg" android:textSize="15sp" android:textStyle="bold"
+            android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/widget_when" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Сегодня, 15:30–17:00" android:textColor="@color/widget_muted" android:textSize="13sp"
+            android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginStart="8dp" android:background="@drawable/widget_chip" android:paddingStart="8dp" android:paddingEnd="8dp"
+        android:paddingTop="2dp" android:paddingBottom="2dp" android:text="Перенесено" android:textColor="@color/widget_chip_fg"
+        android:textSize="11sp" android:visibility="gone" />
+</LinearLayout>

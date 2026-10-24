@@ -1,0 +1,30 @@
+[project]
+name = "kipfin-clubs"
+version = "0.2.0"
+description = "Расписание кружков КИПФИН: публичный сайт, админка, PWA/Android"
+requires-python = ">=3.10"
+readme = "README.md"
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests", "tools/calendar_export/tests"]
+filterwarnings = ["ignore::DeprecationWarning:starlette.*"]
+
+[tool.coverage.run]
+source = ["backend/app"]
+omit = ["backend/app/cli.py"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+extend-exclude = ["android", "dist", "builds", "frontend", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B008", "UP007", "UP035", "UP006", "UP045"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/app/models/*" = ["F821"]          # строковые forward-ссылки relationship()
+"backend/tests/*" = ["B", "F811", "E741", "E402"]  # фикстуры pytest переопределяются по имени
+"backend/migrations/*" = ["I", "E402", "W291"]
+"e2e/*" = ["E702"]
+"tools/build/*" = ["E702", "UP031", "UP036"]

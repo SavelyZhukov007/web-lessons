@@ -3,11 +3,25 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="description" content="Расписание кружков КИПФИН: занятия, руководители, аудитории, отмены и переносы.">
     <title>Расписание — кружки.</title>
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Кружки">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <script src="/js/theme-init.js"></script>
+    <link rel="stylesheet" href="/css/tokens.css">
     <link rel="stylesheet" href="/css/campus.css">
     <link rel="stylesheet" href="/css/schedule.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/platform.css">
 </head>
 
 <body class="campus-page schedule-page">
@@ -44,7 +58,7 @@
                 <div class="week-actions">
                     <button id="today" type="button">Текущая неделя</button>
                     <label class="date-picker"><span class="visually-hidden">Перейти к дате</span><input id="week-date"
-                            type="date" min="1900-01-08" max="9998-12-25"></label>
+                            type="date" min="2000-01-03" max="2100-12-31"></label>
                 </div>
             </div>
             <div class="desktop-view" role="group" aria-label="Вид расписания">
@@ -52,7 +66,6 @@
                 <button id="view-list" type="button" aria-pressed="false">Список</button>
             </div>
         </div>
-        <p id="mock-notice" class="schedule-notice" hidden>Режим разработки: показаны вымышленные данные.</p>
         <div class="schedule-controls" aria-label="Управление расписанием">
             <form id="schedule-filters" role="search" aria-label="Фильтры расписания">
                 <label class="search-field"><span class="visually-hidden">Поиск</span><span class="search-input"><svg
@@ -128,6 +141,9 @@
         <div id="event-details"></div><button id="close-event" type="button">Закрыть</button>
     </dialog>
     <script type="module" src="/js/schedule.js"></script>
+    <script type="module" src="/js/settings.js"></script>
+    <script type="module" src="/js/pwa-register.js"></script>
+    <script type="module" src="/js/install-banner.js"></script>
 </body>
 
 </html>

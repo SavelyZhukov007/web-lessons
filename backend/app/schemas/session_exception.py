@@ -1,6 +1,7 @@
 from typing import Literal
-from pydantic import ConfigDict
-from pydantic import model_validator
+
+from pydantic import ConfigDict, model_validator
+
 from .common import Clock, InputSchema, LocalDate, PositiveId, Text, UpdateSchema
 
 
