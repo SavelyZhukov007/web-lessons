@@ -46,12 +46,13 @@ function jdkCandidates() {
 }
 
 /** Ищет JDK >= minMajor. Возвращает { home, major } (home=null — если подходит java из PATH). */
-export function findJdk(minMajor = 21) {
+export function findJdk(minMajor = 21, maxMajor = 24) {
   const found = [];
-  for (const home of jdkCandidates()) { const major = javaMajor(home); if (major >= minMajor) found.push({ home, major }); }
-  if (found.length) return found.sort((a, b) => b.major - a.major)[0];
+  for (const home of jdkCandidates()) { const major = javaMajor(home); if (major >= minMajor && major <= maxMajor) found.push({ home, major }); }
+  // Gradle 8.14 не запускается на Java 25+, поэтому предпочитаем 21, иначе берём ближайший подходящий
+  if (found.length) return found.sort((a, b) => Math.abs(a.major - 21) - Math.abs(b.major - 21))[0];
   const pm = javaMajor(null);
-  if (pm >= minMajor) return { home: null, major: pm };
+  if (pm >= minMajor && pm <= maxMajor) return { home: null, major: pm };
   return null;
 }
 
