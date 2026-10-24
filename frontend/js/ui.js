@@ -56,3 +56,22 @@ export function installRipple() {
     dot.addEventListener('animationend', () => dot.remove(), { once: true });
   }, { passive: true });
 }
+// Cached public data must be distinguishable from a confirmed server response.
+const offlineSources = new Map();
+let offlineNotice;
+window.addEventListener('public:cache-state', ({ detail }) => {
+  if (detail.offline) offlineSources.set(detail.path, detail.savedAt);
+  else offlineSources.delete(detail.path);
+  if (!offlineNotice && !offlineSources.size) return;
+  if (!offlineNotice) {
+    offlineNotice = document.createElement('p');
+    offlineNotice.className = 'error-state';
+    offlineNotice.setAttribute('role', 'status');
+    document.body.prepend(offlineNotice);
+  }
+  offlineNotice.hidden = offlineSources.size === 0;
+  if (offlineSources.size) {
+    const date = new Date([...offlineSources.values()].sort()[0]);
+    offlineNotice.textContent = `Нет сети. Показаны сохранённые данные от ${date.toLocaleString('ru-RU')}. Изменения расписания могли ещё не загрузиться.`;
+  }
+});

@@ -1,11 +1,10 @@
 """Phase 2 F: выгрузка посещаемости в .xlsx (сводка + лист на кружок)."""
 from __future__ import annotations
 
+import secrets
 from io import BytesIO
 
 from openpyxl import load_workbook
-
-import secrets
 
 from .test_attendance import _checkin, _fixed_clock, _qr, set_clock, student_id  # noqa: F401
 from .test_exception_conflicts_api import _post, admin_client, make_world  # noqa: F401

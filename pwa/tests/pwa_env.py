@@ -75,8 +75,9 @@ class Stand:
         self.env = {**os.environ, "CLUBS_SCHEDULE_DB_PATH": str(self.tmp / "e2e.sqlite3"), "ENV": "development",
                     "JWT_SECRET": "pwa-e2e-" + "s" * 40, "VAPID_KEYS_FILE": str(self.tmp / "vapid.json"), "SCRYPT_LOG_N": "12"}
         self.env.pop("CLUBS_USE_CREATE_ALL", None)
-        run = lambda *a, stdin=None: subprocess.run([py, str(ROOT / "server.py"), *a], cwd=ROOT, env=self.env, input=stdin,
-                                                    text=True, capture_output=True, check=True, timeout=300)
+        def run(*a, stdin=None):
+            return subprocess.run([py, str(ROOT / "server.py"), *a], cwd=ROOT, env=self.env, input=stdin,
+                                  text=True, capture_output=True, check=True, timeout=300)
         if build and not os.environ.get("PWA_DIR"):
             run("build", "pwa", "--out", str(self.www))
         run("seed", "--file", "data/demo-data.json")

@@ -1,4 +1,5 @@
 // Публичные страницы всегда работают с настоящим backend: мок-режима и скрытых заглушек нет.
+'use strict';
 
 export class ApiError extends Error {
   constructor(message, status = 0, detail = null) {
@@ -108,6 +109,10 @@ async function send(path, options = {}) {
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeout);
   try {
     const response = await fetch(path, { credentials: 'same-origin', ...fetchOptions, signal: controller.signal });
+    if (/^\/api\/(schedule|clubs|categories|leaders|rooms)(\/|\?|$)/.test(path)) {
+      window.dispatchEvent(new CustomEvent('public:cache-state', { detail: { path: path.split('?')[0],
+        offline: response.headers.get('X-Clubs-Offline') === '1', savedAt: response.headers.get('X-Clubs-Cached-At') } }));
+    }
     if (response.status === 204 || response.status === 205) return null;
     const raw = await response.text();
     let body;

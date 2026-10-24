@@ -1,5 +1,6 @@
 import { getClubs, getCategories, getLeaders } from './api.js';
 import { h, icon } from './ui.js';
+import { readClubFilters, buildClubUrl } from './club-filters.js';
 
 const list = document.querySelector('#content');
 const count = document.querySelector('#clubs-count');
@@ -8,6 +9,8 @@ const search = document.querySelector('#club-search');
 const category = document.querySelector('#club-category');
 const reset = document.querySelector('#club-reset');
 const lookup = { categories: new Map(), leaders: new Map() };
+const referenceStatus = h('div', { 'aria-live': 'polite' });
+form.after(referenceStatus);
 
 const plural = n => {
   const m10 = n % 10, m100 = n % 100;
@@ -29,9 +32,12 @@ function card(club) {
 
 let seq = 0;
 async function load() {
+  clearTimeout(timer);
   const mine = ++seq;
   list.setAttribute('aria-busy', 'true');
   const filters = { search: search.value.trim(), category_id: category.value };
+  const nextUrl = buildClubUrl(location.href, filters);
+  if (nextUrl !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', nextUrl);
   reset.hidden = !(filters.search || filters.category_id);
   try {
     const clubs = await getClubs(filters);
@@ -51,18 +57,32 @@ async function load() {
 }
 
 async function init() {
-  const params = new URLSearchParams(location.search);
-  search.value = params.get('search') || '';
-  try {
-    const [categories, leaders] = await Promise.all([getCategories(), getLeaders()]);
-    for (const c of categories) { lookup.categories.set(c.id, c); category.append(h('option', { value: c.id }, c.name)); }
-    for (const l of leaders) lookup.leaders.set(l.id, l);
-    category.value = params.get('category_id') || '';
-  } catch { /* фильтр по направлению недоступен, сам список всё равно загрузится */ }
-  load();
+  const params = readClubFilters(location.search);
+  search.value = params.search;
+  await loadReferences(params.category_id);
+}
+async function loadReferences(selected = category.value) {
+  category.disabled = true;
+  const results = await Promise.allSettled([getCategories(), getLeaders()]);
+  referenceStatus.replaceChildren();
+  if (results[0].status === 'fulfilled') {
+    lookup.categories.clear();
+    category.replaceChildren(h('option', { value: '' }, 'Все направления'));
+    for (const c of results[0].value) { lookup.categories.set(c.id, c); category.append(h('option', { value: c.id }, c.name)); }
+    category.value = selected;
+    if (category.selectedIndex === -1) category.value = '';
+    category.disabled = false;
+  } else category.value = '';
+  if (results[1].status === 'fulfilled') {
+    for (const l of results[1].value) lookup.leaders.set(l.id, l);
+  }
+  if (results.some(r => r.status === 'rejected')) referenceStatus.append(
+    h('p', {}, 'Часть справочников не загрузилась. Список кружков доступен.'),
+    h('button', { type: 'button', class: 'btn btn--small', onclick: () => loadReferences() }, 'Повторить загрузку справочников'));
+  await load();
 }
 let timer;
-search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 250); });
+search.addEventListener('input', () => { ++seq; clearTimeout(timer); timer = setTimeout(load, 250); });
 category.addEventListener('change', load);
 form.addEventListener('submit', event => { event.preventDefault(); load(); });
 reset.addEventListener('click', () => { search.value = ''; category.value = ''; load(); search.focus(); });

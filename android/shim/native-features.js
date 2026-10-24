@@ -71,32 +71,34 @@
       // правка в админке → кэш публичных данных устарел (иначе каталог/расписание показали бы старое до TTL)
       return baseFetch(input, init).then(function (r) { if (r.ok) dropCaches(); return r; });
     }
-    if (!path || method !== 'GET' || path.indexOf('/api/admin') === 0) return baseFetch(input, init);
-    // справочники и каталог: свежий кэш (до 5 мин) отдаём сразу, обновляем в фоне (stale-while-revalidate)
-    if (NATIVE && SWR.test(path) && !(init && init.signal && init.signal.aborted)) {
-      var hit0 = jget(CACHE + path, null);
-      if (hit0 && Date.now() - hit0.t < SWR_MS && navigator.onLine !== false) {
-        if (!revalidating[path]) { revalidating[path] = 1; baseFetch(input).then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (b) { if (b != null) jset(CACHE + path, { t: Date.now(), b: b }); }, function () {}).then(function () { delete revalidating[path]; }); }
-        return Promise.resolve(jsonResponse(hit0.b, { 'X-ITC-Cached': String(hit0.t) }));
-      }
-    }
+    // Cache only public resources. Teacher/profile/push responses are private,
+    // including when the same device changes accounts while offline.
+    if (!path || method !== 'GET' || !/^\/api\/(schedule|clubs|categories|leaders|rooms)(\/|\?|$)/.test(path)) return baseFetch(input, init);
     return baseFetch(input, init).then(function (r) {
       setOffline(navigator.onLine === false); // в PWA ответ без сети может прийти из кэша service worker
       if (!r.ok || !/json/.test(r.headers.get('content-type') || '')) return r;
       return r.clone().json().then(function (body) {
-        jset(CACHE + path, { t: Date.now(), b: body });
-        return filterMine(path, body) === body ? r : jsonResponse(filterMine(path, body));
+        var stamp = r.headers.get('X-Clubs-Cached-At') || new Date().toISOString();
+        jset(CACHE + path, { t: Date.parse(stamp), b: body });
+        return filterMine(path, body) === body ? r : jsonResponse(filterMine(path, body), {
+          'X-Clubs-Cached-At': stamp, 'X-Clubs-Offline': r.headers.get('X-Clubs-Offline') || '0' });
       }, function () { return r; });
     }, function (err) {
       if (err && err.name === 'AbortError') throw err;
       var hit = jget(CACHE + path, null);
-      if (!hit) { setOffline(true); throw err; }
+      if (!hit || Date.now() - hit.t > 48 * 3600e3) { setOffline(true); throw err; }
       setOffline(true);
-      return jsonResponse(filterMine(path, hit.b), { 'X-ITC-Cached': String(hit.t) });
+      return jsonResponse(filterMine(path, hit.b), { 'X-ITC-Cached': String(hit.t),
+        'X-Clubs-Offline': '1', 'X-Clubs-Cached-At': new Date(hit.t).toISOString() });
     });
   };
-  var SWR = /^\/api\/(clubs|categories|leaders|rooms)(\/\d+)?(\?|$)/, SWR_MS = 5 * 60e3, revalidating = {};
+  // Remove private entries written by earlier app versions.
+  var privateKeys = [];
+  for (var ci = 0; ci < LS.length; ci++) {
+    var ck = LS.key(ci);
+    if (ck && ck.indexOf(CACHE) === 0 && !/^\/api\/(schedule|clubs|categories|leaders|rooms)(\/|\?|$)/.test(ck.slice(CACHE.length))) privateKeys.push(ck);
+  }
+  privateKeys.forEach(function (key) { LS.removeItem(key); });
   function dropCaches() {
     var keys = [];
     for (var i = 0; i < LS.length; i++) { var k = LS.key(i); if (k && (k.indexOf(CACHE) === 0 || k.indexOf('itc.sched.') === 0)) keys.push(k); }

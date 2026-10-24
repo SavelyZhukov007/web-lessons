@@ -546,7 +546,7 @@ html.is-native .native-sessions-tabs a.is-current,
 html.is-native .native-sessions-tabs a[aria-current] {
   background: var(--primary-container, #fde4df);
   border-color: var(--primary-container, #fde4df) !important;
-  color: #5a1a10;
+  color: var(--on-primary-container, #5b160c);
   font-weight: 600;
 }
 
@@ -591,4 +591,17 @@ html.is-native .native-sessions-tabs a {
 html.is-native .native-sessions-tabs a:nth-child(4):nth-last-child(2),
 html.is-native .native-sessions-tabs a:nth-child(5):last-child {
   grid-column: span 3;
+}
+
+@media (max-width: 400px) {
+  html.is-native .native-sessions-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  html.is-native .native-sessions-tabs a:nth-child(n) {
+    grid-column: auto !important;
+    overflow-wrap: normal;
+  }
+  html.is-native .native-sessions-tabs a:last-child:nth-child(odd) {
+    grid-column: span 2 !important;
+  }
 }

@@ -1,8 +1,6 @@
 """Доступ преподавателей: T-токен (случайный, в БД только SHA-256), перевыпуск/отзыв, сессия scope=teacher, только свои кружки."""
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
-
 from backend.app.database import SessionLocal
 from backend.app.models import Leader
 from backend.app.routers import teacher as tch

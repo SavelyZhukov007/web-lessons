@@ -445,12 +445,11 @@
     try {
       var me = await Teacher.api('/api/teacher/me'); var now = mskNow(), wd = (now.getDay() || 7);
       s.querySelector('[data-name]').textContent = me.name + ' · только просмотр и отметка посещаемости';
-      var list = me.sessions.slice().sort(function (a, b) { var x = (a.weekday - wd + 7) % 7, y = (b.weekday - wd + 7) % 7; return x - y || (a.start_time < b.start_time ? -1 : 1); });
+      var list = await Teacher.api('/api/teacher/occurrences?date=' + isoDate(now) + '&days=7');
       s.querySelector('[data-list]').innerHTML = list.length ? list.map(function (x) {
-        var d = new Date(now); d.setDate(d.getDate() + ((x.weekday - wd + 7) % 7));
-        var today = x.weekday === wd;
-        return '<button type="button" class="itc-tsession' + (today ? ' is-today' : '') + '" data-session=\'' + esc(JSON.stringify({ id: x.id, date: isoDate(d), club: x.club_name, t: x.start_time + '–' + x.end_time, room: x.room_name })) + '\'>' +
-          '<span class="itc-tsession-time">' + (today ? 'Сегодня' : WD[x.weekday]) + '<b>' + x.start_time + '</b></span><span class="itc-tsession-main"><b>' + esc(x.club_name) + '</b><small>' + esc(x.room_name) + ' · ' + x.start_time + '–' + x.end_time + '</small></span></button>';
+        var d = new Date(x.date + 'T12:00:00'), today = x.date === isoDate(now);
+        return '<button type="button" class="itc-tsession' + (today ? ' is-today' : '') + '" data-session=\'' + esc(JSON.stringify({ id: x.session_id, date: x.date, original_date: x.original_date, club: x.club_name, t: x.start_time + '–' + x.end_time, room: x.room_name })) + '\'>' +
+          '<span class="itc-tsession-time">' + (today ? 'Сегодня' : WD[d.getDay() || 7]) + '<b>' + x.start_time + '</b></span><span class="itc-tsession-main"><b>' + esc(x.club_name) + '</b><small>' + esc(x.room_name) + ' · ' + x.start_time + '–' + x.end_time + (x.status === 'moved' ? ' · перенос' : '') + '</small></span></button>';
       }).join('') : '<p class="itc-ob-lead">За вами пока нет кружков. Обратитесь к администратору.</p>';
     } catch (x) { s.querySelector('[data-list]').innerHTML = '<p class="itc-ob-err">' + esc(x.message) + '</p>'; if (x.status === 401) { s.close(); teacherLogin(); } }
   }
@@ -474,13 +473,14 @@
     });
     s.querySelector('[data-manual]').addEventListener('submit', async function (e) {
       e.preventDefault(); var inp = this.elements.sid;
-      try { await Teacher.api('/api/teacher/attendance/manual', { method: 'POST', body: JSON.stringify({ session_id: ss.id, date: ss.date, student_id: inp.value }) }); inp.value = ''; Haptics.success(); pull(); }
+      try { await Teacher.api('/api/teacher/attendance/manual', { method: 'POST', body: JSON.stringify({ session_id: ss.id, date: ss.date, original_date: ss.original_date, student_id: inp.value }) }); inp.value = ''; Haptics.success(); pull(); }
       catch (x) { Haptics.error(); toast(x.message); }
     });
     async function tick() {
       if (!alive) return;
-      var r; try { r = await Teacher.api('/api/teacher/attendance/qr', { method: 'POST', body: JSON.stringify({ session_id: ss.id, date: ss.date }) }); }
+      var r; try { r = await Teacher.api('/api/teacher/attendance/qr', { method: 'POST', body: JSON.stringify({ session_id: ss.id, date: ss.date, original_date: ss.original_date }) }); }
       catch (x) { stage.innerHTML = '<p class="itc-ob-err">' + esc(x.message) + '</p>'; timer = setTimeout(tick, 5000); return; }
+      if (!alive) return;
       if (r.state === 'early') {
         var left = r.opens_in;
         stage.innerHTML = '<div class="itc-qr-wait"><b>QR ещё не готов</b><span>откроется за 10 с до начала через <time data-cd>' + mmss(left) + '</time></span></div>';
@@ -490,18 +490,23 @@
       }
       if (r.state === 'closed') { stage.innerHTML = '<div class="itc-qr-wait"><b>Отметка закрыта</b><span>QR выдавался первые ' + r.window_min + ' мин. Вручную по ID — до ' + hm(r.manual_until) + '.</span></div>'; return; }
       var svg = await qrSvg(r.token);
+      if (!alive) return;
       stage.innerHTML = '<div class="itc-qr-code">' + svg + '</div><p class="itc-ob-hint">Код меняется каждые ' + r.rotate + ' с · приём ещё ' + Math.ceil(r.closes_in / 60) + ' мин' + (r.demo_free_window ? ' · демо: окно не ограничено' : '') + '</p>';
       timer = setTimeout(tick, Math.min(r.rotate, Math.max(1, r.closes_in + 1)) * 1000);
     }
     async function pull() {
       if (!alive) return;
       try {
-        var r = await Teacher.api('/api/teacher/attendance?session_id=' + ss.id + '&date=' + ss.date + '&since_id=' + since);
+        var r = await Teacher.api('/api/teacher/attendance?session_id=' + ss.id + '&date=' + ss.date + (ss.original_date ? '&original_date=' + ss.original_date : ''));
+        if (!alive) return;
+        var ids = new Set(r.items.map(function (it) { return String(it.id); }));
+        live.querySelectorAll('[data-del]').forEach(function (b) { if (!ids.has(b.getAttribute('data-del'))) b.closest('li').remove(); });
         if (cnt.textContent !== String(r.count) && !first) { cnt.classList.remove('itc-bump'); void cnt.offsetWidth; cnt.classList.add('itc-bump'); }
         cnt.textContent = String(r.count);
         // живой счётчик: короткая вибрация на каждую новую отметку (без звука), не чаще раза в 120 мс
-        if (!first) r.items.forEach(function (_, i) { setTimeout(function () { Haptics.success(); }, i * 120); });
         r.items.forEach(function (it) {
+          if (live.querySelector('[data-del="' + it.id + '"]')) return;
+          if (!first) Haptics.success();
           since = Math.max(since, it.id);
           live.insertAdjacentHTML('afterbegin', '<li class="' + (first ? '' : 'new') + '"><code title="' + esc(it.student_id) + '">' + esc(it.short) + '</code><span>' + (it.method === 'manual' ? 'вручную' : 'отметился') + ', ' + hm(it.at) + '</span>' +
             '<button type="button" class="itc-del" data-del="' + it.id + '" data-sid="' + esc(it.short) + '" aria-label="Удалить отметку">Удалить</button></li>');

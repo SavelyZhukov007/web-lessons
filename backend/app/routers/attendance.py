@@ -29,8 +29,8 @@ from ..models.club import Club
 from ..models.leader import Leader
 from ..models.session import ClubSession
 from ..models.session_exception import SessionException
-from ..services.clock import MSK, now_msk
 from ..services import audit
+from ..services.clock import MSK, now_msk
 from .admin import require_admin
 
 
@@ -97,10 +97,14 @@ def read_token(token: str, now: float | None = None) -> dict:
         if not hmac.compare_digest(sig, good):
             raise ValueError
         data = json.loads(_unb64(body))
-        int(data["s"]); date.fromisoformat(data["d"]); int(data["e"])
+        if (not isinstance(data, dict) or any(type(data.get(k)) is not int for k in ("s", "i", "e"))
+                or data["s"] <= 0 or not isinstance(data.get("d"), str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", data["d"])
+                or data["e"] - data["i"] != QR_TTL):
+            raise ValueError("invalid QR claims")
+        date.fromisoformat(data["d"])
     except Exception:
         raise HTTPException(400, "QR-код не распознан: это не код посещаемости ИТК") from None
-    if data["e"] < (now if now is not None else _now_ts()):
+    if data["e"] <= (now if now is not None else _now_ts()):
         raise HTTPException(410, "QR-код устарел — отсканируйте код на экране преподавателя ещё раз")
     return data
 
@@ -108,34 +112,67 @@ def read_token(token: str, now: float | None = None) -> dict:
 def purge(db: Session) -> int:
     """Удалить отметки старше 21 дня и истёкшие nonce. Вызывается при старте и при обращениях."""
     cutoff = (now_msk().date() - timedelta(days=RETENTION_DAYS)).isoformat()
-    n = db.execute(delete(Attendance).where(Attendance.occurrence_date < cutoff)).rowcount or 0
+    actual_date = select(SessionException.new_date).where(
+        SessionException.session_id == Attendance.session_id,
+        SessionException.original_date == Attendance.occurrence_date,
+        SessionException.type == "moved",
+    ).scalar_subquery()
+    n = db.execute(delete(Attendance).where(func.coalesce(actual_date, Attendance.occurrence_date) < cutoff)).rowcount or 0
     db.execute(delete(QrNonce).where(QrNonce.expires_at < datetime.now(timezone.utc).replace(tzinfo=None)))
     db.commit()
     return n
 
 
-def _occurrence(db: Session, session_id: int, day: str):
-    """Занятие в этот день: (session, club, start, end) с учётом переноса; 404/409 если его нет или оно отменено."""
+def _parse_day(day: str) -> date:
     try:
-        d = date.fromisoformat(day)
-    except ValueError:
-        raise HTTPException(422, "date должен иметь формат YYYY-MM-DD") from None
+        if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", day):
+            raise ValueError
+        parsed = date.fromisoformat(day)
+        if not 2000 <= parsed.year <= 2100:
+            raise ValueError
+        return parsed
+    except (TypeError, ValueError):
+        raise HTTPException(422, "date должен иметь формат YYYY-MM-DD, годы 2000–2100") from None
+
+
+def _occurrence(db: Session, session_id: int, day: str, original_date: str | None = None, *, by_original: bool = False):
+    """Resolve stable original identity separately from the actual calendar date.
+
+    UI uses actual day + optional original_date. Signed QR uses original day only.
+    Two occurrences of one regular session can land on the same actual day.
+    """
+    d = _parse_day(day)
+    if original_date is not None:
+        _parse_day(original_date)
     s = db.get(ClubSession, session_id)
     if not s:
         raise HTTPException(404, "Занятие не найдено")
     club = db.get(Club, s.club_id)
-    exc = db.scalar(select(SessionException).where(SessionException.session_id == s.id, SessionException.original_date == day))
-    if exc and exc.type == "cancelled":
-        raise HTTPException(409, "Это занятие отменено")
-    if exc is None and d.isoweekday() != s.weekday:
-        # может быть днём, на который перенесли занятие
-        moved = db.scalar(select(SessionException).where(SessionException.session_id == s.id, SessionException.new_date == day))
-        if not moved:
-            raise HTTPException(404, "В этот день у кружка нет занятия")
-        return s, club, moved.new_start_time, moved.new_end_time, moved.original_date
-    if exc and exc.type == "moved":
-        return s, club, exc.new_start_time, exc.new_end_time, day
-    return s, club, s.start_time, s.end_time, day
+    if not club or not club.is_active:
+        raise HTTPException(404, "Кружок недоступен")
+    exceptions = list(db.scalars(select(SessionException).where(SessionException.session_id == s.id)))
+    source = next((e for e in exceptions if e.original_date == day), None)
+    if by_original:
+        if d.isoweekday() != s.weekday:
+            raise HTTPException(404, "Нет исходного занятия в эту дату")
+        if source and source.type == "cancelled":
+            raise HTTPException(409, "Это занятие отменено")
+        if source and source.type == "moved":
+            return s, club, source.new_start_time, source.new_end_time, day, source.new_date
+        return s, club, s.start_time, s.end_time, day, day
+    candidates = [(e.new_start_time, e.new_end_time, e.original_date, day)
+                  for e in exceptions if e.type == "moved" and e.new_date == day]
+    if d.isoweekday() == s.weekday and source is None:
+        candidates.append((s.start_time, s.end_time, day, day))
+    if original_date is not None:
+        candidates = [c for c in candidates if c[2] == original_date]
+    if not candidates:
+        if source:
+            raise HTTPException(409, "Это занятие отменено или перенесено на другую дату")
+        raise HTTPException(404, "В этот день у кружка нет занятия")
+    if len(candidates) > 1:
+        raise HTTPException(409, "В эту дату несколько занятий: укажите original_date выбранного события")
+    return s, club, *candidates[0]
 
 
 
@@ -146,14 +183,34 @@ def _times(day: str, start: str, end: str) -> tuple[float, float]:
     return mk(start), mk(end)
 
 
+def _day_events(db: Session, day: str, days: int = 1, leader_id: int | None = None) -> list[dict]:
+    """Use the same schedule generator as the public view; never guess by weekday."""
+    from ..services.schedule import build_week
+    from .public import _dump_schedule_data
+
+    try:
+        first = _parse_day(day)
+        last = first + timedelta(days=days - 1)
+    except (ValueError, OverflowError):
+        raise HTTPException(422, "date должен иметь формат YYYY-MM-DD") from None
+    data = _dump_schedule_data(db)
+    monday = first - timedelta(days=first.weekday())
+    events = []
+    while monday <= last:
+        events.extend(e for e in build_week(monday, data) if day <= e["date"] <= last.isoformat()
+                      and e["status"] != "cancelled" and (leader_id is None or e["leader_id"] == leader_id))
+        monday += timedelta(days=7)
+    return sorted(events, key=lambda e: (e["date"], e["start_time"], e["event_id"]))
+
+
 def _record(db: Session, session_id: int, day: str, student_id: str, method: str, *, enforce: str | None = None,
-            at: float | None = None) -> dict:
+            at: float | None = None, original_date: str | None = None, by_original: bool = False) -> dict:
     """enforce='qr' — только в окне отметки; 'session' — до конца занятия (ручная отметка преподавателем).
     at — момент сканирования для офлайн-очереди (окно проверяется на этот момент, а не на момент отправки)."""
-    s, club, start, end, original = _occurrence(db, session_id, day)
-    t0, t1 = _times(day, start, end)
+    s, club, start, end, original, actual = _occurrence(db, session_id, day, original_date, by_original=by_original)
+    t0, t1 = _times(actual, start, end)
     now = at if at is not None else _now_ts()
-    if enforce == "qr" and not (t0 - QR_EARLY <= now <= t0 + window_minutes() * 60):
+    if enforce == "qr" and not (t0 - QR_EARLY <= now <= min(t1, t0 + window_minutes() * 60)):
         raise HTTPException(403, "Отметка закрыта" if now > t0 else "Отметка ещё не открыта")
     if enforce == "session" and not (t0 - QR_EARLY <= now <= t1):
         raise HTTPException(403, "Ручная отметка доступна только во время занятия")
@@ -163,25 +220,26 @@ def _record(db: Session, session_id: int, day: str, student_id: str, method: str
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, f"Уже отмечен(а) на занятии «{club.name}»") from None
-    return {"ok": True, "club_id": club.id, "club_name": club.name, "date": original, "start_time": start, "end_time": end,
+    return {"ok": True, "club_id": club.id, "club_name": club.name, "date": actual, "original_date": original, "start_time": start, "end_time": end,
             "student_id": student_id}
 
 
-def _qr_payload(db: Session, session_id: int, day: str) -> dict:
+def _qr_payload(db: Session, session_id: int, day: str, original_date: str | None = None) -> dict:
     """QR открывается за 10 с до начала и выдаётся первые N минут (окно отметки); до/после — state без токена."""
-    s, club, start, end, original = _occurrence(db, session_id, day)
-    t0, t1 = _times(day, start, end)
+    s, club, start, end, original, actual = _occurrence(db, session_id, day, original_date)
+    t0, t1 = _times(actual, start, end)
     now = _now_ts()
-    base = {"session_id": s.id, "club_id": club.id, "club_name": club.name, "date": day, "start_time": start, "end_time": end,
+    closes = min(t1, t0 + window_minutes() * 60)
+    base = {"session_id": s.id, "club_id": club.id, "club_name": club.name, "date": actual, "original_date": original, "start_time": start, "end_time": end,
             "window_min": window_minutes(), "opens_at": datetime.fromtimestamp(t0 - QR_EARLY, MSK).isoformat(),
-            "closes_at": datetime.fromtimestamp(t0 + window_minutes() * 60, MSK).isoformat()}
+            "closes_at": datetime.fromtimestamp(closes, MSK).isoformat()}
     if now < t0 - QR_EARLY:
         return {**base, "state": "early", "opens_in": int(t0 - QR_EARLY - now) + 1}
-    if now > t0 + window_minutes() * 60:
+    if now > closes:
         return {**base, "state": "closed", "manual_until": datetime.fromtimestamp(t1, MSK).isoformat()}
     token, exp = make_token(s.id, original)
     return {**base, "state": "open", "token": token, "expires_at": datetime.fromtimestamp(exp, MSK).isoformat(), "ttl": QR_TTL,
-            "rotate": QR_ROTATE, "closes_in": int(t0 + window_minutes() * 60 - now)}
+            "rotate": QR_ROTATE, "closes_in": int(closes - now)}
 
 
 def _delete(db: Session, att_id: int, actor: str, session_ids: set[int] | None = None) -> None:
@@ -194,13 +252,21 @@ def _delete(db: Session, att_id: int, actor: str, session_ids: set[int] | None =
     db.commit()
 
 
-def _list(db: Session, session_id: int, day: str, since_id: int = 0) -> dict:
+def _list(db: Session, session_id: int, day: str, since_id: int = 0, original_date: str | None = None) -> dict:
     purge(db)
+    if original_date is not None:
+        *_, day, _actual = _occurrence(db, session_id, day, original_date)
     q = select(Attendance).where(Attendance.session_id == session_id, Attendance.occurrence_date == day)
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.scalars(q.where(Attendance.id > since_id).order_by(Attendance.created_at)).all()
-    return {"count": total, "items": [{"id": r.id, "student_id": r.student_id, "short": short_id(r.student_id), "method": r.method,
+    ids = list(db.scalars(q.with_only_columns(Attendance.id)))
+    return {"count": total, "ids": ids, "items": [{"id": r.id, "student_id": r.student_id, "short": short_id(r.student_id), "method": r.method,
                                            "at": r.created_at.isoformat() + "Z"} for r in rows]}
+
+
+def _moved_dates(db: Session) -> dict:
+    return {(e.session_id, e.original_date): (e.new_date, e.new_start_time, e.new_end_time)
+            for e in db.scalars(select(SessionException).where(SessionException.type == "moved"))}
 
 
 def _history(db: Session, student_id: str) -> dict:
@@ -208,14 +274,20 @@ def _history(db: Session, student_id: str) -> dict:
     q = (select(Attendance, Club.name, ClubSession.start_time, ClubSession.end_time)
          .join(ClubSession, ClubSession.id == Attendance.session_id).join(Club, Club.id == ClubSession.club_id)
          .where(Attendance.student_id == student_id).order_by(Attendance.occurrence_date.desc(), ClubSession.start_time))
+    moves = _moved_dates(db)
+    items = []
+    for a, name, start, end in db.execute(q):
+        actual, start, end = moves.get((a.session_id, a.occurrence_date), (a.occurrence_date, start, end))
+        items.append({"club_name": name, "date": actual, "original_date": a.occurrence_date,
+                      "start_time": start, "end_time": end, "method": a.method, "at": a.created_at.isoformat() + "Z"})
     return {"student_id": student_id, "retention_days": RETENTION_DAYS,
-            "items": [{"club_name": n, "date": a.occurrence_date, "start_time": st, "end_time": en, "method": a.method,
-                       "at": a.created_at.isoformat() + "Z"} for a, n, st, en in db.execute(q)]}
+            "items": sorted(items, key=lambda a: (a["date"], a["start_time"]), reverse=True)}
 
 
 class SessionDay(BaseModel):
     session_id: int = Field(gt=0)
     date: str
+    original_date: str | None = None
 
 
 class ManualMark(SessionDay):
@@ -264,10 +336,16 @@ def checkin(payload: CheckinRequest, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     if db.get(QrNonce, payload.nonce):
         raise HTTPException(409, "Повторная отправка отклонена — отсканируйте QR ещё раз")
-    _device_check(db, payload.student_id, payload.device_token, register=True)
-    db.add(QrNonce(nonce=payload.nonce, expires_at=now + timedelta(seconds=QR_TTL * 5 + (OFFLINE_MAX_DELAY if at else 0))))
-    db.commit()
-    return _record(db, int(data["s"]), data["d"], payload.student_id, "qr", enforce="qr", at=at)
+    try:
+        _device_check(db, payload.student_id, payload.device_token, register=True)
+        db.add(QrNonce(nonce=payload.nonce, expires_at=now + timedelta(seconds=QR_TTL * 5 + (OFFLINE_MAX_DELAY if at else 0))))
+        return _record(db, int(data["s"]), data["d"], payload.student_id, "qr", enforce="qr", at=at, by_original=True)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Повторная отметка или одновременная регистрация устройства; повторите запрос") from None
+    except Exception:
+        db.rollback()
+        raise
 
 
 def _device_check(db: Session, sid: str, token: str, register: bool = False) -> None:
@@ -297,12 +375,12 @@ def mine(x_student_id: str = Header(default=""), x_device_token: str = Header(de
 
 @router.post("/api/admin/attendance/qr")
 def create_qr(payload: SessionDay, db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    return _qr_payload(db, payload.session_id, payload.date)
+    return _qr_payload(db, payload.session_id, payload.date, payload.original_date)
 
 
 @router.post("/api/admin/attendance/manual", status_code=201)
 def admin_manual(payload: ManualMark, db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    return _record(db, payload.session_id, payload.date, payload.student_id, "manual")
+    return _record(db, payload.session_id, payload.date, payload.student_id, "manual", original_date=payload.original_date)
 
 
 @router.get("/api/admin/attendance/student")
@@ -337,13 +415,18 @@ def stats(
     q = (select(Attendance.session_id, Attendance.occurrence_date, func.count(Attendance.id), ClubSession.club_id, Club.name,
                 ClubSession.start_time)
          .join(ClubSession, ClubSession.id == Attendance.session_id).join(Club, Club.id == ClubSession.club_id)
-         .where(Attendance.occurrence_date >= d_from.isoformat(), Attendance.occurrence_date <= d_to.isoformat())
          .group_by(Attendance.session_id, Attendance.occurrence_date)
          .order_by(Attendance.occurrence_date.desc(), ClubSession.start_time))
     if club_id:
         q = q.where(ClubSession.club_id == club_id)
-    occ = [{"session_id": sid, "date": d, "count": n, "club_id": cid, "club_name": name, "start_time": st}
-           for sid, d, n, cid, name, st in db.execute(q)]
+    moves = _moved_dates(db)
+    occ = []
+    for sid, original, n, cid, name, start in db.execute(q):
+        actual, start, _end = moves.get((sid, original), (original, start, ""))
+        if d_from.isoformat() <= actual <= d_to.isoformat():
+            occ.append({"session_id": sid, "date": actual, "original_date": original, "count": n,
+                        "club_id": cid, "club_name": name, "start_time": start})
+    occ.sort(key=lambda o: (o["date"], o["start_time"]), reverse=True)
     clubs: dict[int, dict] = {}
     for o in occ:
         c = clubs.setdefault(o["club_id"], {"club_id": o["club_id"], "club_name": o["club_name"], "classes": 0, "checkins": 0})
@@ -362,10 +445,15 @@ def occurrence_list(session_id: int = Query(gt=0), date: str = Query(), db: Sess
     return _list(db, session_id, date)["items"]
 
 
+@router.get("/api/admin/attendance/occurrences")
+def occurrence_choices(date: str = Query(), db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    return _day_events(db, date)
+
+
 @router.get("/api/admin/attendance/live")
-def admin_live(session_id: int = Query(gt=0), date: str = Query(), since_id: int = Query(0, ge=0), db: Session = Depends(get_db),
+def admin_live(session_id: int = Query(gt=0), date: str = Query(), since_id: int = Query(0, ge=0), original_date: str | None = Query(None), db: Session = Depends(get_db),
                _admin=Depends(require_admin)):
-    return _list(db, session_id, date, since_id)
+    return _list(db, session_id, date, since_id, original_date)
 
 
 # ---------- выгрузка посещаемости в Excel (phase 2 F)
@@ -400,14 +488,17 @@ def export_xlsx(
     q = (select(Attendance, ClubSession.club_id, Club.name, ClubSession.start_time, ClubSession.end_time, Leader.name)
          .join(ClubSession, ClubSession.id == Attendance.session_id).join(Club, Club.id == ClubSession.club_id)
          .outerjoin(Leader, Leader.id == Club.leader_id)
-         .where(Attendance.occurrence_date >= summary["date_from"], Attendance.occurrence_date <= summary["date_to"])
          .order_by(Club.name, Attendance.occurrence_date, ClubSession.start_time, Attendance.created_at))
     if club_id:
         q = q.where(ClubSession.club_id == club_id)
     rows: dict[int, list] = {}
+    moves = _moved_dates(db)
     for a, cid, _name, st, en, teacher in db.execute(q):
+        actual, st, en = moves.get((a.session_id, a.occurrence_date), (a.occurrence_date, st, en))
+        if not summary["date_from"] <= actual <= summary["date_to"]:
+            continue
         at = a.created_at.replace(tzinfo=timezone.utc).astimezone(MSK).strftime("%H:%M") if a.created_at else ""
-        rows.setdefault(cid, []).append((a.occurrence_date, f"{st}–{en}", teacher or "", a.student_id, at))
+        rows.setdefault(cid, []).append((actual, f"{st}–{en}", teacher or "", a.student_id, at))
 
     wb = Workbook()
     ws = wb.active

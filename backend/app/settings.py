@@ -159,10 +159,14 @@ def validate_for_startup(db_path: Path) -> list[str]:
         return problems
     if os.getenv("COOKIE_SECURE", "true").strip().lower() not in _TRUE:
         problems.append("COOKIE_SECURE=false в production запрещён (cookie сессии без Secure).")
-    if not os.getenv("JWT_SECRET", "").strip() and not jwt_secret_file().exists():
-        problems.append("Не задан JWT_SECRET (или JWT_SECRET_FILE с существующим файлом) — задай длинную случайную строку.")
-    if os.getenv("JWT_SECRET", "") and len(os.getenv("JWT_SECRET", "")) < 32:
-        problems.append("JWT_SECRET слишком короткий (нужно ≥ 32 символов).")
+    effective_secret = os.getenv("JWT_SECRET", "").strip()
+    if not effective_secret:
+        try:
+            effective_secret = jwt_secret_file().read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeError):
+            problems.append("JWT_SECRET_FILE отсутствует или не читается; задайте JWT_SECRET или файл с секретом.")
+    if len(effective_secret) < 32:
+        problems.append("JWT_SECRET (или содержимое JWT_SECRET_FILE) слишком короткий: нужно ≥ 32 непробельных символов.")
     hosts = allowed_hosts()
     if not hosts or "*" in hosts:
         problems.append("Задай ALLOWED_HOSTS=домен1,домен2 (без '*') — защита от подмены Host.")

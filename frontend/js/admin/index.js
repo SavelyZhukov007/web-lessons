@@ -49,18 +49,20 @@ async function render() {
   const { route, param } = parseHash();
   controller?.abort();
   controller = new AbortController();
+  const current = controller;
   markCurrent(route);
   document.title = `${ROUTES[route].title} — админка`;
   main.setAttribute('aria-busy', 'true');
   try {
     const view = await ROUTES[route].load();
-    await view.mount(main, { signal: controller.signal, admin, param });
+    if (current.signal.aborted) return;
+    await view.mount(main, { signal: current.signal, admin, param });
   } catch (error) {
-    if (error?.name === 'AbortError') return;
+    if (error?.name === 'AbortError' || current.signal.aborted) return;
     if (error?.status === 401) return; // уведомление admin:unauthorized уже перенаправило на вход
     main.replaceChildren(h('div', { class: 'error-state', role: 'alert' }, error?.message || 'Не удалось загрузить раздел.'),
       h('button', { type: 'button', class: 'btn', onclick: render }, 'Повторить'));
-  } finally { main.removeAttribute('aria-busy'); }
+  } finally { if (!current.signal.aborted) main.removeAttribute('aria-busy'); }
 }
 
 async function boot() {

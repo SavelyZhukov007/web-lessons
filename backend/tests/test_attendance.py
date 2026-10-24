@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import base64
 import hashlib
-
-import pytest
 import hmac
 import secrets
 from datetime import date, datetime, timedelta
+
+import pytest
 
 from backend.app.routers import attendance as att
 from backend.app.services.clock import MSK

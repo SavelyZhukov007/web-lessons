@@ -1,6 +1,7 @@
 import { getClub } from './api.js';
 import { h, icon } from './ui.js';
 import { mountClubPush } from './push.js';
+import { monday, moscowToday, dateKey } from './schedule-dates.js';
 
 const content = document.querySelector('#content');
 const heading = document.querySelector('#club-name');
@@ -56,7 +57,7 @@ function render(club) {
   }
   const side = h('div', { class: 'column' },
     h('section', { class: 'card' }, h('h2', {}, 'О кружке'), facts.children.length ? facts : h('p', {}, 'Сведений о руководителе пока нет.'),
-      h('div', { class: 'club-actions' }, h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics` }, icon('calendar'), 'В календарь (.ics)'))));
+      h('div', { class: 'club-actions' }, h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics?week=${dateKey(monday(moscowToday()))}` }, icon('calendar'), 'В календарь — текущая неделя (.ics)'))));
   const main = h('div', { class: 'column' }, sessionsBlock(club), changesBlock(club));
   content.replaceChildren(
     h('p', { class: 'detail-copy' }, club.description || 'Описание кружка пока не добавлено.'), main, side);

@@ -313,11 +313,21 @@
     }
   }
   function purgeAtt() { var cut = iso(addDays(new Date(), -21)); db.attendance = db.attendance.filter(function (x) { return x.date >= cut && x.student_id; }); }
-  function occurrence(sessionId, day) {
+  function dayEvents(day, days, leaderId) {
+    var result = [];
+    for (var i = 0; i < Math.min(14, Math.max(1, days || 1)); i++) {
+      var d = addDays(parse(day), i), key = iso(d), mon = addDays(d, 1 - isoWeekday(d));
+      result = result.concat(buildWeek(mon).filter(function (x) { return x.date === key && x.status !== 'cancelled' && (!leaderId || x.leader_id === leaderId); }));
+    }
+    return result.sort(cmp('date', 'start_time', 'event_id'));
+  }
+  function occurrence(sessionId, day, original) {
     if (!DATE.test(day || '') || isNaN(parse(day))) fail(422, 'date должен иметь формат YYYY-MM-DD');
     if (!db.sessions.some(function (x) { return x.id === sessionId; })) fail(404, 'Занятие не найдено');
     var d = parse(day); var mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - isoWeekday(d) + 1);
-    var e = buildWeek(mon).find(function (x) { return x.session_id === sessionId && x.date === day; });
+    var choices = buildWeek(mon).filter(function (x) { return x.session_id === sessionId && x.date === day && (!original || x.original_date === original); });
+    if (choices.length > 1) fail(409, 'Выберите конкретное занятие (original_date)');
+    var e = choices[0];
     if (!e) { var c = db.session_exceptions.find(function (x) { return x.session_id === sessionId && x.original_date === day && x.type === 'cancelled'; });
       fail(c ? 409 : 404, c ? 'Это занятие отменено' : 'В этот день у кружка нет занятия'); }
     if (e.status === 'cancelled') fail(409, 'Это занятие отменено');
@@ -325,17 +335,17 @@
   }
   function times(e) { var d = parse(e.date), a = e.start_time.split(':'), b = e.end_time.split(':');
     return [new Date(d.getFullYear(), d.getMonth(), d.getDate(), +a[0], +a[1]).getTime(), new Date(d.getFullYear(), d.getMonth(), d.getDate(), +b[0], +b[1]).getTime()]; }
-  function qrPayload(sessionId, day) {
-    var e = occurrence(sessionId, day), t = times(e), now = Date.now(), W = windowMin() * 60000;
-    var base = { session_id: e.session_id, club_id: e.club_id, club_name: e.club_name, date: day, start_time: e.start_time, end_time: e.end_time,
+  function qrPayload(sessionId, day, original) {
+    var e = occurrence(sessionId, day, original), t = times(e), now = Date.now(), W = windowMin() * 60000;
+    var base = { session_id: e.session_id, club_id: e.club_id, club_name: e.club_name, date: day, original_date: e.original_date, start_time: e.start_time, end_time: e.end_time,
       window_min: windowMin(), opens_at: new Date(t[0] - 10000).toISOString(), closes_at: new Date(t[0] + W).toISOString(), demo_free_window: freeWindow() };
     if (!freeWindow() && now < t[0] - 10000) return Object.assign(base, { state: 'early', opens_in: Math.ceil((t[0] - 10000 - now) / 1000) });
     if (!freeWindow() && now > t[0] + W) return Object.assign(base, { state: 'closed', manual_until: new Date(t[1]).toISOString() });
     var tok = 'itc-att2.' + btoa(JSON.stringify({ s: e.session_id, d: e.original_date || e.date, i: Math.floor(now / 1000), e: Math.floor(now / 1000) + 60 })).replace(/=+$/, '') + '.demo';
     return Object.assign(base, { state: 'open', token: tok, ttl: 60, rotate: 25, expires_at: new Date(now + 60000).toISOString(), closes_in: Math.max(0, Math.floor((t[0] + W - now) / 1000)) });
   }
-  function record(sessionId, day, sid, method, enforce) {
-    var e = occurrence(sessionId, day), t = times(e), now = Date.now();
+  function record(sessionId, day, sid, method, enforce, original) {
+    var e = occurrence(sessionId, day, original), t = times(e), now = Date.now();
     if (enforce === 'qr' && !freeWindow() && !(t[0] - 10000 <= now && now <= t[0] + windowMin() * 60000)) fail(403, now > t[0] ? 'Отметка закрыта' : 'Отметка ещё не открыта');
     if (enforce === 'session' && !freeWindow() && !(t[0] - 10000 <= now && now <= t[1])) fail(403, 'Ручная отметка доступна только во время занятия');
     var od = e.original_date || e.date;
@@ -373,7 +383,8 @@
     if (db.nonces.some(function (n) { return n.n === body.nonce; })) fail(409, 'Повторная отправка отклонена — отсканируйте QR ещё раз');
     deviceCheck(sid, body.device_token, true);
     db.nonces.push({ n: body.nonce, e: Date.now() + 300000 });
-    return record(data.s, data.d, sid, 'qr', 'qr');
+    var moved = db.session_exceptions.find(function (x) { return x.session_id === data.s && x.original_date === data.d && x.type === 'moved'; });
+    return record(data.s, moved ? moved.new_date : data.d, sid, 'qr', 'qr', data.d);
   }
   // преподаватели: в демо идентификатор T-… хранится открыто (на сервере — только SHA-256)
   function teacherByToken(tok) {
@@ -405,20 +416,22 @@
         sessions: db.sessions.filter(function (s) { return ids.indexOf(s.club_id) >= 0; }).sort(cmp('weekday', 'start_time')).map(function (s) {
           return { id: s.id, club_id: s.club_id, club_name: (clubs.find(function (c) { return c.id === s.club_id; }) || {}).name, weekday: s.weekday, start_time: s.start_time, end_time: s.end_time, room_id: s.room_id, room_name: (rooms[s.room_id] || {}).name || '' }; }) };
     }
-    if (p === '/api/teacher/attendance/qr' && method === 'POST') { ownSession(t, Number(body.session_id)); return qrPayload(Number(body.session_id), body.date); }
-    if (p === '/api/teacher/attendance' && method === 'GET') { ownSession(t, Number(q.get('session_id'))); return liveList(Number(q.get('session_id')), q.get('date'), Number(q.get('since_id') || 0)); }
-    if (p === '/api/teacher/attendance/manual' && method === 'POST') { ownSession(t, Number(body.session_id)); return record(Number(body.session_id), body.date, normSid(body.student_id), 'manual', 'session'); }
+    if (p === '/api/teacher/occurrences' && method === 'GET') return dayEvents(q.get('date'), Number(q.get('days') || 1), t.id);
+    if (p === '/api/teacher/attendance/qr' && method === 'POST') { ownSession(t, Number(body.session_id)); return qrPayload(Number(body.session_id), body.date, body.original_date); }
+    if (p === '/api/teacher/attendance' && method === 'GET') { ownSession(t, Number(q.get('session_id'))); return liveList(Number(q.get('session_id')), q.get('original_date') || q.get('date'), Number(q.get('since_id') || 0)); }
+    if (p === '/api/teacher/attendance/manual' && method === 'POST') { ownSession(t, Number(body.session_id)); return record(Number(body.session_id), body.date, normSid(body.student_id), 'manual', 'session', body.original_date); }
     var m = p.match(/^\/api\/teacher\/attendance\/(\d+)$/);
     if (m && method === 'DELETE') { var r = db.attendance.find(function (x) { return x.id === +m[1]; }); if (!r) fail(404, 'Отметка не найдена'); ownSession(t, r.session_id);
       db.attendance = db.attendance.filter(function (x) { return x !== r; }); console.info('[audit] attendance_revoked teacher:' + t.id + ' ' + shortId(r.student_id)); return [204, null]; }
     fail(404, 'Not Found');
   }
   function attendanceRoute(method, a, q, body) {
-    if (a === '/attendance/qr' && method === 'POST') return qrPayload(Number(body.session_id), body.date);
+    if (a === '/attendance/occurrences' && method === 'GET') return dayEvents(q.get('date'), 1);
+    if (a === '/attendance/qr' && method === 'POST') return qrPayload(Number(body.session_id), body.date, body.original_date);
     if (a === '/attendance/export.xlsx') return attendanceXlsx(q);
-    if (a === '/attendance/manual' && method === 'POST') return record(Number(body.session_id), body.date, normSid(body.student_id), 'manual');
+    if (a === '/attendance/manual' && method === 'POST') return record(Number(body.session_id), body.date, normSid(body.student_id), 'manual', null, body.original_date);
     if (a === '/attendance/student') return historyOf(normSid(q.get('student_id')));
-    if (a === '/attendance/live') return liveList(Number(q.get('session_id')), q.get('date'), Number(q.get('since_id') || 0));
+    if (a === '/attendance/live') return liveList(Number(q.get('session_id')), q.get('original_date') || q.get('date'), Number(q.get('since_id') || 0));
     var m = a.match(/^\/attendance\/(\d+)$/);
     if (m && method === 'DELETE') { db.attendance = db.attendance.filter(function (x) { return x.id !== +m[1]; }); return [204, null]; }
     if (a === '/attendance/stats') {

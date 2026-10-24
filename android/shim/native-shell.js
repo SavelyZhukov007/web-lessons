@@ -53,7 +53,7 @@
       var login = (a.getAttribute('aria-label') || '').replace(/^Аккаунт:\s*/, '');
       a.setAttribute('aria-label', 'Аккаунт и смена пароля' + (login ? ': ' + login : '')); a.title = 'Аккаунт и смена пароля';
     });
-    doc.querySelectorAll('a[href$="/calendar.ics"]:not([data-native-cal])').forEach(function (a) {
+    doc.querySelectorAll('a[href*="/calendar.ics"]:not([data-native-cal])').forEach(function (a) {
       a.setAttribute('data-native-cal', '');
       for (var n = a.lastChild; n; n = n.previousSibling) if (n.nodeType === 3 && n.nodeValue.trim()) { n.nodeValue = 'Добавить в календарь'; break; }
     });

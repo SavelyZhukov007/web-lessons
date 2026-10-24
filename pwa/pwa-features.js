@@ -179,6 +179,7 @@
   }
   doc.addEventListener('visibilitychange', function () { if (!doc.hidden) { refreshBadge().then(function () { setTimeout(markSeen, 1500); }); syncSubs(); } });
   doc.addEventListener('itc:follows', function () { setTimeout(refreshBadge, 300); });
+  doc.addEventListener('itc:mymode', function () { markSeen(); refreshBadge().then(markSeen); });
   doc.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('#itc-my-toggle')) setTimeout(function () { refreshBadge().then(markSeen); }, 400); });
 
   window.ItcPwaFeatures = { openSheet: openSheet, enableFromGesture: enableFromGesture, disable: disable, syncSubs: syncSubs,

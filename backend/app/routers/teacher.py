@@ -73,18 +73,33 @@ def make_session(leader: Leader, now: float | None = None) -> str:
     return f"tch1.{body}.{_b64(hmac.new(_skey(), body.encode(), hashlib.sha256).digest())}"
 
 
+def _claims(token: str, prefix: str, key: bytes, *, short_signature: bool = False) -> dict:
+    """Validate credentials explicitly; interpreter optimization must not change auth."""
+    if len(token) > 1000:
+        raise ValueError("token too long")
+    pre, body, sig = token.split(".")
+    good = _b64(hmac.new(key, body.encode(), hashlib.sha256).digest())
+    if short_signature:
+        good = good[:22]
+    if pre != prefix or not hmac.compare_digest(sig, good):
+        raise ValueError("invalid signature")
+    data = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+    if not isinstance(data, dict) or any(type(data.get(k)) is not int for k in ("l", "a", "e")):
+        raise ValueError("invalid claims")
+    if data["l"] <= 0 or data["a"] < 0 or data["e"] <= time.time():
+        raise ValueError("expired or invalid claims")
+    return data
+
+
 def require_teacher(authorization: str = Header(default=""), db: Session = Depends(get_db)) -> Leader:
     tok = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
     try:
-        assert tok.startswith("tch1.")
-        _, body, sig = tok.split(".")
-        good = _b64(hmac.new(_skey(), body.encode(), hashlib.sha256).digest())
-        assert hmac.compare_digest(sig, good)
-        data = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
-        assert data.get("scope") == "teacher" and data["e"] > time.time()
+        data = _claims(tok, "tch1", _skey())
+        if data.get("scope") != "teacher":
+            raise ValueError("invalid scope")
     except Exception:
         raise HTTPException(401, "Требуется вход преподавателя") from None
-    leader = db.get(Leader, int(data["l"]))
+    leader = db.get(Leader, data["l"])
     if not leader or not leader.access_hash or _epoch(leader.access_issued_at) != data["a"]:
         raise HTTPException(401, "Доступ преподавателя отозван или перевыпущен")
     return leader
@@ -123,9 +138,9 @@ def create_teacher(payload: TeacherCreate, db: Session = Depends(get_db), _admin
 
 @router.get("/api/admin/teachers")
 def list_teachers(db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    return [{"leader_id": l.id, "name": l.name, "has_access": bool(l.access_hash),
-             "issued_at": l.access_issued_at.isoformat() + "Z" if l.access_issued_at else None}
-            for l in db.scalars(select(Leader).order_by(Leader.name))]
+    return [{"leader_id": leader.id, "name": leader.name, "has_access": bool(leader.access_hash),
+             "issued_at": leader.access_issued_at.isoformat() + "Z" if leader.access_issued_at else None}
+            for leader in db.scalars(select(Leader).order_by(Leader.name))]
 
 
 @router.post("/api/admin/leaders/{leader_id}/access")
@@ -179,15 +194,10 @@ class TransferRedeem(BaseModel):
 def redeem_transfer(payload: TransferRedeem, db: Session = Depends(get_db)):
     bad = HTTPException(401, "Код переноса недействителен или устарел — попросите администратора показать новый QR")
     try:
-        pre, body, sig = payload.code.strip().split(".")
-        assert pre == "itc-tx1"
-        assert hmac.compare_digest(sig, _b64(hmac.new(_tkey(), body.encode(), hashlib.sha256).digest())[:22])
-        data = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+        data = _claims(payload.code.strip(), "itc-tx1", _tkey(), short_signature=True)
     except Exception:
         raise bad from None
-    if data.get("e", 0) < time.time():
-        raise bad
-    leader = db.get(Leader, int(data.get("l", 0)))
+    leader = db.get(Leader, data["l"])
     if not leader or _epoch(leader.access_issued_at) != data.get("a"):
         raise bad
     issued = _issue(db, leader)  # перевыпуск: прежний телефон отключается, код больше не годится
@@ -226,15 +236,20 @@ def teacher_me(leader: Leader = Depends(require_teacher), db: Session = Depends(
 @router.post("/api/teacher/attendance/qr")
 def teacher_qr(payload: att.SessionDay, leader: Leader = Depends(require_teacher), db: Session = Depends(get_db)):
     _own_session(db, leader, payload.session_id)
-    return att._qr_payload(db, payload.session_id, payload.date)
+    return att._qr_payload(db, payload.session_id, payload.date, payload.original_date)
+
+
+@router.get("/api/teacher/occurrences")
+def teacher_occurrences(date: str = Query(), days: int = Query(1, ge=1, le=14), leader: Leader = Depends(require_teacher), db: Session = Depends(get_db)):
+    return att._day_events(db, date, days, leader.id)
 
 
 @router.get("/api/teacher/attendance")
-def teacher_list(session_id: int = Query(gt=0), date: str = Query(), since_id: int = Query(0, ge=0),
+def teacher_list(session_id: int = Query(gt=0), date: str = Query(), since_id: int = Query(0, ge=0), original_date: str | None = Query(None),
                  leader: Leader = Depends(require_teacher), db: Session = Depends(get_db)):
     """Живой список (опрос раз в 2 с; since_id — только новые)."""
     _own_session(db, leader, session_id)
-    return att._list(db, session_id, date, since_id)
+    return att._list(db, session_id, date, since_id, original_date)
 
 
 @router.delete("/api/teacher/attendance/{att_id}", status_code=204)
@@ -246,4 +261,4 @@ def teacher_delete(att_id: int, leader: Leader = Depends(require_teacher), db: S
 @router.post("/api/teacher/attendance/manual", status_code=201)
 def teacher_manual(payload: att.ManualMark, leader: Leader = Depends(require_teacher), db: Session = Depends(get_db)):
     _own_session(db, leader, payload.session_id)
-    return att._record(db, payload.session_id, payload.date, payload.student_id, "manual", enforce="session")
+    return att._record(db, payload.session_id, payload.date, payload.student_id, "manual", enforce="session", original_date=payload.original_date)

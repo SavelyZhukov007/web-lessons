@@ -1,7 +1,8 @@
 """Страницы распространения: /ios, /ios/pwa, /android/, /android/download, /api/app/android."""
+
 import json
-from pathlib import Path
 import os
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,11 +24,14 @@ def releases(tmp_path, monkeypatch):
     return tmp_path
 
 
-@pytest.mark.parametrize("path, marker", [
-    ("/ios", 'data-dist-page="ios"'),
-    ("/ios/pwa", 'data-dist-page="ios-pwa"'),
-    ("/android/", 'data-dist-page="android"'),
-])
+@pytest.mark.parametrize(
+    "path, marker",
+    [
+        ("/ios", 'data-dist-page="ios"'),
+        ("/ios/pwa", 'data-dist-page="ios-pwa"'),
+        ("/android/", 'data-dist-page="android"'),
+    ],
+)
 def test_pages_html(client, path, marker):
     res = client.get(path)
     assert res.status_code == 200
@@ -104,8 +108,19 @@ def test_existing_site_untouched(client):
 # ---------- обновление внутри приложения (phase 2 F)
 def test_update_manifest_fields(client, releases, monkeypatch):
     (releases / "kruzhki-1.2.apk").write_bytes(b"PK-12")
-    (releases / "latest.json").write_text(json.dumps({"file": "kruzhki-1.2.apk", "version": "1.2", "versionCode": 3, "sha256": "cd" * 32,
-                                                       "changelog": ["Новое расписание", "", "Экран загрузки"], "minSupported": 2}), encoding="utf-8")
+    (releases / "latest.json").write_text(
+        json.dumps(
+            {
+                "file": "kruzhki-1.2.apk",
+                "version": "1.2",
+                "versionCode": 3,
+                "sha256": "cd" * 32,
+                "changelog": ["Новое расписание", "", "Экран загрузки"],
+                "minSupported": 2,
+            }
+        ),
+        encoding="utf-8",
+    )
     res = client.get("/api/app/android")
     assert res.headers["cache-control"] == "no-cache"
     info = res.json()
@@ -122,7 +137,10 @@ def test_update_manifest_fields(client, releases, monkeypatch):
 
 def test_update_manifest_tolerates_bad_meta(client, releases):
     (releases / "a.apk").write_bytes(b"A")
-    (releases / "latest.json").write_text(json.dumps({"file": "a.apk", "version": "1.0", "versionCode": "x", "changelog": "не список", "minSupported": None}), encoding="utf-8")
+    (releases / "latest.json").write_text(
+        json.dumps({"file": "a.apk", "version": "1.0", "versionCode": "x", "changelog": "не список", "minSupported": None}),
+        encoding="utf-8",
+    )
     info = client.get("/api/app/android").json()
     assert info["versionCode"] is None and info["changelog"] == [] and info["minSupported"] is None
 
@@ -134,8 +152,10 @@ def test_update_manifest_without_release(client, releases):
 
 def test_publish_release_writes_update_fields(tmp_path, monkeypatch):
     from tools.build import android as mod
+
     root = Path(__file__).resolve().parents[2]
-    apk = tmp_path / "kruzhki-9.9.apk"; apk.write_bytes(b"PK")
+    apk = tmp_path / "kruzhki-9.9.apk"
+    apk.write_bytes(b"PK")
     out = tmp_path / "rel"
     mod.publish_release(apk, out)
     meta = json.loads((out / "latest.json").read_text(encoding="utf-8"))

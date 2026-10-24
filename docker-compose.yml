@@ -11,7 +11,7 @@ services:
       - clubs-backups:/backups
     expose: ["8000"]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=4).status == 200 else 1)"]
+      test: ["CMD", "python", "-c", "import os,urllib.request; h=os.environ['ALLOWED_HOSTS'].split(',')[0].strip(); r=urllib.request.Request('http://127.0.0.1:8000/readyz',headers={'Host':h}); urllib.request.urlopen(r,timeout=4)"]
       interval: 30s
       timeout: 5s
       retries: 3

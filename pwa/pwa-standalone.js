@@ -15,7 +15,10 @@
   // чтобы обёртка fetch (офлайн-кэш, «Мои») стояла раньше первого запроса.
   // стили — парсером (блокируют первую отрисовку): без «мигания» и с opt-in @view-transition до pagereveal
   doc.write('<link rel="stylesheet" href="/css/native-shell.css" data-native-shell><link rel="stylesheet" href="/css/native-features.css">' +
-            '<link rel="stylesheet" href="/css/native-motion.css"><link rel="stylesheet" href="/pwa/pwa.css" data-pwa-css>');
+            '<link rel="stylesheet" href="/css/native-motion.css"><link rel="stylesheet" href="/css/app-student.css"><link rel="stylesheet" href="/pwa/pwa.css" data-pwa-css>');
   doc.write('<script src="/js/native-shell.js"></script><script src="/js/native-features.js"></script>' +
-            '<script src="/js/native-motion.js"></script><script src="/pwa/pwa-features.js"></script>');
+            '<script src="/js/native-motion.js"></script><script src="/js/app-admin.js" defer></script><script src="/pwa/pwa-features.js"></script>');
+  // Opening the public timetable must not require choosing a role. The private
+  // student profile is needed only on the check-in screen.
+  if (/\/qr\.html$/.test(location.pathname)) doc.write('<script src="/js/app-student.js"></script>');
 })();

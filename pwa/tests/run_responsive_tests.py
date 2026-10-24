@@ -4,16 +4,17 @@
 подписи нижней навигации в одну строку, кнопки ≥ 44×44 (iOS HIG) / 48 dp, поля ввода на iOS ≥ 16px (без автозума),
 шапка и нижняя панель не перекрывают контент, текст не обрезан у кнопок.
   python pwa/tests/run_responsive_tests.py      (PWA_DIR — готовая сборка; SHOTS_DIR — каталог скриншотов)"""
+
 import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from playwright.sync_api import sync_playwright  # noqa: E402
-
 from pwa_env import ADMIN, ANDROID_UA, CHROME, IOS_UA, PASSWORD, Stand, init_script  # noqa: E402
 
-SHOTS = Path(os.environ.get("SHOTS_DIR", "/workspace/itc/shots_de")); SHOTS.mkdir(parents=True, exist_ok=True)
+SHOTS = Path(os.environ.get("SHOTS_DIR", "/workspace/itc/shots_de"))
+SHOTS.mkdir(parents=True, exist_ok=True)
 # (имя, платформа, ширина, высота, dpr, масштаб текста)
 DEVICES = [
     ("iphone-se", "ios", 375, 667, 2, 1),
@@ -29,8 +30,15 @@ DEVICES = [
 ONLY = os.environ.get("DEVICES")
 if ONLY:
     DEVICES = [d for d in DEVICES if d[0] in ONLY.split(",")]
-PAGES = [("schedule", "/"), ("clubs", "/clubs.html"), ("club", "/club.html?id=1"), ("qr", "/qr.html"),
-         ("sheet", "/#sheet"), ("admin-sessions", "/admin/#/sessions"), ("admin-dashboard", "/admin/#/")]
+PAGES = [
+    ("schedule", "/"),
+    ("clubs", "/clubs.html"),
+    ("club", "/club.html?id=1"),
+    ("qr", "/qr.html"),
+    ("sheet", "/#sheet"),
+    ("admin-sessions", "/admin/#/sessions"),
+    ("admin-dashboard", "/admin/#/"),
+]
 
 PROBE = r"""
 (fontScale) => {
@@ -75,7 +83,8 @@ results = []
 
 
 def check(name, cond, detail=""):
-    results.append((name, bool(cond))); print(("PASS " if cond else "FAIL ") + name + (f"  -- {detail}" if detail else ""), flush=True)
+    results.append((name, bool(cond)))
+    print(("PASS " if cond else "FAIL ") + name + (f"  -- {detail}" if detail else ""), flush=True)
 
 
 st = Stand(build=True)
@@ -83,23 +92,49 @@ try:
     with sync_playwright() as p:
         br = p.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
         # вход в админку один раз — cookie переиспользуем
-        c0 = br.new_context(base_url=st.base); r = c0.request.post("/api/admin/login", data={"login": ADMIN, "password": PASSWORD})
-        state = c0.storage_state(); c0.close()
+        c0 = br.new_context(base_url=st.base)
+        r = c0.request.post("/api/admin/login", data={"login": ADMIN, "password": PASSWORD})
+        state = c0.storage_state()
+        c0.close()
         for name, kind, w, h, dpr, scale in DEVICES:
-            for scheme in (["light", "dark"] if name in ("iphone-15", "android-360") else ["light"]):
-                c = br.new_context(viewport={"width": w, "height": h}, device_scale_factor=dpr, is_mobile=True, has_touch=True,
-                                   user_agent=IOS_UA if kind == "ios" else ANDROID_UA, locale="ru-RU", timezone_id="Europe/Moscow",
-                                   color_scheme=scheme, base_url=st.base, storage_state=state, service_workers="block")
+            for scheme in ["light", "dark"] if name in ("iphone-15", "android-360") else ["light"]:
+                c = br.new_context(
+                    viewport={"width": w, "height": h},
+                    device_scale_factor=dpr,
+                    is_mobile=True,
+                    has_touch=True,
+                    user_agent=IOS_UA if kind == "ios" else ANDROID_UA,
+                    locale="ru-RU",
+                    timezone_id="Europe/Moscow",
+                    color_scheme=scheme,
+                    base_url=st.base,
+                    storage_state=state,
+                    service_workers="block",
+                )
                 c.add_init_script(init_script(kind))
-                c.add_init_script("localStorage.setItem('itc.follows','[1,3]');" + (f"document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.setProperty('--text-scale','{scale}'));" if scale != 1 else ""))
-                pg = c.new_page(); errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
+                c.add_init_script(
+                    "localStorage.setItem('itc.follows','[1,3]');"
+                    + (
+                        f"document.addEventListener('DOMContentLoaded',()=>document.documentElement.style.setProperty('--text-scale','{scale}'));"
+                        if scale != 1
+                        else ""
+                    )
+                )
+                pg = c.new_page()
+                errs = []
+                pg.on("pageerror", lambda e, errs=errs: errs.append(str(e)))
                 for key, path in PAGES:
                     tag = f"{name}{'' if scheme == 'light' else '-dark'} {key}"
-                    pg.goto(path.replace("#sheet", "")); pg.wait_for_load_state("networkidle"); pg.wait_for_timeout(700)
+                    pg.goto(path.replace("#sheet", ""))
+                    pg.wait_for_load_state("networkidle")
+                    pg.wait_for_timeout(700)
                     if key == "sheet":
-                        pg.click("#itc-notify-open"); pg.wait_for_selector("#itc-sheet"); pg.wait_for_timeout(400)
+                        pg.click("#itc-notify-open")
+                        pg.wait_for_selector("#itc-sheet")
+                        pg.wait_for_timeout(400)
                     if key.startswith("admin") and "/admin/login" in pg.url:
-                        check(f"{tag}: админ вошёл", False, pg.url); continue
+                        check(f"{tag}: админ вошёл", False, pg.url)
+                        continue
                     res = pg.evaluate(PROBE, scale)
                     check(f"{tag}: нет горизонтальной прокрутки", res["overflowX"] <= 1, f"+{res['overflowX']}px")
                     check(f"{tag}: ничего не вылезает за край", not res["outside"], "; ".join(res["outside"]))

@@ -23,7 +23,6 @@ export async function mount(root, { signal }) {
   root.replaceChildren(loading());
   const data = await loadAll({ signal });
   const today = dateKey(moscowToday());
-  const iso = d => { const [y, m, day] = d.split('-').map(Number); return new Date(y, m - 1, day).getDay() || 7; };
   const dateIn = h('input', { type: 'date', value: today, 'aria-label': 'Дата занятия' });
   const sessionSel = h('select', { 'aria-label': 'Занятие' });
   const qrBox = h('div', { class: 'attendance-qr', 'aria-live': 'polite' });
@@ -44,46 +43,69 @@ export async function mount(root, { signal }) {
     finally { xlsxBtn.disabled = false; xlsxBtn.textContent = label; }
   });
 
-  function fillSessions() {
-    const wd = iso(dateIn.value || today);
-    const list = data.sessions.filter(s => s.weekday === wd && data.club.get(s.club_id)?.is_active !== false)
-      .sort((a, b) => a.start_time.localeCompare(b.start_time));
-    sessionSel.replaceChildren(...(list.length ? list.map(s => h('option', { value: s.id }, `${s.start_time}–${s.end_time} · ${data.club.get(s.club_id)?.name ?? 'Кружок'}`))
-      : [h('option', { value: '' }, `В ${dayShort(wd)} занятий нет`)]));
+  let choices = new Map(), choiceSeq = 0;
+  async function fillSessions() {
+    const mine = ++choiceSeq;
+    sessionSel.disabled = true;
+    sessionSel.replaceChildren(h('option', { value: '' }, 'Загрузка занятий…'));
+    try {
+      const list = await request(`/api/admin/attendance/occurrences?date=${encodeURIComponent(dateIn.value || today)}`, { signal });
+      if (mine !== choiceSeq || signal?.aborted) return;
+      choices = new Map(list.map(s => [s.event_id, s]));
+      sessionSel.replaceChildren(...(list.length ? list.map(s => h('option', { value: s.event_id },
+        `${s.start_time}–${s.end_time} · ${s.club_name}${s.status === 'moved' ? ' · перенос' : ''}`))
+        : [h('option', { value: '' }, 'В эту дату занятий нет')]));
+    } catch (e) {
+      if (mine !== choiceSeq || signal?.aborted) return;
+      choices.clear();
+      sessionSel.replaceChildren(h('option', { value: '' }, 'Не удалось загрузить занятия'));
+      qrBox.replaceChildren(h('div', { class: 'error-state', role: 'alert' }, e.message,
+        h('button', { type: 'button', class: 'btn', onclick: fillSessions }, 'Повторить')));
+    } finally { if (mine === choiceSeq) sessionSel.disabled = false; }
   }
   // QR занятия: открывается за 10 с до начала, выдаётся первые N минут, токен обновляется каждые ~25 с (действует 60 с).
-  let timer = 0, poll = 0, live = null;
-  const stopQr = () => { clearTimeout(timer); clearInterval(poll); timer = poll = 0; };
+  let timer = 0, poll = 0, live = null, generation = 0;
+  const stopQr = () => { ++generation; clearTimeout(timer); clearInterval(poll); timer = poll = 0; live = null; qrBox.replaceChildren(); };
   signal?.addEventListener('abort', stopQr);
   const hm = t => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const mmss = n => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
   async function showQr() {
     stopQr();
-    if (!sessionSel.value) return;
-    const body = { session_id: Number(sessionSel.value), date: dateIn.value };
+    const event = choices.get(sessionSel.value);
+    if (!event || signal?.aborted) return;
+    const mine = generation;
+    const active = () => mine === generation && !signal?.aborted;
+    const body = { session_id: event.session_id, date: dateIn.value, original_date: event.original_date };
     qrBox.replaceChildren(loading());
-    live = { sid: body.session_id, date: body.date, since: 0, list: h('ol', { class: 'attendance-live', 'aria-live': 'polite' }), count: h('strong', {}, '0') };
+    live = { sid: body.session_id, date: body.date, original: body.original_date, since: 0, busy: false,
+      status: h('p', { class: 'field-hint', role: 'status' }), list: h('ol', { class: 'attendance-live', 'aria-live': 'polite' }), count: h('strong', {}, '0') };
     const stage = h('div', { class: 'attendance-stage' });
     const manualIn = h('input', { placeholder: 'S-XXXX-XXXX-…', autocapitalize: 'characters', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'ID студента' });
     const manual = h('form', { class: 'attendance-form', onsubmit: async e => {
       e.preventDefault();
       if (await guarded(() => request('/api/admin/attendance/manual', send({ ...body, student_id: manualIn.value })), 'Отмечен вручную')) { manualIn.value = ''; pull(); }
     } }, h('label', {}, 'Отметить по ID', manualIn), h('button', { type: 'submit', class: 'btn btn--tonal' }, 'Отметить'));
-    qrBox.replaceChildren(stage, h('h3', {}, 'Отметились: ', live.count), live.list, manual);
+    qrBox.replaceChildren(stage, h('h3', {}, 'Отметились: ', live.count), live.status, live.list, manual);
     async function tick() {
+      if (!active()) return;
       let r;
-      try { r = await request('/api/admin/attendance/qr', send(body)); } catch (e) { stage.replaceChildren(h('div', { class: 'error-state', role: 'alert' }, e.message)); return; }
+      try { r = await request('/api/admin/attendance/qr', { ...send(body), signal }); } catch (e) {
+        if (active()) stage.replaceChildren(h('div', { class: 'error-state', role: 'alert' }, e.message)); return;
+      }
+      if (!active()) return;
       const title = h('p', { class: 'attendance-qr-title' }, `${r.club_name} · ${formatDate(r.date)}, ${r.start_time}–${r.end_time}`);
       if (r.state === 'early') {
         let left = r.opens_in; const c = h('span', {}, mmss(left));
         stage.replaceChildren(title, h('p', { class: 'attendance-state' }, 'QR ещё не готов — откроется через ', c));
-        const step = () => { left -= 1; c.textContent = mmss(Math.max(0, left)); if (left <= 0) tick(); else timer = setTimeout(step, 1000); };
+        const step = () => { if (!active()) return; left -= 1; c.textContent = mmss(Math.max(0, left)); if (left <= 0) tick(); else timer = setTimeout(step, 1000); };
         timer = setTimeout(step, 1000); return;
       }
       if (r.state === 'closed') {
         stage.replaceChildren(title, h('p', { class: 'attendance-state' }, `Отметка закрыта (первые ${r.window_min} мин). Вручную по ID — до ${hm(r.manual_until)}.`)); return;
       }
-      stage.replaceChildren(await qrSvg(r.token), title,
+      const svg = await qrSvg(r.token);
+      if (!active()) return;
+      stage.replaceChildren(svg, title,
         h('p', { class: 'field-hint' }, `Студенты сканируют код в приложении «Кружки» → «Отметиться». Код меняется каждые ${r.rotate} с; приём отметок ещё ${Math.ceil(r.closes_in / 60)} мин.`));
       timer = setTimeout(tick, Math.min(r.rotate, Math.max(1, r.closes_in + 1)) * 1000);
     }
@@ -91,12 +113,18 @@ export async function mount(root, { signal }) {
     pull(); poll = setInterval(pull, 2000);
   }
   async function pull() {
-    if (!live) return;
+    if (!live || live.busy || signal?.aborted) return;
     const L = live;
+    L.busy = true;
     try {
-      const r = await request(`/api/admin/attendance/live?session_id=${L.sid}&date=${L.date}&since_id=${L.since}`);
+      const r = await request(`/api/admin/attendance/live?session_id=${L.sid}&date=${L.date}&original_date=${L.original}`, { signal });
+      if (L !== live || signal?.aborted) return;
+      const currentIds = new Set(r.items.map(it => String(it.id)));
+      for (const row of L.list.children) if (!currentIds.has(row.dataset.id)) row.remove();
+      L.status.textContent = `Обновлено в ${new Date().toLocaleTimeString('ru-RU')}`;
       L.count.textContent = String(r.count);
       for (const it of r.items) {
+        if ([...L.list.children].some(row => row.dataset.id === String(it.id))) continue;
         L.since = Math.max(L.since, it.id);
         const li = h('li', { dataset: { id: it.id } }, h('code', { title: it.student_id }, it.short), h('time', {}, hm(it.at)), it.method === 'manual' ? h('span', { class: 'badge' }, 'вручную') : '',
           h('button', { type: 'button', class: 'btn btn--small btn--danger-text', onclick: async () => {
@@ -105,21 +133,25 @@ export async function mount(root, { signal }) {
           } }, 'Удалить'));
         L.list.append(li);
       }
-    } catch { /* следующий опрос */ }
+    } catch { if (L === live) L.status.textContent = 'Нет обновлений: проверьте соединение. Повторная попытка через 2 секунды.'; }
+    finally { L.busy = false; }
   }
+  let statsSeq = 0;
   async function loadStats() {
+    const mine = ++statsSeq;
     statsBox.replaceChildren(loading());
     try {
       const s = await request(`/api/admin/attendance/stats?date_from=${fromIn.value}&date_to=${toIn.value}`, { signal });
+      if (mine !== statsSeq || signal?.aborted) return;
       statsBox.replaceChildren(
         h('p', { class: 'attendance-total' }, `Всего отметок: ${s.total}`),
         dataTable({ caption: 'По кружкам', rows: s.clubs, empty: 'За период отметок нет',
-          columns: [{ label: 'Кружок', key: 'club_name' }, { label: 'Занятий', cell: c => String(c.classes) },
+          columns: [{ label: 'Кружок', key: 'club_name' }, { label: 'Занятий с отметками', cell: c => String(c.classes) },
             { label: 'Отметок', cell: c => String(c.checkins) }, { label: 'В среднем', cell: c => String(c.average) }] }),
         s.occurrences.length ? h('details', { class: 'attendance-details' }, h('summary', {}, 'По занятиям'),
           dataTable({ caption: 'По занятиям', rows: s.occurrences,
             columns: [{ label: 'Дата', cell: o => formatDate(o.date) }, { label: 'Время', key: 'start_time' }, { label: 'Кружок', key: 'club_name' }, { label: 'Отметок', cell: o => String(o.count) }] })) : '');
-    } catch (e) { if (e.name !== 'AbortError') statsBox.replaceChildren(h('div', { class: 'error-state', role: 'alert' }, e.message)); }
+    } catch (e) { if (mine === statsSeq && e.name !== 'AbortError') statsBox.replaceChildren(h('div', { class: 'error-state', role: 'alert' }, e.message)); }
   }
   const lookIn = h('input', { placeholder: 'S-XXXX-XXXX-…', autocapitalize: 'characters', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'ID студента' });
   const lookBox = h('div', { 'aria-live': 'polite' });

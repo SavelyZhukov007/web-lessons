@@ -28,3 +28,4 @@ ignore = ["E501", "B008", "UP007", "UP035", "UP006", "UP045"]
 "backend/migrations/*" = ["I", "E402", "W291"]
 "e2e/*" = ["E702"]
 "tools/build/*" = ["E702", "UP031", "UP036"]
+"pwa/tests/pwa_env.py" = ["UP031"]       # JS template braces are not Python format fields

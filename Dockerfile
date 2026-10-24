@@ -23,10 +23,12 @@ ENV ENV=production \
     CLUBS_FRONTEND_DIR=/app/builds/web \
     JWT_SECRET_FILE=/data/jwt_secret.key \
     VAPID_KEYS_FILE=/data/vapid_keys.json \
+    APP_LOGS_DIR=/data/client-logs \
+    APP_RELEASES_DIR=/data/releases/android \
     FORWARDED_ALLOW_IPS=*
 VOLUME ["/data", "/backups"]
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=4).status == 200 else 1)"
+    CMD python -c "import os,urllib.request; h=os.environ['ALLOWED_HOSTS'].split(',')[0].strip(); r=urllib.request.Request('http://127.0.0.1:8000/readyz',headers={'Host':h}); urllib.request.urlopen(r,timeout=4)"
 # ОДИН воркер: SQLite + блокировка записи в процессе (см. docs/runbook.md)
 CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers"]

@@ -42,7 +42,13 @@ def test_admin_login_logout_and_protection(client):
     assert client.get("/api/admin/status").status_code == 401
 
 
-def test_admin_crud_and_public_schedule(client):
+def test_admin_crud_and_public_schedule(client, monkeypatch):
+    from datetime import datetime
+
+    from backend.app.routers import public
+    from backend.app.services.clock import MSK
+
+    monkeypatch.setattr(public, "now_msk", lambda: datetime(2026, 10, 12, tzinfo=MSK))
     create_admin()
     login_admin(client)
 

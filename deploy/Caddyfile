@@ -8,6 +8,9 @@
 	}
 	{$CADDY_TLS:}
 	reverse_proxy app:8000 {
+		health_headers {
+			Host {$SITE_ADDRESS}
+		}
 		health_uri /readyz
 		health_interval 15s
 	}

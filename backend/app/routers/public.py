@@ -24,6 +24,7 @@ from ..schemas.room import RoomRead
 from ..schemas.session import SessionWithRoomRead
 from ..schemas.session_exception import SessionExceptionRead
 from ..services.calendar_export import build_club_calendar
+from ..services.clock import now_msk
 from ..services.schedule import build_week
 
 router = APIRouter(prefix="/api", tags=["public"])
@@ -105,8 +106,8 @@ def rooms(db: Session = Depends(get_db)):
 
 @router.get("/clubs", response_model=list[ClubRead])
 def clubs(
-    search: str | None = None,
-    category_id: int | None = None,
+    search: str | None = Query(None, max_length=200),
+    category_id: int | None = Query(None, gt=0),
     db: Session = Depends(get_db),
 ):
     statement = select(Club).where(Club.is_active.is_(True))
@@ -138,8 +139,10 @@ def club(club_id: int, db: Session = Depends(get_db)):
     sessions = sorted(
         item.sessions, key=lambda row: (row.weekday, row.start_time, row.id)
     )
+    today = now_msk().date().isoformat()
     upcoming_exceptions = sorted(
-        [exception for session in sessions for exception in session.exceptions],
+        [exception for session in sessions for exception in session.exceptions
+         if exception.original_date >= today or (exception.type == "moved" and exception.new_date >= today)],
         key=lambda row: (
             row.original_date,
             row.new_date or row.original_date,
@@ -159,11 +162,11 @@ def club(club_id: int, db: Session = Depends(get_db)):
 @router.get("/schedule", response_model=list[ScheduleEvent])
 def schedule(
     week: str,
-    category_id: int | None = None,
-    weekday: int | None = None,
-    leader_id: int | None = None,
-    room_id: int | None = None,
-    search: str | None = None,
+    category_id: int | None = Query(None, gt=0),
+    weekday: int | None = Query(None, ge=1, le=6),
+    leader_id: int | None = Query(None, gt=0),
+    room_id: int | None = Query(None, gt=0),
+    search: str | None = Query(None, max_length=200),
     db: Session = Depends(get_db),
 ):
     week_start = _parse_week_start(week)
