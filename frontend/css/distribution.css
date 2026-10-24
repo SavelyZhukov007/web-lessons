@@ -1,67 +1,395 @@
 /* Страницы распространения: /ios, /ios/pwa, /android/ (mobile-first, обе темы через токены). */
-.dist-main { max-width: 720px; margin: 0 auto; padding-bottom: calc(32px + var(--safe-bottom)); }
-.dist-hero { display: flex; gap: 16px; align-items: center; margin: 8px 0 20px; }
-.dist-hero h1 { margin: 0 0 6px; font-size: calc(1.6rem * var(--text-scale)); line-height: 1.15; }
-.dist-hero__icon { width: 72px; height: 72px; border-radius: 18px; flex: none; box-shadow: var(--shadow); }
-.dist-lead { margin: 0; color: var(--muted); line-height: 1.45; }
-.dist-subtitle { margin: 28px 0 12px; font-size: 1.15rem; }
-.dist-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: step; }
-.dist-step { display: flex; gap: 14px; align-items: flex-start; padding: 14px; border: 1px solid var(--line);
-    border-radius: var(--radius-xl); background: var(--surface-1); counter-increment: step; }
-.dist-step h3 { margin: 2px 0 4px; font-size: 1rem; }
-.dist-step h3::before { content: counter(step) ". "; color: var(--accent); }
-.dist-step p { margin: 0; color: var(--muted); line-height: 1.4; }
-.dist-step__icon { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px;
-    background: var(--primary-container); color: var(--on-primary-container); }
-.dist-step__icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.dist-step__icon--app { background: none; }
-.dist-step__icon--app img { width: 40px; height: 40px; border-radius: 10px; }
-.dist-card { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface-1); }
-.dist-card h2 { margin: 0 0 6px; font-size: 1.05rem; }
-.dist-card p, .dist-card li { color: var(--muted); line-height: 1.45; }
-.dist-card p { margin: 0; }
-.dist-details summary { cursor: pointer; font-weight: 600; min-height: var(--tap); display: flex; align-items: center; }
-.dist-details ul { padding-left: 18px; margin: 8px 0; display: grid; gap: 6px; }
-.dist-alert { display: flex; gap: 14px; margin: 0 0 16px; padding: 14px 16px; border-radius: var(--radius-xl);
-    background: var(--status-moved-bg); color: var(--status-moved-fg); border: 1px solid var(--status-moved-line); }
-.dist-alert h2 { margin: 0 0 4px; font-size: 1.05rem; }
-.dist-alert p { margin: 0 0 10px; line-height: 1.4; }
-.dist-alert a { color: inherit; }
-.dist-alert--ok { background: var(--status-ok-bg); color: var(--status-ok-fg); border-color: transparent; }
-.dist-alert--warn { display: block; margin-top: 14px; }
-.dist-alert__icon svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.8; }
-.dist-alert__icon img { width: 40px; height: 40px; border-radius: 10px; }
-.dist-alert__body { min-width: 0; flex: 1; }
-.dist-copy { display: flex; gap: 8px; flex-wrap: wrap; }
-.dist-copy__field { flex: 1 1 180px; min-width: 0; min-height: var(--tap); padding: 0 12px; border: 1px solid var(--outline);
-    border-radius: var(--radius-control); background: var(--paper); color: var(--ink); font: inherit; }
-.dist-download { text-align: center; padding: 20px 16px; border-radius: var(--radius-xl); background: var(--surface-1); border: 1px solid var(--line); }
-.dist-btn-big { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 360px;
-    min-height: 56px; font-size: 1.1rem; font-weight: 600; }
-.dist-btn-big svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.dist-btn-big[aria-disabled="true"] { opacity: .45; pointer-events: none; }
-.dist-meta { margin: 10px 0 0; color: var(--muted); font-size: .92rem; }
-.dist-store { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-.dist-foot { margin-top: 20px; color: var(--muted); text-align: center; overflow-wrap: anywhere; }
-.dist-btn-wide { display: flex; justify-content: center; width: 100%; margin-top: 8px; }
-.dist-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center;
-    background: var(--scrim); padding: 16px calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left)); }
-.dist-overlay[hidden] { display: none; }
-.dist-sheet { width: 100%; max-width: 420px; padding: 24px 20px 16px; border-radius: 20px; background: var(--paper);
-    color: var(--ink); box-shadow: var(--shadow); text-align: center; }
-.dist-sheet .dist-hero__icon { width: 64px; height: 64px; margin: 0 auto 10px; display: block; }
-.dist-sheet h1 { margin: 0 0 8px; font-size: 1.35rem; }
-.dist-mini-steps { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 10px; text-align: left; }
-.dist-mini-steps li { display: flex; gap: 12px; align-items: center; }
-@media (min-width: 760px) { .dist-steps { grid-template-columns: 1fr 1fr; } .dist-overlay { align-items: center; } }
+.dist-main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-bottom: calc(32px + var(--safe-bottom));
+}
+
+.dist-hero {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin: 8px 0 20px;
+}
+
+.dist-hero h1 {
+    margin: 0 0 6px;
+    font-size: calc(1.6rem * var(--text-scale));
+    line-height: 1.15;
+}
+
+.dist-hero__icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    flex: none;
+    box-shadow: var(--shadow);
+}
+
+.dist-lead {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.dist-subtitle {
+    margin: 28px 0 12px;
+    font-size: 1.15rem;
+}
+
+.dist-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+    counter-reset: step;
+}
+
+.dist-step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    background: var(--surface-1);
+    counter-increment: step;
+}
+
+.dist-step h3 {
+    margin: 2px 0 4px;
+    font-size: 1rem;
+}
+
+.dist-step h3::before {
+    content: counter(step) ". ";
+    color: var(--accent);
+}
+
+.dist-step p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.dist-step__icon {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+}
+
+.dist-step__icon svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.dist-step__icon--app {
+    background: none;
+}
+
+.dist-step__icon--app img {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+}
+
+.dist-card {
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    background: var(--surface-1);
+}
+
+.dist-card h2 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+}
+
+.dist-card p,
+.dist-card li {
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.dist-card p {
+    margin: 0;
+}
+
+.dist-details summary {
+    cursor: pointer;
+    font-weight: 600;
+    min-height: var(--tap);
+    display: flex;
+    align-items: center;
+}
+
+.dist-details ul {
+    padding-left: 18px;
+    margin: 8px 0;
+    display: grid;
+    gap: 6px;
+}
+
+.dist-alert {
+    display: flex;
+    gap: 14px;
+    margin: 0 0 16px;
+    padding: 14px 16px;
+    border-radius: var(--radius-xl);
+    background: var(--status-moved-bg);
+    color: var(--status-moved-fg);
+    border: 1px solid var(--status-moved-line);
+}
+
+.dist-alert h2 {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
+}
+
+.dist-alert p {
+    margin: 0 0 10px;
+    line-height: 1.4;
+}
+
+.dist-alert a {
+    color: inherit;
+}
+
+.dist-alert--ok {
+    background: var(--status-ok-bg);
+    color: var(--status-ok-fg);
+    border-color: transparent;
+}
+
+.dist-alert--warn {
+    display: block;
+    margin-top: 14px;
+}
+
+.dist-alert__icon svg {
+    width: 28px;
+    height: 28px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+}
+
+.dist-alert__icon img {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+}
+
+.dist-alert__body {
+    min-width: 0;
+    flex: 1;
+}
+
+.dist-copy {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.dist-copy__field {
+    flex: 1 1 180px;
+    min-width: 0;
+    min-height: var(--tap);
+    padding: 0 12px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-control);
+    background: var(--paper);
+    color: var(--ink);
+    font: inherit;
+}
+
+.dist-download {
+    text-align: center;
+    padding: 20px 16px;
+    border-radius: var(--radius-xl);
+    background: var(--surface-1);
+    border: 1px solid var(--line);
+}
+
+.dist-btn-big {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 360px;
+    min-height: 56px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.dist-btn-big svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.dist-btn-big[aria-disabled="true"] {
+    opacity: .45;
+    pointer-events: none;
+}
+
+.dist-meta {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: .92rem;
+}
+
+.dist-store {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.dist-foot {
+    margin-top: 20px;
+    color: var(--muted);
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.dist-btn-wide {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 8px;
+}
+
+.dist-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: var(--scrim);
+    padding: 16px calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
+}
+
+.dist-overlay[hidden] {
+    display: none;
+}
+
+.dist-sheet {
+    width: 100%;
+    max-width: 420px;
+    padding: 24px 20px 16px;
+    border-radius: 20px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.dist-sheet .dist-hero__icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 10px;
+    display: block;
+}
+
+.dist-sheet h1 {
+    margin: 0 0 8px;
+    font-size: 1.35rem;
+}
+
+.dist-mini-steps {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0;
+    display: grid;
+    gap: 10px;
+    text-align: left;
+}
+
+.dist-mini-steps li {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+@media (min-width: 760px) {
+    .dist-steps {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .dist-overlay {
+        align-items: center;
+    }
+}
 
 /* Плашка «Установить приложение» на главной (js/install-banner.js). */
-.install-banner { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 10px 10px 10px 12px;
-    border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface-1); color: var(--ink); }
-.install-banner img { width: 36px; height: 36px; border-radius: 9px; flex: none; }
-.install-banner__text { flex: 1; min-width: 0; line-height: 1.3; }
-.install-banner__text strong { display: block; font-size: .95rem; }
-.install-banner__text span { color: var(--muted); font-size: .85rem; }
-.install-banner__cta { flex: none; }
-.install-banner__close { flex: none; width: var(--tap); height: var(--tap); border: 0; background: none; color: var(--muted);
-    font-size: 1.4rem; line-height: 1; cursor: pointer; border-radius: 50%; }
+.install-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 14px;
+    padding: 10px 10px 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    background: var(--surface-1);
+    color: var(--ink);
+}
+
+.install-banner img {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    flex: none;
+}
+
+.install-banner__text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.3;
+}
+
+.install-banner__text strong {
+    display: block;
+    font-size: .95rem;
+}
+
+.install-banner__text span {
+    color: var(--muted);
+    font-size: .85rem;
+}
+
+.install-banner__cta {
+    flex: none;
+}
+
+.install-banner__close {
+    flex: none;
+    width: var(--tap);
+    height: var(--tap);
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 50%;
+}

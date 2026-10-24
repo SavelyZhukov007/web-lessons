@@ -278,6 +278,7 @@
 }
 
 @media (max-width: 640px) {
+
     /* длинные слова («Программирование») не должны рваться посреди слова на 360–390 px */
     .public-title h1 {
         font-size: calc(clamp(26px, 8vw, 37px) * var(--text-scale, 1));
@@ -457,4 +458,10 @@
         scroll-behavior: auto !important;
     }
 }
-.not-found { min-height: 60vh; display: grid; place-content: center; text-align: center; }
+
+.not-found {
+    min-height: 60vh;
+    display: grid;
+    place-content: center;
+    text-align: center;
+}

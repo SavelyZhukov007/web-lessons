@@ -4,24 +4,73 @@
 /* ---------- Android / Material 3 ---------- */
 .platform-android {
     --font-ui: Roboto, "Noto Sans", system-ui, sans-serif;
-    --radius-control: 20px;     /* кнопки-«таблетки» */
+    --radius-control: 20px;
+    /* кнопки-«таблетки» */
     --radius-field: 4px;
-    --radius-dialog: 28px;      /* M3 dialog */
+    --radius-dialog: 28px;
+    /* M3 dialog */
     --radius-card: 12px;
 }
-.platform-android body { letter-spacing: .01em; }
-.platform-android h1 { letter-spacing: 0 !important; font-weight: 500 !important; }
+
+.platform-android body {
+    letter-spacing: .01em;
+}
+
+.platform-android h1 {
+    letter-spacing: 0 !important;
+    font-weight: 500 !important;
+}
 
 /* State layer (hover / focus / pressed) вместо смены рамки */
-.platform-android .btn, .platform-android .campus-page button, .platform-android .campus-page .staff-link { position: relative; overflow: hidden; }
-.platform-android .btn::after, .platform-android .campus-page button::after {
-    content: ""; position: absolute; inset: 0; background: currentColor; opacity: 0; pointer-events: none; transition: opacity .15s;
+.platform-android .btn,
+.platform-android .campus-page button,
+.platform-android .campus-page .staff-link {
+    position: relative;
+    overflow: hidden;
 }
-.platform-android .btn:hover::after, .platform-android .campus-page button:hover::after { opacity: .08; }
-.platform-android .btn:focus-visible::after, .platform-android .campus-page button:focus-visible::after { opacity: .12; }
-.platform-android .btn:active::after, .platform-android .campus-page button:active::after { opacity: .14; }
-.platform-android .ripple { position: absolute; border-radius: 50%; background: currentColor; opacity: .18; transform: scale(0); pointer-events: none; animation: ripple .55s ease-out forwards; }
-@keyframes ripple { to { transform: scale(1); opacity: 0; } }
+
+.platform-android .btn::after,
+.platform-android .campus-page button::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+}
+
+.platform-android .btn:hover::after,
+.platform-android .campus-page button:hover::after {
+    opacity: .08;
+}
+
+.platform-android .btn:focus-visible::after,
+.platform-android .campus-page button:focus-visible::after {
+    opacity: .12;
+}
+
+.platform-android .btn:active::after,
+.platform-android .campus-page button:active::after {
+    opacity: .14;
+}
+
+.platform-android .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: .18;
+    transform: scale(0);
+    pointer-events: none;
+    animation: ripple .55s ease-out forwards;
+}
+
+@keyframes ripple {
+    to {
+        transform: scale(1);
+        opacity: 0;
+    }
+}
 
 /* ---------- iOS ---------- */
 .platform-ios {
@@ -32,17 +81,51 @@
     --radius-card: 12px;
     --tap: 44px;
 }
-.platform-ios, .platform-ios body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.platform-ios h1 { letter-spacing: -.02em !important; font-weight: 700 !important; }
+
+.platform-ios,
+.platform-ios body {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.platform-ios h1 {
+    letter-spacing: -.02em !important;
+    font-weight: 700 !important;
+}
+
 /* Поля ≥16px, иначе Safari приближает страницу при фокусе */
-.platform-ios input, .platform-ios select, .platform-ios textarea,
-.platform-ios .campus-page input, .platform-ios .campus-page select { font-size: 16px !important; }
+.platform-ios input,
+.platform-ios select,
+.platform-ios textarea,
+.platform-ios .campus-page input,
+.platform-ios .campus-page select {
+    font-size: 16px !important;
+}
+
 /* Установленное PWA: без «резинки» на краях */
-@media (display-mode: standalone) { .platform-ios body { overscroll-behavior-y: none; } }
+@media (display-mode: standalone) {
+    .platform-ios body {
+        overscroll-behavior-y: none;
+    }
+}
 
 /* ---------- Общее для тач-устройств ---------- */
 @media (pointer: coarse) {
-    .platform-android input, .platform-android select, .platform-android textarea { font-size: 16px; }
+
+    .platform-android input,
+    .platform-android select,
+    .platform-android textarea {
+        font-size: 16px;
+    }
 }
-.platform-desktop :focus-visible, :focus-visible { outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .ripple { display: none; } }
+
+.platform-desktop :focus-visible,
+:focus-visible {
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ripple {
+        display: none;
+    }
+}

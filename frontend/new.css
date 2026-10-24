@@ -1,0 +1,15 @@
+p {
+    font-family: "Golos Text", "Roboto", sans-serif;
+}
+
+.zhopa {
+    padding: 20px;
+    border: 2px solid red;
+    width: min-content;
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+}

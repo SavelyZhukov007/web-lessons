@@ -4,8 +4,6 @@ __pycache__/
 *.pyc
 *.sqlite3
 .env
-
-# Web Push: приватный VAPID-ключ (генерируется один раз, не коммитить!)
 vapid_keys.json
 .env
 builds/

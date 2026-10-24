@@ -959,17 +959,64 @@
 }
 
 /* ===== Статусы: цвет + текст + форма (не только цвет) ===== */
-.calendar-event.moved .event-badge { color: var(--status-moved-fg); }
-.calendar-event.cancelled .event-badge { color: var(--status-cancelled-fg); }
-.calendar-event.moved { background: var(--status-moved-bg); border-color: var(--status-moved-line); }
-.calendar-event.cancelled { background: var(--status-cancelled-bg); border-color: var(--status-cancelled-line); }
-.campus-page .calendar-event.moved:hover, .campus-page .calendar-event.cancelled:hover { filter: brightness(1.04); }
-.calendar-event.cancelled .event-name { text-decoration-thickness: 1.5px; }
-.calendar-event.moved .event-time, .calendar-event.cancelled .event-time { color: inherit; }
-.calendar-event.moved .event-room, .calendar-event.moved .event-leader,
-.calendar-event.cancelled .event-room, .calendar-event.cancelled .event-leader { color: inherit; opacity: .85; }
-.status-example.moved::before { border-color: var(--status-moved-line); background: var(--status-moved-bg); }
-.status-example.cancelled::before { border-color: var(--status-cancelled-line); background: var(--status-cancelled-bg); }
-#event-dialog .event-badge { color: var(--primary); }
-#event-dialog .event-badge.moved { color: var(--status-moved-fg); }
-#event-dialog .event-badge.cancelled { color: var(--status-cancelled-fg); }
+.calendar-event.moved .event-badge {
+    color: var(--status-moved-fg);
+}
+
+.calendar-event.cancelled .event-badge {
+    color: var(--status-cancelled-fg);
+}
+
+.calendar-event.moved {
+    background: var(--status-moved-bg);
+    border-color: var(--status-moved-line);
+}
+
+.calendar-event.cancelled {
+    background: var(--status-cancelled-bg);
+    border-color: var(--status-cancelled-line);
+}
+
+.campus-page .calendar-event.moved:hover,
+.campus-page .calendar-event.cancelled:hover {
+    filter: brightness(1.04);
+}
+
+.calendar-event.cancelled .event-name {
+    text-decoration-thickness: 1.5px;
+}
+
+.calendar-event.moved .event-time,
+.calendar-event.cancelled .event-time {
+    color: inherit;
+}
+
+.calendar-event.moved .event-room,
+.calendar-event.moved .event-leader,
+.calendar-event.cancelled .event-room,
+.calendar-event.cancelled .event-leader {
+    color: inherit;
+    opacity: .85;
+}
+
+.status-example.moved::before {
+    border-color: var(--status-moved-line);
+    background: var(--status-moved-bg);
+}
+
+.status-example.cancelled::before {
+    border-color: var(--status-cancelled-line);
+    background: var(--status-cancelled-bg);
+}
+
+#event-dialog .event-badge {
+    color: var(--primary);
+}
+
+#event-dialog .event-badge.moved {
+    color: var(--status-moved-fg);
+}
+
+#event-dialog .event-badge.cancelled {
+    color: var(--status-cancelled-fg);
+}

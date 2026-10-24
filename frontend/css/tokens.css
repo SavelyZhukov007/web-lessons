@@ -3,42 +3,108 @@
    Акцент: <html data-accent="brick|blue|green|violet">. Размер текста: --text-scale (100/112/125%).
    Роли цветов названы по Material 3 (surface / on-surface / primary / outline …); старые имена (--paper, --ink …) — алиасы. */
 
-@font-face { font-family: "Golos Text"; src: url("/fonts/GolosText-Variable.woff2") format("woff2"); font-weight: 400 900; font-style: normal; font-display: swap; }
-@font-face { font-family: "Roboto"; src: url("/fonts/roboto-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: "Roboto"; src: url("/fonts/roboto-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: "Roboto"; src: url("/fonts/roboto-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: "Roboto"; src: url("/fonts/roboto-cyrillic-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: "Roboto"; src: url("/fonts/roboto-cyrillic-500-normal.woff2") format("woff2"); font-weight: 500; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: "Roboto"; src: url("/fonts/roboto-cyrillic-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face {
+    font-family: "Golos Text";
+    src: url("/fonts/GolosText-Variable.woff2") format("woff2");
+    font-weight: 400 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Roboto";
+    src: url("/fonts/roboto-latin-400-normal.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Roboto";
+    src: url("/fonts/roboto-latin-500-normal.woff2") format("woff2");
+    font-weight: 500;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Roboto";
+    src: url("/fonts/roboto-latin-700-normal.woff2") format("woff2");
+    font-weight: 700;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Roboto";
+    src: url("/fonts/roboto-cyrillic-400-normal.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: "Roboto";
+    src: url("/fonts/roboto-cyrillic-500-normal.woff2") format("woff2");
+    font-weight: 500;
+    font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: "Roboto";
+    src: url("/fonts/roboto-cyrillic-700-normal.woff2") format("woff2");
+    font-weight: 700;
+    font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
 
 :root {
     color-scheme: light dark;
 
     /* --- Светлая тема (по умолчанию) --- */
     --bg: #ffffff;
-    --surface-1: #f6f7f5;          /* бывш. --quiet: подложки, hover */
-    --surface-2: #eceeeb;          /* контейнеры, дорожка segmented */
+    --surface-1: #f6f7f5;
+    /* бывш. --quiet: подложки, hover */
+    --surface-2: #eceeeb;
+    /* контейнеры, дорожка segmented */
     --surface-3: #e2e5e1;
-    --on-surface: #202722;         /* бывш. --ink */
-    --on-surface-muted: #566059;   /* бывш. --muted; 6.2:1 на --bg */
-    --outline-variant: #d9deda;    /* декоративные разделители (не текст) */
-    --outline: #757f78;            /* границы полей ввода: ≥3:1 */
+    --on-surface: #202722;
+    /* бывш. --ink */
+    --on-surface-muted: #566059;
+    /* бывш. --muted; 6.2:1 на --bg */
+    --outline-variant: #d9deda;
+    /* декоративные разделители (не текст) */
+    --outline: #757f78;
+    /* границы полей ввода: ≥3:1 */
     --scrim: rgba(23, 34, 27, .45);
     --shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 4px 16px rgba(0, 0, 0, .10);
 
-    --primary: #b83b29;            /* акцент «кирпичный» (по умолчанию) */
+    --primary: #b83b29;
+    /* акцент «кирпичный» (по умолчанию) */
     --on-primary: #ffffff;
     --primary-container: #fde4df;
     --on-primary-container: #5b160c;
 
-    --status-moved-bg: #fff1cf;       --status-moved-fg: #6b3d00;       --status-moved-line: #b86e00;
-    --status-cancelled-bg: #fde8e6;   --status-cancelled-fg: #9c1c14;  --status-cancelled-line: #c4352b;
-    --status-ok-bg: #e2f4e6;          --status-ok-fg: #17602e;
-    --danger: #b3261e;                --on-danger: #ffffff;
-    --event-stripe-mix: 0%;           /* доля белого, подмешиваемая к цвету категории (в тёмной теме >0) */
+    --status-moved-bg: #fff1cf;
+    --status-moved-fg: #6b3d00;
+    --status-moved-line: #b86e00;
+    --status-cancelled-bg: #fde8e6;
+    --status-cancelled-fg: #9c1c14;
+    --status-cancelled-line: #c4352b;
+    --status-ok-bg: #e2f4e6;
+    --status-ok-fg: #17602e;
+    --danger: #b3261e;
+    --on-danger: #ffffff;
+    --event-stripe-mix: 0%;
+    /* доля белого, подмешиваемая к цвету категории (в тёмной теме >0) */
 
-    --radius-s: 2px; --radius-m: 4px; --radius-l: 8px; --radius-xl: 14px;
-    --radius-control: var(--radius-s);   /* платформы переопределяют */
+    --radius-s: 2px;
+    --radius-m: 4px;
+    --radius-l: 8px;
+    --radius-xl: 14px;
+    --radius-control: var(--radius-s);
+    /* платформы переопределяют */
     --radius-dialog: 6px;
     --text-scale: 1;
     --font-ui: "Golos Text", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
@@ -77,40 +143,112 @@
     --primary-container: #5e1c11;
     --on-primary-container: #ffdad3;
 
-    --status-moved-bg: #3a2a07;       --status-moved-fg: #ffd685;       --status-moved-line: #e0a13a;
-    --status-cancelled-bg: #4a1613;   --status-cancelled-fg: #ffb4ab;   --status-cancelled-line: #ff8a80;
-    --status-ok-bg: #12301b;          --status-ok-fg: #8fdca6;
-    --danger: #ffb4ab;                --on-danger: #561611;
+    --status-moved-bg: #3a2a07;
+    --status-moved-fg: #ffd685;
+    --status-moved-line: #e0a13a;
+    --status-cancelled-bg: #4a1613;
+    --status-cancelled-fg: #ffb4ab;
+    --status-cancelled-line: #ff8a80;
+    --status-ok-bg: #12301b;
+    --status-ok-fg: #8fdca6;
+    --danger: #ffb4ab;
+    --on-danger: #561611;
     --event-stripe-mix: 35%;
 }
 
 /* Без JS: следуем системной теме (theme-init.js ставит data-theme явно) */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) {
-        --bg: #111412; --surface-1: #181c19; --surface-2: #212622; --surface-3: #2b312d;
-        --on-surface: #e3e7e3; --on-surface-muted: #a9b1ab; --outline-variant: #343b36; --outline: #86908a;
+        --bg: #111412;
+        --surface-1: #181c19;
+        --surface-2: #212622;
+        --surface-3: #2b312d;
+        --on-surface: #e3e7e3;
+        --on-surface-muted: #a9b1ab;
+        --outline-variant: #343b36;
+        --outline: #86908a;
         --scrim: rgba(0, 0, 0, .6);
-        --primary: #ff9a85; --on-primary: #4a0d03; --primary-container: #5e1c11; --on-primary-container: #ffdad3;
-        --status-moved-bg: #3a2a07; --status-moved-fg: #ffd685; --status-moved-line: #e0a13a;
-        --status-cancelled-bg: #4a1613; --status-cancelled-fg: #ffb4ab; --status-cancelled-line: #ff8a80;
-        --status-ok-bg: #12301b; --status-ok-fg: #8fdca6; --danger: #ffb4ab; --on-danger: #561611; --event-stripe-mix: 35%;
+        --primary: #ff9a85;
+        --on-primary: #4a0d03;
+        --primary-container: #5e1c11;
+        --on-primary-container: #ffdad3;
+        --status-moved-bg: #3a2a07;
+        --status-moved-fg: #ffd685;
+        --status-moved-line: #e0a13a;
+        --status-cancelled-bg: #4a1613;
+        --status-cancelled-fg: #ffb4ab;
+        --status-cancelled-line: #ff8a80;
+        --status-ok-bg: #12301b;
+        --status-ok-fg: #8fdca6;
+        --danger: #ffb4ab;
+        --on-danger: #561611;
+        --event-stripe-mix: 35%;
     }
 }
 
 /* --- Акценты (пара для каждой темы) --- */
-:root[data-accent="blue"]  { --primary: #1a5fb4; --on-primary: #fff; --primary-container: #d9e6fb; --on-primary-container: #082a57; }
-:root[data-accent="green"] { --primary: #17683a; --on-primary: #fff; --primary-container: #d3f0dc; --on-primary-container: #08301a; }
-:root[data-accent="violet"]{ --primary: #6a3fc4; --on-primary: #fff; --primary-container: #e8ddfb; --on-primary-container: #2a1060; }
-:root[data-theme="dark"][data-accent="blue"]  { --primary: #9bc2ff; --on-primary: #05284f; --primary-container: #12407a; --on-primary-container: #d9e6ff; }
-:root[data-theme="dark"][data-accent="green"] { --primary: #86d9a1; --on-primary: #06301a; --primary-container: #14492a; --on-primary-container: #cdf3d9; }
-:root[data-theme="dark"][data-accent="violet"]{ --primary: #cdb6ff; --on-primary: #2c1269; --primary-container: #4a2a96; --on-primary-container: #ecdfff; }
+:root[data-accent="blue"] {
+    --primary: #1a5fb4;
+    --on-primary: #fff;
+    --primary-container: #d9e6fb;
+    --on-primary-container: #082a57;
+}
 
-:root[data-text-size="large"]  { --text-scale: 1.125; }
-:root[data-text-size="xlarge"] { --text-scale: 1.25; }
+:root[data-accent="green"] {
+    --primary: #17683a;
+    --on-primary: #fff;
+    --primary-container: #d3f0dc;
+    --on-primary-container: #08301a;
+}
+
+:root[data-accent="violet"] {
+    --primary: #6a3fc4;
+    --on-primary: #fff;
+    --primary-container: #e8ddfb;
+    --on-primary-container: #2a1060;
+}
+
+:root[data-theme="dark"][data-accent="blue"] {
+    --primary: #9bc2ff;
+    --on-primary: #05284f;
+    --primary-container: #12407a;
+    --on-primary-container: #d9e6ff;
+}
+
+:root[data-theme="dark"][data-accent="green"] {
+    --primary: #86d9a1;
+    --on-primary: #06301a;
+    --primary-container: #14492a;
+    --on-primary-container: #cdf3d9;
+}
+
+:root[data-theme="dark"][data-accent="violet"] {
+    --primary: #cdb6ff;
+    --on-primary: #2c1269;
+    --primary-container: #4a2a96;
+    --on-primary-container: #ecdfff;
+}
+
+:root[data-text-size="large"] {
+    --text-scale: 1.125;
+}
+
+:root[data-text-size="xlarge"] {
+    --text-scale: 1.25;
+}
 
 /* Явный выбор темы подсказывает браузеру цвета системных элементов (скроллбары, date picker, autofill) */
-:root[data-theme="light"] { color-scheme: light; }
-:root[data-theme="dark"]  { color-scheme: dark; }
+:root[data-theme="light"] {
+    color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+}
 
 /* Фон под системными барами/«резиновой» прокруткой совпадает с темой — без белой вспышки */
-html { background: var(--bg); -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html {
+    background: var(--bg);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
