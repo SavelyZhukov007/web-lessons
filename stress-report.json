@@ -1,0 +1,244 @@
+{
+  "target": "http://lekora.ru:7443",
+  "host_header": "lekora.ru:7443",
+  "stop_reason": "",
+  "thresholds": {
+    "comfort_p95": 300,
+    "comfort_err": 0.001,
+    "normal_p95": 1000,
+    "normal_err": 0.01,
+    "stop_p95": 2000,
+    "stop_err": 0.05
+  },
+  "audience_model": {
+    "session_min": 5.0,
+    "sessions_per_day": 2.0,
+    "peak_hour_share": 0.25
+  },
+  "steps": [
+    {
+      "users": 5,
+      "duration_s": 30.0,
+      "requests": 45,
+      "rps": 1.5,
+      "throughput_kib_s": 1.6,
+      "p50_ms": 32.9,
+      "p90_ms": 45.3,
+      "p95_ms": 47.9,
+      "p99_ms": 57.1,
+      "max_ms": 63.4,
+      "error_rate": 0.0,
+      "errors": {},
+      "slowest_endpoints_p95": [
+        {
+          "endpoint": "/api/clubs/{id}",
+          "p95_ms": 59.8
+        },
+        {
+          "endpoint": "/api/app/info",
+          "p95_ms": 47.1
+        },
+        {
+          "endpoint": "/clubs.html",
+          "p95_ms": 41.8
+        }
+      ],
+      "endpoint_errors": {},
+      "zone": "comfort"
+    },
+    {
+      "users": 10,
+      "duration_s": 30.0,
+      "requests": 104,
+      "rps": 3.5,
+      "throughput_kib_s": 10.2,
+      "p50_ms": 37.2,
+      "p90_ms": 134.4,
+      "p95_ms": 177.2,
+      "p99_ms": 190.2,
+      "max_ms": 192.1,
+      "error_rate": 0.0,
+      "errors": {},
+      "slowest_endpoints_p95": [
+        {
+          "endpoint": "static css/js",
+          "p95_ms": 190.3
+        },
+        {
+          "endpoint": "/api/clubs/{id}",
+          "p95_ms": 65.2
+        },
+        {
+          "endpoint": "/api/schedule",
+          "p95_ms": 51.6
+        }
+      ],
+      "endpoint_errors": {},
+      "zone": "comfort"
+    },
+    {
+      "users": 25,
+      "duration_s": 30.0,
+      "requests": 221,
+      "rps": 7.4,
+      "throughput_kib_s": 10.2,
+      "p50_ms": 37.4,
+      "p90_ms": 65.5,
+      "p95_ms": 74.9,
+      "p99_ms": 96.7,
+      "max_ms": 150.9,
+      "error_rate": 0.0,
+      "errors": {},
+      "slowest_endpoints_p95": [
+        {
+          "endpoint": "static css/js",
+          "p95_ms": 96.6
+        },
+        {
+          "endpoint": "/api/clubs/{id}",
+          "p95_ms": 66.8
+        },
+        {
+          "endpoint": "/api/schedule",
+          "p95_ms": 60.5
+        }
+      ],
+      "endpoint_errors": {},
+      "zone": "comfort"
+    },
+    {
+      "users": 50,
+      "duration_s": 30.0,
+      "requests": 501,
+      "rps": 16.7,
+      "throughput_kib_s": 37.5,
+      "p50_ms": 44.8,
+      "p90_ms": 90.4,
+      "p95_ms": 97.6,
+      "p99_ms": 133.2,
+      "max_ms": 291.4,
+      "error_rate": 0.0,
+      "errors": {},
+      "slowest_endpoints_p95": [
+        {
+          "endpoint": "/club.html",
+          "p95_ms": 160.2
+        },
+        {
+          "endpoint": "static css/js",
+          "p95_ms": 124.0
+        },
+        {
+          "endpoint": "/api/clubs/{id}",
+          "p95_ms": 81.2
+        }
+      ],
+      "endpoint_errors": {},
+      "zone": "comfort"
+    },
+    {
+      "users": 100,
+      "duration_s": 30.0,
+      "requests": 930,
+      "rps": 31.0,
+      "throughput_kib_s": 54.8,
+      "p50_ms": 49.4,
+      "p90_ms": 100.1,
+      "p95_ms": 117.3,
+      "p99_ms": 157.4,
+      "max_ms": 301.5,
+      "error_rate": 0.0,
+      "errors": {},
+      "slowest_endpoints_p95": [
+        {
+          "endpoint": "static css/js",
+          "p95_ms": 148.8
+        },
+        {
+          "endpoint": "/api/schedule",
+          "p95_ms": 126.8
+        },
+        {
+          "endpoint": "/install",
+          "p95_ms": 114.0
+        }
+      ],
+      "endpoint_errors": {},
+      "zone": "comfort"
+    },
+    {
+      "users": 200,
+      "duration_s": 30.0,
+      "requests": 1941,
+      "rps": 64.7,
+      "throughput_kib_s": 136.7,
+      "p50_ms": 77.5,
+      "p90_ms": 155.0,
+      "p95_ms": 186.8,
+      "p99_ms": 250.8,
+      "max_ms": 325.6,
+      "error_rate": 0.0,
+      "errors": {},
+      "slowest_endpoints_p95": [
+        {
+          "endpoint": "/api/clubs/{id}",
+          "p95_ms": 234.9
+        },
+        {
+          "endpoint": "/api/schedule",
+          "p95_ms": 215.1
+        },
+        {
+          "endpoint": "static css/js",
+          "p95_ms": 192.8
+        }
+      ],
+      "endpoint_errors": {},
+      "zone": "comfort"
+    },
+    {
+      "users": 400,
+      "duration_s": 30.0,
+      "requests": 3758,
+      "rps": 125.3,
+      "throughput_kib_s": 264.1,
+      "p50_ms": 180.3,
+      "p90_ms": 358.5,
+      "p95_ms": 442.0,
+      "p99_ms": 576.9,
+      "max_ms": 930.9,
+      "error_rate": 0.0,
+      "errors": {},
+      "slowest_endpoints_p95": [
+        {
+          "endpoint": "/api/clubs/{id}",
+          "p95_ms": 497.6
+        },
+        {
+          "endpoint": "/api/clubs",
+          "p95_ms": 461.4
+        },
+        {
+          "endpoint": "/api/schedule",
+          "p95_ms": 459.1
+        }
+      ],
+      "endpoint_errors": {},
+      "zone": "normal"
+    }
+  ],
+  "verdict": {
+    "comfort_max_concurrent": 200,
+    "normal_max_concurrent": 400,
+    "overload_from_concurrent": null,
+    "comfort_estimate": {
+      "peak_hour_users": 2400,
+      "daily_users": 4800
+    },
+    "normal_estimate": {
+      "peak_hour_users": 4800,
+      "daily_users": 9600
+    }
+  },
+  "total_seconds": 248.5
+}
