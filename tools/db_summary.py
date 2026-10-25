@@ -1,6 +1,5 @@
 from pathlib import Path
 from argparse import ArgumentParser
-from pprint import pprint
 import sqlite3
 
 
@@ -46,7 +45,14 @@ def get_db_summary(path_to_db: str) -> None | dict[str, int]:
             "active_clubs": active_clubs_num,
             "non_active_clubs": non_active_clubs_num
         }
-        pprint(res)
+        print("Сводка по базе данных:")
+        print(f"  Кол-во направлений:        {categories_num}")
+        print(f"  Кол-во руководителей:      {leaders_num}")
+        print(f"  Кол-во аудиторий:          {rooms_num}")
+        print(f"  Кол-во активных кружков:   {active_clubs_num}")
+        print(f"  Кол-во неактивных кружков: {non_active_clubs_num}")
+        print(f"  Кол-во регулярных занятий: {sessions_num}")
+        print(f"  Кол-во исключений:         {session_exceptions_num}")
         return res  
     except sqlite3.Error as error:
         print(f"Ошибка при работе с бд: {error}")
