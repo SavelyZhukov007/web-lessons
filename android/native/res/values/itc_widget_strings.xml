@@ -7,9 +7,5 @@
     <string name="shortcut_schedule">Расписание</string>
     <string name="shortcut_my">Мои кружки</string>
     <string name="shortcut_clubs">Все кружки</string>
-    <string name="shortcut_qr">Отметиться</string>
     <string name="shortcut_today">Сегодня</string>
-    <string name="shortcut_teacher_qr">Мой QR</string>
-    <string name="shortcut_teacher_qr_long">QR для отметки на моём занятии</string>
-    <string name="shortcut_qr_long">Отметиться на занятии по QR-коду</string>
 </resources>

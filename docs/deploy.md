@@ -20,6 +20,21 @@ docker compose exec app python server.py admin create admin
 - Один воркер. Не использовать `--reload`.
 - Прокси передаёт `X-Forwarded-For/Proto` (Caddy делает это по умолчанию); `FORWARDED_ALLOW_IPS` ограничивает доверие (в Docker-сети — `*`, порт приложения наружу не публикуется).
 
+## Push в APK через FCM (необязательно)
+Без настройки FCM выключен молча: APK получает объявления и переносы опросом (до ~30 мин задержки), Web Push работает как раньше.
+Ключ — JSON сервисного аккаунта Firebase (проект `kipclub-9ebd8`, включён Firebase Cloud Messaging API v1). **Это секрет**: не класть в репозиторий и не в образ (в `.gitignore`: `fcm-key*.json`, `*service-account*.json`).
+
+Вариант A (Docker Compose):
+1. Скопировать ключ на сервер рядом с `docker-compose.yml`, например `/opt/clubs/secrets/fcm.json`; права: `chown root:10001 fcm.json && chmod 640 fcm.json` (приложение работает под uid 10001).
+2. В `docker-compose.yml` у сервиса `app` добавить в `volumes:` строку
+   `- ./secrets/fcm.json:/run/secrets/fcm.json:ro`
+3. В `.env`: `FCM_CREDENTIALS_FILE=/run/secrets/fcm.json` (project_id берётся из ключа; переопределить — `FCM_PROJECT_ID`).
+4. `docker compose up -d --build` (новая зависимость `google-auth` и миграция `0007` с таблицей `app_devices` применяются при старте).
+
+Вариант B (systemd): ключ в `/etc/clubs/fcm.json` (владелец root, группа пользователя сервиса, `640`), в `/etc/clubs/clubs.env` — `FCM_CREDENTIALS_FILE=/etc/clubs/fcm.json`, `systemctl restart clubs`.
+
+Проверка: в админке «Рассылки» → охват показывает «FCM: N» (N — установки APK с FCM, открывавшие приложение за 60 дней); после отправки в журнале рассылок `fcm_sent`. Ошибки — в логе `clubs.fcm` / `clubs.delivery`; токены с ответом UNREGISTERED/404 удаляются автоматически.
+
 ## Проверка после выкатки
 `curl -fsS https://<домен>/readyz`; открыть `/`, `/admin/login.html`; `/docs` → 404; заголовки (`curl -I`): CSP, HSTS.
 

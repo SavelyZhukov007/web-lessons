@@ -1,6 +1,7 @@
-// Диалог «Настройки»: тема, акцент, размер текста (+ адрес сервера в Android-приложении).
+// Диалог «Настройки»: тема, акцент, размер текста, «Объявления» (если в браузере включены уведомления) (+ адрес сервера в Android-приложении).
 // Подключается на каждой странице: <script type="module" src="/js/settings.js">. Кнопка-шестерёнка добавляется в шапку сама.
 import { h, icon, toast, installRipple } from './ui.js';
+import { request } from './api.js';
 
 const theme = window.ClubsTheme;
 const THEMES = [['system', 'Системная'], ['light', 'Светлая'], ['dark', 'Тёмная']];
@@ -52,6 +53,33 @@ function serverSection() {
       h('div', { class: 'form-actions' }, test, save)));
 }
 
+// «Объявления от администрации» для этого браузера. Видно, только если уже есть push-подписка (на кружок или «Мои кружки»).
+// В приложении Android свой переключатель — в его настройках.
+function announcementsSection() {
+  if (window.Capacitor?.isNativePlatform?.() || !('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  const box = h('input', { type: 'checkbox', id: 'settings-announcements' });
+  const section = h('section', { class: 'sheet-section', hidden: true, dataset: { announcementsSection: '' } }, h('h3', {}, 'Уведомления'),
+    h('label', { class: 'checkbox', for: 'settings-announcements' }, box, 'Объявления'),
+    h('p', { class: 'field-hint' }, 'Важные сообщения от администрации. Уведомления об отменах и переносах не отключаются.'));
+  const post = (path, body) => request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  let endpoint;
+  navigator.serviceWorker.getRegistration('/').then(reg => reg?.pushManager.getSubscription()).then(async sub => {
+    if (!sub) return;
+    endpoint = sub.endpoint;
+    const st = await post('/api/push/status', { endpoint });
+    if (!st.all && !st.club_ids.length) return;
+    box.checked = st.announcements !== false;
+    section.hidden = false;
+  }).catch(() => { /* нет сети или push — секцию не показываем */ });
+  box.addEventListener('change', async () => {
+    box.disabled = true;
+    try { await post('/api/push/preferences', { endpoint, announcements: box.checked }); toast(box.checked ? 'Объявления включены' : 'Объявления отключены'); }
+    catch (e) { box.checked = !box.checked; toast(e.message || 'Не удалось сохранить', { kind: 'error' }); }
+    finally { box.disabled = false; }
+  });
+  return section;
+}
+
 // Демо/офлайн-сборка (window.DemoBackend из android/shim/demo-backend.js): сброс случайных данных и быстрый вход в админку.
 function demoSection() {
   const D = window.DemoBackend;
@@ -84,7 +112,7 @@ function build() {
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Акцентный цвет'), swatches(prefs.accent, v => theme.set({ accent: v }))),
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Размер текста'),
       radioGroup('textSize', 'Размер текста', SIZES, prefs.textSize, v => theme.set({ textSize: v }))),
-    serverSection(), demoSection());
+    announcementsSection(), serverSection(), demoSection());
   updateHint();
   const reset = h('button', { type: 'button', class: 'btn btn--text', onclick: () => { theme.set(theme.DEFAULTS); rebuild(); toast('Настройки сброшены'); } }, 'Сбросить');
   const done = h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово');

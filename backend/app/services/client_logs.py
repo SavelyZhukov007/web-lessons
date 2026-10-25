@@ -28,7 +28,6 @@ _REDACT = [
     (re.compile(r"(?i)\bbearer\s+[a-z0-9._~+/=-]{8,}"), "Bearer [скрыто]"),
     (re.compile(r"(?i)((?:password|passwd|пароль|token|access_token|refresh_token|secret|api_key)\"?\s*[:=]\s*\"?)[^\s\",&;]+"), r"\1[скрыто]"),
     (re.compile(r"\beyJ[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}"), "[jwt скрыт]"),
-    (re.compile(r"\b(?:itc-att[12]|itc-tx1|tch1)\.[A-Za-z0-9_.-]+"), "[qr скрыт]"),
     (re.compile(r"(?i)\bT(?:[-\s]*[A-Z2-7]){26}\b"), "[teacher id скрыт]"),
     (re.compile(r"(?i)\b[A-Z2-7]{26}\b"), "[teacher id скрыт]"),
 ]

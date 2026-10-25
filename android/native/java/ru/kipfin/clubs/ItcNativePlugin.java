@@ -25,27 +25,12 @@ public class ItcNativePlugin extends Plugin {
     @Override
     public void load() {
         Notifier.channels(getContext());
+        try { // ярлык «Мой QR» из версий с посещаемостью
+            androidx.core.content.pm.ShortcutManagerCompat.removeDynamicShortcuts(getContext(), java.util.Collections.singletonList("teacher_qr"));
+        } catch (Exception ignored) { }
     }
 
-    /** t100: ярлыки по роли — «Мой QR» (динамический) только у преподавателя. roleShortcuts({role}). */
-    @PluginMethod
-    public void roleShortcuts(PluginCall call) {
-        android.content.Context c = getContext();
-        try {
-            if ("teacher".equals(call.getString("role", ""))) {
-                Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("itckruzhki://open/teacher"), c, MainActivity.class);
-                androidx.core.content.pm.ShortcutInfoCompat sc = new androidx.core.content.pm.ShortcutInfoCompat.Builder(c, "teacher_qr")
-                        .setShortLabel(c.getString(R.string.shortcut_teacher_qr)).setLongLabel(c.getString(R.string.shortcut_teacher_qr_long))
-                        .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(c, R.drawable.ic_shortcut_qr)).setIntent(i).setRank(0).build();
-                androidx.core.content.pm.ShortcutManagerCompat.pushDynamicShortcut(c, sc);
-            } else {
-                androidx.core.content.pm.ShortcutManagerCompat.removeDynamicShortcuts(c, java.util.Collections.singletonList("teacher_qr"));
-            }
-            call.resolve();
-        } catch (Exception e) { call.reject("Не удалось обновить ярлыки", "shortcuts"); }
-    }
-
-    /** config: follows[], server, demo, reminderMinutes, notifyChanges. */
+    /** config: follows[], server, demo, reminderMinutes, notifyChanges, notifyAnnouncements. */
     @PluginMethod
     public void configure(PluginCall call) {
         android.content.SharedPreferences.Editor e = Store.prefs(getContext()).edit();
@@ -55,10 +40,13 @@ public class ItcNativePlugin extends Plugin {
         if (call.hasOption("demo")) e.putBoolean("demo", Boolean.TRUE.equals(call.getBoolean("demo", false)));
         if (call.hasOption("reminderMinutes")) e.putInt("reminder_minutes", call.getInt("reminderMinutes", 30));
         if (call.hasOption("notifyChanges")) e.putBoolean("notify_changes", Boolean.TRUE.equals(call.getBoolean("notifyChanges", true)));
+        if (call.hasOption("notifyAnnouncements")) e.putBoolean("notify_announcements", Boolean.TRUE.equals(call.getBoolean("notifyAnnouncements", true)));
         e.apply();
         Reminders.reschedule(getContext());
         Widgets.updateAll(getContext());
         SyncWorker.schedule(getContext());
+        Push.refresh(getContext()); // FCM-токен + регистрация на сервере (только в сборке с FCM)
+        Push.registerAsync(getContext());
         call.resolve(state());
     }
 
@@ -72,6 +60,17 @@ public class ItcNativePlugin extends Plugin {
         call.resolve(r);
     }
 
+    /** Проверить объявления сейчас (при открытии приложения). Сеть — в фоновом потоке. */
+    @PluginMethod
+    public void checkAnnouncements(PluginCall call) {
+        android.content.Context c = getContext().getApplicationContext();
+        new Thread(() -> {
+            JSObject r = new JSObject();
+            r.put("shown", Announcements.check(c));
+            call.resolve(r);
+        }, "itc-announcements").start();
+    }
+
     @PluginMethod
     public void getState(PluginCall call) { call.resolve(state()); }
 
@@ -81,6 +80,7 @@ public class ItcNativePlugin extends Plugin {
         r.put("updated", Store.prefs(getContext()).getLong("updated", 0));
         r.put("reminderMinutes", Store.reminderMinutes(getContext()));
         r.put("notifyChanges", Store.notifyChanges(getContext()));
+        r.put("notifyAnnouncements", Store.notifyAnnouncements(getContext()));
         r.put("exactAlarms", Build.VERSION.SDK_INT < 31 || ((android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE)).canScheduleExactAlarms());
         return r;
     }

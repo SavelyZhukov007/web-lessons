@@ -7,6 +7,7 @@ const paths = {
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   logout: 'M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10',
   bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4',
+  megaphone: 'M3 10v4h4l8 5V5L7 10zM18.5 9a4 4 0 0 1 0 6M7 14l1.5 6h3L10 15.5',
   home: 'M4 11l8-7 8 7M6 10v10h12V10',
   users: 'M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1a4 4 0 0 0-3-3.9M16 4.2a3.5 3.5 0 0 1 0 6.6',
   calendar: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4',

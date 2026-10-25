@@ -13,7 +13,8 @@
 | Веб-слой приложения (shim: нормализация адреса, «Проверить соединение», диалог настроек с блоком «Сервер», `APP_DEFAULT_SERVER`, вход админа по Bearer, **ротация refresh-токена**) — Playwright против живого сервера | ✅ 31/31 (`android/tests/run_shim_tests.py`) |
 | Установка APK и запуск UI на эмуляторе Android 14 | см. §7 |
 | Сборка на **твоём Windows** (PowerShell 5, JDK 21.0.12 в `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot`, SDK 36 / build-tools 35 и 36) | ❌ **не проверялась** — у меня Linux. Автоопределение JDK/SDK под Windows написано по документации путей, но на Windows не запускалось |
-| Release/подписанный APK, Google Play, нативные push (FCM) | ❌ не делалось |
+| Release/подписанный APK, Google Play | ❌ не делалось |
+| FCM: сборка с Firebase, unit-тесты разбора/дедупликации, серверная отправка на моках | ✅; реальная доставка на устройство ❌ не проверялась |
 
 ## 1. Почему Capacitor
 PWA/TWA требует HTTPS и домен, а у колледжа сервер может быть просто `http://192.168.x.x:8000`. Голый WebView — ручная работа с адресом. Capacitor даёт cleartext HTTP на LAN, нативный HTTP-слой (`CapacitorHttp`: запросы идут мимо CORS WebView), сплэш/иконки и расширение плагинами позже.
@@ -102,7 +103,14 @@ python android/tests/device_test.py                       # на запущен�
 
 ## 8. Известные ограничения
 * APK подписан debug-ключом (не для Play); release — отдельный keystore и `assembleRelease`.
-* Push на телефон из приложения (FCM) не сделан — только Web Push в браузере/PWA.
+* Без FCM (сборка без `google-services.json`, демо-сборка, сервер без ключа, телефон без Google Play Services) объявления и переносы приходят опросом — с задержкой до получаса.
+
+## 9. Push через FCM
+* **Сборка.** `npm run`/`build-apk.ps1` вызывает `scripts/patch-android.mjs`: если есть `android/google-services.json` с пакетом `ru.kipfin.clubs` и это не демо, он копируется в `android/android/app/`, подключаются `firebase-bom:35.1.0` + `firebase-messaging`, плагин `com.google.gms.google-services`, классы из `native/fcm/` (`ItcMessagingService`, `ItcFcm`) и сервис `MESSAGING_EVENT` в манифесте. Без файла всё это убирается — сборка чистая, без Firebase.
+* **`google-services.json` можно коммитить**: это не секрет (идентификаторы проекта и API-ключ клиента, который и так извлекается из любого APK). Секрет — только ключ сервисного аккаунта на сервере (см. `docs/deploy.md`); его в репозиторий не класть.
+* **Как работает.** При старте/смене настроек приложение получает FCM-токен и отправляет `POST /api/app/devices` `{device_id, token, platform, app_version, club_ids, announcements, changes}` (повторно — только при изменениях или раз в сутки из SyncWorker). Сервер шлёт только data-сообщения (`type`: `announcement`, `cancel`, `reschedule`, `schedule-change`, `update-available`) с приоритетом HIGH и `collapse_key` события; уведомление рисует приложение в тех же каналах (`itc_changes`, `itc_announcements`).
+* **Дедупликация общая с опросом** (`Push.claim`, последние 200 ключей): `a<id>` для объявлений, `c<session>:<дата><kind>` (для переноса + новое время) для изменений — одно событие не покажется дважды, если пришло и по FCM, и при синхронизации. Опрос остаётся резервным путём.
+* **Тесты:** `PushTest` (разбор сообщений, ключи = ключам ChangeDetector/Announcements, настройки, dedupe), backend `tests/test_fcm.py`.
 * Cleartext HTTP включён ради LAN-теста; для боевого сервера — HTTPS.
 * `npm audit` показывает уязвимости в build-time зависимостях (Capacitor CLI) — в APK они не попадают.
 * Иконка/сплэш — стандартные Capacitor.

@@ -19,15 +19,15 @@ function app(initial = {}) {
     location: { href: 'https://clubs.test/', pathname: '/' } });
   return { window, data, offline() { online = false; } };
 }
-test('admin and student responses are never stored or replayed offline', async () => {
+test('admin and push responses are never stored or replayed offline', async () => {
   const state = app({ 'itc.cache:/api/admin/status': JSON.stringify({ t: Date.now(), b: { secret: 'old user' } }) });
   assert.equal(state.data.has('itc.cache:/api/admin/status'), false);
-  for (const path of ['/api/admin/status', '/api/attendance/mine', '/api/push/status']) {
+  for (const path of ['/api/admin/status', '/api/push/status']) {
     await state.window.fetch(path);
     assert.equal(state.data.has('itc.cache:' + path), false);
   }
   state.offline();
-  await assert.rejects(state.window.fetch('/api/attendance/mine'), /offline/);
+  await assert.rejects(state.window.fetch('/api/push/status'), /offline/);
 });
 test('public offline copy includes its original timestamp and an explicit marker', async () => {
   const state = app();

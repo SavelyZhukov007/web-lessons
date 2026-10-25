@@ -14,10 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from sqlalchemy import delete, or_, select
-
 from ..database import ROOT, SessionLocal
-from ..models.push_subscription import PushSubscription
 from ..models.session_exception import SessionException
 
 log = logging.getLogger("clubs.push")
@@ -172,46 +169,28 @@ def build_payload(exception: SessionException) -> dict:
     }
 
 
+def exception_event(exception: SessionException):
+    from .delivery import Event
+
+    p = build_payload(exception)
+    moved = exception.type != "cancelled"
+    return Event(kind="reschedule" if moved else "cancel", audience="clubs", club_ids=[p["club_id"]], payload=p, data={
+        "club_id": p["club_id"], "session_id": exception.session_id, "original_date": exception.original_date,
+        "new_date": (exception.new_date or "") if moved else "", "new_start": (exception.new_start_time or "") if moved else "",
+    })
+
+
 def notify_exception(exception_id: int) -> int:
-    """Рассылает уведомление подписчикам клуба (и подписчикам «все кружки»). Возвращает число отправленных.
-    Никогда не бросает исключений."""
-    sent = 0
+    """Уведомляет подписчиков клуба (и «все кружки») через все каналы (services/delivery: Web Push + FCM).
+    Возвращает число отправленных Web Push. Никогда не бросает исключений."""
+    from .delivery import deliver
+
     try:
         with SessionLocal() as db:
             exception = db.get(SessionException, exception_id)
             if exception is None:
                 return 0
-            payload = build_payload(exception)
-            subs = list(
-                db.scalars(
-                    select(PushSubscription).where(
-                        or_(
-                            PushSubscription.club_id == payload["club_id"],
-                            PushSubscription.club_id.is_(None),
-                        )
-                    )
-                )
-            )
-            seen: set[str] = set()  # один endpoint — одно уведомление, даже если подписан и на клуб, и на «все»
-            dead: list[int] = []
-            for sub in subs:
-                if sub.endpoint in seen:
-                    continue
-                seen.add(sub.endpoint)
-                try:
-                    send_one(
-                        {"endpoint": sub.endpoint, "keys": {"p256dh": sub.p256dh, "auth": sub.auth}},
-                        payload,
-                    )
-                    sent += 1
-                except PushGone:
-                    dead.append(sub.id)
-                    dead.extend(s.id for s in subs if s.endpoint == sub.endpoint and s.id != sub.id)
-                except Exception:  # noqa: BLE001 — одна плохая подписка не должна ломать остальные
-                    log.exception("push: не удалось отправить на %s…", sub.endpoint[:60])
-            if dead:
-                db.execute(delete(PushSubscription).where(PushSubscription.id.in_(dead)))
-                db.commit()
+            return deliver(db, exception_event(exception)).web_sent
     except Exception:  # noqa: BLE001
         log.exception("push: сбой рассылки для исключения %s", exception_id)
-    return sent
+        return 0

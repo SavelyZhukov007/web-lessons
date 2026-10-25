@@ -102,8 +102,8 @@
   function load() {
     try { db = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { db = null; }
     if (!db || db.version !== 1 || !db.seed2) { db = seed(); db.seed2 = 1; save(); } // seed2: демо без пересечений аудиторий/руководителей
-    if (!db.attendance) db.attendance = [];
-    if (db.attSeeded !== 2) { db.attendance = []; db.nonces = []; db.student_devices = {}; seedAttendance(); db.attSeeded = 2; save(); }
+    if (db.attendance || db.nonces || db.student_devices) { delete db.attendance; delete db.nonces; delete db.student_devices; delete db.attSeeded; save(); } // остатки посещаемости
+    if (!db.broadcasts) db.broadcasts = [];
   }
   function save() { localStorage.setItem(KEY, JSON.stringify(db)); }
   load();
@@ -283,153 +283,34 @@
     if (method === 'DELETE') { db.session_exceptions.splice(db.session_exceptions.indexOf(item), 1); return [204, null]; }
   }
 
-  // ---------- анонимная посещаемость (как backend/app/routers/attendance.py; подпись в демо не секретная)
-  // (B32 объявлен внутри randB32: seedAttendance вызывается из load() раньше, чем выполнится эта строка)
-  function randB32(n, r) { var B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', s = ''; for (var i = 0; i < n; i++) s += B32[Math.floor((r ? r() : Math.random()) * 32)]; return s; }
-  function grp(prefix, t) { return prefix + '-' + t.match(/.{1,4}/g).join('-'); }
-  function normSid(raw) {
-    var t = String(raw || '').replace(/[\s-]/g, '').toUpperCase(); if (t[0] === 'S') t = t.slice(1);
-    if (!/^[A-Z2-7]{26}$/.test(t)) fail(422, 'ID студента выглядит так: S-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX');
-    return grp('S', t);
+  // ---------- рассылки (как backend/app/routers/announcements.py; в демо никуда не уходят)
+  function audienceOf(body) {
+    var aud = body.audience === 'clubs' ? 'clubs' : 'all', ids = aud === 'clubs' ? (body.club_ids || []).map(Number) : [];
+    if (aud === 'clubs' && !ids.length) fail(422, 'Выберите хотя бы один кружок');
+    ids.forEach(function (id) { if (!db.clubs.some(function (c) { return c.id === id; })) fail(422, 'Кружок не найден: ' + id); });
+    return { audience: aud, club_ids: ids, session_ids: aud === 'clubs' ? (body.session_ids || []).map(Number) : [] };
   }
-  function shortId(s) { return s.slice(0, 7) + '…' + s.slice(-2); }
-  function windowMin() { return 15; }
-  function freeWindow() { if (window.ITC_CHANNEL === 'p') return false; /* публичный канал: окно отметки как на сервере */ try { return localStorage.getItem('itc.demo.freeWindow') !== '0'; } catch (e) { return true; } }
-  function seedAttendance() {
-    var r = rng((Date.now() ^ 0xa77e) >>> 0);
-    var pool = []; for (var k = 0; k < 60; k++) pool.push(grp('S', randB32(26, r)));
-    var today = iso(new Date()), now = new Date(), hm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-    for (var w = -3; w <= 0; w++) {
-      buildWeek(addDays(monday(new Date()), w * 7)).forEach(function (e) {
-        if (e.status === 'cancelled' || e.date > today || (e.date === today && e.start_time > hm)) return;
-        if (parse(e.date) < addDays(new Date(), -21)) return; // хранение 21 день
-        var n = 3 + Math.floor(r() * 12), seen = {};
-        for (var i = 0; i < n; i++) {
-          var sid = pool[Math.floor(r() * pool.length)]; if (seen[sid]) continue; seen[sid] = 1;
-          var t = e.start_time.split(':'), at = parse(e.date); at.setHours(+t[0], +t[1] - 1 + Math.floor(r() * 14));
-          db.attendance.push({ id: db.attendance.length + 1, session_id: e.session_id, date: e.original_date || e.date, student_id: sid, method: r() < 0.1 ? 'manual' : 'qr', at: at.toISOString() });
-        }
-      });
+  function webTargets(a) {
+    var seen = {}; db.push_subscriptions.forEach(function (x) {
+      if (a.audience === 'all' || x.club_id == null || a.club_ids.indexOf(x.club_id) >= 0) seen[x.endpoint] = 1; });
+    return Object.keys(seen).length;
+  }
+  function broadcastRoute(method, a, q, body) {
+    var names = function (ids) { return ids.map(function (id) { var c = db.clubs.find(function (x) { return x.id === id; }); return c ? c.name : '#' + id; }); };
+    var read = function (b) { return Object.assign({}, b, { club_names: names(b.club_ids) }); };
+    if (a === '/broadcasts/estimate' && method === 'POST') { var e = audienceOf(body); return { web: webTargets(e), apk: 0 }; }
+    if (a === '/broadcasts' && method === 'GET') return db.broadcasts.slice().reverse().slice(0, Number(q.get('limit')) || 50).map(read);
+    if (a === '/broadcasts' && method === 'POST') {
+      var dup = db.broadcasts.find(function (x) { return x.idempotency_key === body.idempotency_key; });
+      if (dup) return Object.assign(read(dup), { duplicate: true });
+      var title = String(body.title || '').trim(), text = String(body.body || '').trim();
+      if (!title || title.length > 80) fail(422, 'Заголовок — от 1 до 80 символов');
+      if (!text || text.length > 500) fail(422, 'Текст — от 1 до 500 символов');
+      var aud = audienceOf(body);
+      var b = Object.assign({ id: nextId(db.broadcasts), title: title, body: text, url: body.url || null, author: ADMIN.login,
+        created_at: new Date().toISOString().slice(0, 19) + 'Z', web_sent: webTargets(aud), web_failed: 0, apk_targets: 0, idempotency_key: body.idempotency_key }, aud);
+      db.broadcasts.push(b); return [201, Object.assign(read(b), { duplicate: false })];
     }
-  }
-  function purgeAtt() { var cut = iso(addDays(new Date(), -21)); db.attendance = db.attendance.filter(function (x) { return x.date >= cut && x.student_id; }); }
-  function dayEvents(day, days, leaderId) {
-    var result = [];
-    for (var i = 0; i < Math.min(14, Math.max(1, days || 1)); i++) {
-      var d = addDays(parse(day), i), key = iso(d), mon = addDays(d, 1 - isoWeekday(d));
-      result = result.concat(buildWeek(mon).filter(function (x) { return x.date === key && x.status !== 'cancelled' && (!leaderId || x.leader_id === leaderId); }));
-    }
-    return result.sort(cmp('date', 'start_time', 'event_id'));
-  }
-  function occurrence(sessionId, day, original) {
-    if (!DATE.test(day || '') || isNaN(parse(day))) fail(422, 'date должен иметь формат YYYY-MM-DD');
-    if (!db.sessions.some(function (x) { return x.id === sessionId; })) fail(404, 'Занятие не найдено');
-    var d = parse(day); var mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - isoWeekday(d) + 1);
-    var choices = buildWeek(mon).filter(function (x) { return x.session_id === sessionId && x.date === day && (!original || x.original_date === original); });
-    if (choices.length > 1) fail(409, 'Выберите конкретное занятие (original_date)');
-    var e = choices[0];
-    if (!e) { var c = db.session_exceptions.find(function (x) { return x.session_id === sessionId && x.original_date === day && x.type === 'cancelled'; });
-      fail(c ? 409 : 404, c ? 'Это занятие отменено' : 'В этот день у кружка нет занятия'); }
-    if (e.status === 'cancelled') fail(409, 'Это занятие отменено');
-    return e;
-  }
-  function times(e) { var d = parse(e.date), a = e.start_time.split(':'), b = e.end_time.split(':');
-    return [new Date(d.getFullYear(), d.getMonth(), d.getDate(), +a[0], +a[1]).getTime(), new Date(d.getFullYear(), d.getMonth(), d.getDate(), +b[0], +b[1]).getTime()]; }
-  function qrPayload(sessionId, day, original) {
-    var e = occurrence(sessionId, day, original), t = times(e), now = Date.now(), W = windowMin() * 60000;
-    var base = { session_id: e.session_id, club_id: e.club_id, club_name: e.club_name, date: day, original_date: e.original_date, start_time: e.start_time, end_time: e.end_time,
-      window_min: windowMin(), opens_at: new Date(t[0] - 10000).toISOString(), closes_at: new Date(t[0] + W).toISOString(), demo_free_window: freeWindow() };
-    if (!freeWindow() && now < t[0] - 10000) return Object.assign(base, { state: 'early', opens_in: Math.ceil((t[0] - 10000 - now) / 1000) });
-    if (!freeWindow() && now > t[0] + W) return Object.assign(base, { state: 'closed', manual_until: new Date(t[1]).toISOString() });
-    var tok = 'itc-att2.' + btoa(JSON.stringify({ s: e.session_id, d: e.original_date || e.date, i: Math.floor(now / 1000), e: Math.floor(now / 1000) + 60 })).replace(/=+$/, '') + '.demo';
-    return Object.assign(base, { state: 'open', token: tok, ttl: 60, rotate: 25, expires_at: new Date(now + 60000).toISOString(), closes_in: Math.max(0, Math.floor((t[0] + W - now) / 1000)) });
-  }
-  function record(sessionId, day, sid, method, enforce, original) {
-    var e = occurrence(sessionId, day, original), t = times(e), now = Date.now();
-    if (enforce === 'qr' && !freeWindow() && !(t[0] - 10000 <= now && now <= t[0] + windowMin() * 60000)) fail(403, now > t[0] ? 'Отметка закрыта' : 'Отметка ещё не открыта');
-    if (enforce === 'session' && !freeWindow() && !(t[0] - 10000 <= now && now <= t[1])) fail(403, 'Ручная отметка доступна только во время занятия');
-    var od = e.original_date || e.date;
-    if (db.attendance.some(function (r) { return r.session_id === e.session_id && r.date === od && r.student_id === sid; })) fail(409, 'Уже отмечен(а) на занятии «' + e.club_name + '»');
-    db.attendance.push({ id: nextId(db.attendance), session_id: e.session_id, date: od, student_id: sid, method: method, at: new Date().toISOString() });
-    return [201, { ok: true, club_id: e.club_id, club_name: e.club_name, date: od, start_time: e.start_time, end_time: e.end_time, student_id: sid }];
-  }
-  function liveList(sessionId, day, since) {
-    purgeAtt();
-    var all = db.attendance.filter(function (r) { return r.session_id === sessionId && r.date === day; }).sort(cmp('at', 'id'));
-    return { count: all.length, items: all.filter(function (r) { return r.id > (since || 0); }).map(function (r) { return { id: r.id, student_id: r.student_id, short: shortId(r.student_id), method: r.method, at: r.at }; }) };
-  }
-  function historyOf(sid) {
-    purgeAtt();
-    return { student_id: sid, retention_days: 21, items: db.attendance.filter(function (r) { return r.student_id === sid; }).map(function (r) {
-      var ss = db.sessions.find(function (x) { return x.id === r.session_id; }) || {}; var c = db.clubs.find(function (x) { return x.id === ss.club_id; }) || { name: '?' };
-      return { club_name: c.name, date: r.date, start_time: ss.start_time, end_time: ss.end_time, method: r.method, at: r.at }; }).sort(cmp(function (x) { return -parse(x.date).getTime(); }, 'start_time')) };
-  }
-  async function sha256hex(t) { var b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return Array.prototype.map.call(new Uint8Array(b), function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); }
-  function hashSync(t) { var h = 0x811c9dc5; for (var i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return 'demo' + h.toString(16) + t.length; } // демо: не крипто
-  function deviceCheck(sid, tok, register) {
-    if (!/^[A-Za-z0-9_-]{32,128}$/.test(tok || '')) fail(403, 'Нужен токен устройства');
-    db.student_devices = db.student_devices || {}; var h = hashSync(tok), cur = db.student_devices[sid];
-    if (!cur) { if (!register) fail(403, 'Это устройство не подтверждено: отметьтесь хотя бы раз на занятии'); db.student_devices[sid] = h; }
-    else if (cur !== h) fail(403, 'ID привязан к другому устройству. Восстановите его резервным кодом.');
-  }
-  function checkin(body) {
-    var sid = normSid(body.student_id), t = String(body.qr_token || ''), data;
-    if (!/^[A-Za-z0-9_-]{16,64}$/.test(body.nonce || '')) fail(422, 'nonce');
-    try { if (t.indexOf('itc-att2.') !== 0) throw 0; data = JSON.parse(atob(t.split('.')[1])); if (!data.s || !data.d || !data.e) throw 0; }
-    catch (x) { fail(400, 'QR-код не распознан: это не код посещаемости ИТК'); }
-    if (data.e * 1000 < Date.now()) fail(410, 'QR-код устарел — отсканируйте код на экране преподавателя ещё раз');
-    if (data.s !== Number(body.session_id)) fail(409, 'Этот QR-код относится к другому занятию');
-    db.nonces = (db.nonces || []).filter(function (n) { return n.e > Date.now(); });
-    if (db.nonces.some(function (n) { return n.n === body.nonce; })) fail(409, 'Повторная отправка отклонена — отсканируйте QR ещё раз');
-    deviceCheck(sid, body.device_token, true);
-    db.nonces.push({ n: body.nonce, e: Date.now() + 300000 });
-    var moved = db.session_exceptions.find(function (x) { return x.session_id === data.s && x.original_date === data.d && x.type === 'moved'; });
-    return record(data.s, moved ? moved.new_date : data.d, sid, 'qr', 'qr', data.d);
-  }
-  function attendanceRoute(method, a, q, body) {
-    if (a === '/attendance/occurrences' && method === 'GET') return dayEvents(q.get('date'), 1);
-    if (a === '/attendance/qr' && method === 'POST') return qrPayload(Number(body.session_id), body.date, body.original_date);
-    if (a === '/attendance/export.xlsx') return attendanceXlsx(q);
-    if (a === '/attendance/manual' && method === 'POST') return record(Number(body.session_id), body.date, normSid(body.student_id), 'manual', null, body.original_date);
-    if (a === '/attendance/student') return historyOf(normSid(q.get('student_id')));
-    if (a === '/attendance/live') return liveList(Number(q.get('session_id')), q.get('original_date') || q.get('date'), Number(q.get('since_id') || 0));
-    var m = a.match(/^\/attendance\/(\d+)$/);
-    if (m && method === 'DELETE') { db.attendance = db.attendance.filter(function (x) { return x.id !== +m[1]; }); return [204, null]; }
-    if (a === '/attendance/stats') {
-      purgeAtt();
-      var to = q.get('date_to') || iso(new Date()); var from = q.get('date_from') || iso(new Date(parse(to).getTime() - 30 * 864e5));
-      if (from > to) fail(422, 'date_from позже date_to');
-      var cid = q.get('club_id') ? Number(q.get('club_id')) : null; var occ = {};
-      db.attendance.forEach(function (r) {
-        if (r.date < from || r.date > to) return;
-        var ss = db.sessions.find(function (x) { return x.id === r.session_id; }); if (!ss || (cid && ss.club_id !== cid)) return;
-        var club = db.clubs.find(function (x) { return x.id === ss.club_id; }) || { name: '?' };
-        var k = r.session_id + '|' + r.date;
-        (occ[k] = occ[k] || { session_id: r.session_id, date: r.date, count: 0, club_id: ss.club_id, club_name: club.name, start_time: ss.start_time }).count++;
-      });
-      var list = Object.keys(occ).map(function (k) { return occ[k]; }).sort(function (x, y) { return x.date < y.date ? 1 : x.date > y.date ? -1 : (x.start_time < y.start_time ? -1 : 1); });
-      var clubs = {}; list.forEach(function (o) { var c = clubs[o.club_id] = clubs[o.club_id] || { club_id: o.club_id, club_name: o.club_name, classes: 0, checkins: 0 }; c.classes++; c.checkins += o.count; });
-      var cl = Object.keys(clubs).map(function (k) { var c = clubs[k]; c.average = Math.round(c.checkins / c.classes * 10) / 10; return c; })
-        .sort(function (x, y) { return y.checkins - x.checkins || (x.club_name < y.club_name ? -1 : 1); });
-      return { date_from: from, date_to: to, total: list.reduce(function (n, o) { return n + o.count; }, 0), clubs: cl, occurrences: list };
-    }
-    if (a === '/attendance') return liveList(Number(q.get('session_id')), q.get('date')).items;
-    return null;
-  }
-  function attendanceXlsx(q) {
-    var s = attendanceRoute('GET', '/attendance/stats', q, {});
-    var sheets = [{ name: 'Сводка', rows: [['Посещаемость кружков: ' + s.date_from + ' — ' + s.date_to], [], ['Кружок', 'Занятий с отметками', 'Отметок', 'В среднем на занятии']]
-      .concat(s.clubs.map(function (c) { return [c.club_name, c.classes, c.checkins, c.average]; }))
-      .concat([['Итого', s.clubs.reduce(function (n, c) { return n + c.classes; }, 0), s.total, null]]), widths: [44, 22, 12, 22], bold: [0, 2, 3 + s.clubs.length], freeze: 3 }];
-    s.clubs.forEach(function (c) {
-      var club = db.clubs.find(function (x) { return x.id === c.club_id; }) || {}; var teacher = (db.leaders.find(function (l) { return l.id === club.leader_id; }) || {}).name || '';
-      var rows = db.attendance.filter(function (a) { var ss = db.sessions.find(function (x) { return x.id === a.session_id; }); return ss && ss.club_id === c.club_id && a.date >= s.date_from && a.date <= s.date_to; })
-        .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.at < b.at ? -1 : 1); })
-        .map(function (a) { var ss = db.sessions.find(function (x) { return x.id === a.session_id; }); var t = new Date(a.at);
-          return [parse(a.date), ss.start_time + '–' + ss.end_time, teacher, a.student_id, String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0')]; });
-      sheets.push({ name: c.club_name, rows: [['Дата', 'Время', 'Преподаватель', 'ID студента', 'Отметился в']].concat(rows), widths: [12, 14, 30, 40, 14], bold: [0], freeze: 1 });
-    });
-    return { __file: window.ItcXlsx.build(sheets), name: 'attendance_' + s.date_from + '_' + s.date_to + '.xlsx', type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
   }
 
   // ---------- маршрутизатор
@@ -475,8 +356,8 @@
       return { all: mine.some(function (x) { return x.club_id == null; }), club_ids: mine.map(function (x) { return x.club_id; }).filter(Boolean) }; }
     if (p === '/api/push/subscribe') { db.push_subscriptions.push({ endpoint: body.endpoint, club_id: body.club_id || null }); return [201, { status: 'subscribed' }]; }
     if (p === '/api/push/unsubscribe') { db.push_subscriptions = db.push_subscriptions.filter(function (x) { return !(x.endpoint === body.endpoint && (body.club_id == null || x.club_id === body.club_id)); }); return [204, null]; }
-    if (p === '/api/attendance/checkin' && method === 'POST') return checkin(body || {});
-    if (p === '/api/attendance/mine') { var hs = curHdr; var msid = normSid(hs['x-student-id']); deviceCheck(msid, hs['x-device-token'], false); return historyOf(msid); }
+    if (p === '/api/push/preferences') return { status: 'ok' };
+    if (p === '/api/announcements') return { items: [], last_id: db.broadcasts.length ? db.broadcasts[db.broadcasts.length - 1].id : 0 }; // демо: на устройство не доставляем
     // админка: вход всегда выполнен (демо)
     if (p.indexOf('/api/admin') === 0) {
       var a = p.slice('/api/admin'.length);
@@ -495,7 +376,7 @@
         if (!body.new_password || body.new_password.length < 8) fail(422, 'Пароль должен быть не короче 8 символов'); if (body.new_password === ad.password) fail(422, 'Новый пароль должен отличаться от текущего'); ad.password = body.new_password; return [204, null]; }
       if (a === '/notifications') return db.notifications;
       if (a === '/users') return db.users;
-      if (a.indexOf('/attendance') === 0) { var ar = attendanceRoute(method, a, q, body || {}); if (ar) return ar; }
+      if (a.indexOf('/broadcasts') === 0) { var br = broadcastRoute(method, a, q, body || {}); if (br) return br; }
       m = a.match(/^\/(categories|leaders|rooms|clubs|sessions|exceptions)(?:\/(\d+|cancellations|moves))?$/);
       if (m) {
         var id = m[2] && /^\d+$/.test(m[2]) ? +m[2] : null; var sub = id == null ? m[2] : null;
@@ -576,7 +457,7 @@
 
   window.DemoBackend = {
     enabled: true,
-    reset: function () { db = seed(); db.seed2 = 1; db.attendance = []; seedAttendance(); db.attSeeded = 2; save(); },
+    reset: function () { db = seed(); db.seed2 = 1; db.broadcasts = []; save(); },
     loggedOut: loggedOut,
     stats: function () { return { clubs: db.clubs.length, leaders: db.leaders.length, rooms: db.rooms.length, sessions: db.sessions.length, exceptions: db.session_exceptions.length, users: db.users.length, seededAt: db.seededAt }; },
     notifications: function () { return db.notifications.slice(); },

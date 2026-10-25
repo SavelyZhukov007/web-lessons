@@ -41,3 +41,8 @@ export async function loadAll(options) {
   return { categories: cats, leaders: lead, rooms: rms, clubs: cl, sessions: ss, exceptions: ex,
     cat: by(cats), leader: by(lead), room: by(rms), club: by(cl), session: by(ss) };
 }
+export const broadcasts = {
+  list: options => request('/api/admin/broadcasts', options),
+  estimate: (body, options) => request('/api/admin/broadcasts/estimate', { ...send('POST', body), ...options }),
+  send: body => request('/api/admin/broadcasts', send('POST', body)),
+};

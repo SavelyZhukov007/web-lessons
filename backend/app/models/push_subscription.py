@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..database import Base
@@ -25,4 +25,6 @@ class PushSubscription(Base):
     club_id: Mapped[int | None] = mapped_column(
         ForeignKey("clubs.id", ondelete="CASCADE"), nullable=True, index=True
     )
+    # «Объявления от администрации» (рассылки); переносы/отмены приходят независимо от флага
+    announcements: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)

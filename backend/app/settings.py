@@ -81,7 +81,7 @@ def logs_dir() -> Path:
 
 def logs_retention_days() -> int:
     try:
-        return min(21, max(1, int(os.getenv("LOGS_RETENTION_DAYS", "14"))))  # не дольше посещаемости
+        return min(21, max(1, int(os.getenv("LOGS_RETENTION_DAYS", "14"))))  # журнал клиентов храним не дольше 21 дня
     except ValueError:
         return 14
 

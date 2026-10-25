@@ -161,8 +161,8 @@
     var route = hash.split('/')[0];
     var main = doc.getElementById('admin-main');
     var bar = doc.getElementById('native-sessions-tabs');
-    if (route !== 'sessions' && route !== 'reference' && route !== 'attendance') { if (bar) bar.remove(); return; }
-    var cur = route === 'sessions' || route === 'attendance' ? route : 'reference/' + (hash.split('/')[1] || 'categories');
+    if (route !== 'sessions' && route !== 'reference') { if (bar) bar.remove(); return; }
+    var cur = route === 'sessions' ? route : 'reference/' + (hash.split('/')[1] || 'categories');
     doc.querySelectorAll('[data-route="sessions"]').forEach(function (a) { a.setAttribute('aria-current', 'page'); });
     if (!main.firstElementChild || main.getAttribute('aria-busy') === 'true') return;
     if (bar && bar.parentNode === main && bar.getAttribute('data-cur') === cur && bar.previousElementSibling === (main.querySelector('.admin-head') || main.firstElementChild)) return;

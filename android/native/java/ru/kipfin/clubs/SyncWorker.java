@@ -19,7 +19,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.concurrent.TimeUnit;
 
-/** Фоновая проверка расписания раз в ~30 минут (WorkManager, без GMS): обновляет виджеты, напоминания, сообщает об отменах/переносах. */
+/** Фоновая проверка расписания раз в ~30 минут (WorkManager, без GMS): обновляет виджеты, напоминания, сообщает об отменах/переносах и объявлениях. */
 public class SyncWorker extends Worker {
     static final String NAME = "itc-schedule-sync";
 
@@ -48,6 +48,8 @@ public class SyncWorker extends Worker {
                 for (int i = 0; i < week.length(); i++) all.put(week.get(i));
             }
             Sync.apply(c, all.toString());
+            Announcements.check(c);
+            try { Push.register(c); } catch (Exception ignored) { } // FCM: продлить регистрацию (не чаще раза в сутки)
             return Result.success();
         } catch (Exception e) {
             return getRunAttemptCount() < 3 ? Result.retry() : Result.success();

@@ -6,6 +6,7 @@
  *  - виджеты: данные передаются плагину при каждой синхронизации; кнопки «добавить виджет»
  *  - ярлыки/уведомления: ссылки itckruzhki://open/<путь> -> страница
  *  - офлайн-кэш: GET /api/* сохраняются, без сети отдаются из кэша, баннер «Нет сети»
+ *  - объявления админа: нативный плагин сам забирает GET /api/announcements (при запуске и в фоне), здесь — переключатель
  */
 (function () {
   'use strict';
@@ -71,7 +72,7 @@
       // правка в админке → кэш публичных данных устарел (иначе каталог/расписание показали бы старое до TTL)
       return baseFetch(input, init).then(function (r) { if (r.ok) dropCaches(); return r; });
     }
-    // Cache only public resources. Teacher/profile/push responses are private,
+    // Cache only public resources. Admin/push responses are private,
     // including when the same device changes accounts while offline.
     if (!path || method !== 'GET' || !/^\/api\/(schedule|clubs|categories|leaders|rooms)(\/|\?|$)/.test(path)) return baseFetch(input, init);
     return baseFetch(input, init).then(function (r) {
@@ -104,18 +105,18 @@
     for (var i = 0; i < LS.length; i++) { var k = LS.key(i); if (k && (k.indexOf(CACHE) === 0 || k.indexOf('itc.sched.') === 0)) keys.push(k); }
     keys.forEach(function (k) { LS.removeItem(k); });
   }
-  window.addEventListener('online', function () { setOffline(false); syncNow(); flushQueue(); });
+  window.addEventListener('online', function () { setOffline(false); syncNow(); });
   window.addEventListener('offline', function () { setOffline(true); });
   if (navigator.onLine === false) offline = true, document.documentElement.classList.add('itc-offline');
 
   // ---------- нативный плагин ----------
   function N() { return P.ItcNative; }
-  function settings() { return Object.assign({ reminderMinutes: 15, notifyChanges: true }, jget(SETTINGS, {})); }
+  function settings() { return Object.assign({ reminderMinutes: 15, notifyChanges: true, notifyAnnouncements: true }, jget(SETTINGS, {})); }
   function configureNative() {
     if (!N()) return Promise.resolve(null);
     var s = settings();
     return N().configure({ follows: Follows.all(), server: DEMO ? '' : ((window.AppServer && window.AppServer.get()) || ''),
-      demo: DEMO, reminderMinutes: s.reminderMinutes, notifyChanges: s.notifyChanges }).catch(function () { return null; });
+      demo: DEMO, reminderMinutes: s.reminderMinutes, notifyChanges: s.notifyChanges, notifyAnnouncements: s.notifyAnnouncements !== false }).catch(function () { return null; });
   }
   function mskMonday(offsetWeeks) {
     var d = new Date(Date.now() + 3 * 3600e3); // Москва UTC+3
@@ -132,7 +133,10 @@
       var events = [].concat(weeks[0], weeks[1]);
       jset('itc.lastSync', Date.now());
       return N() ? N().sync({ events: events }) : null;
-    }).catch(function () { return null; }).then(function (r) { syncing = null; return r; });
+    }).catch(function () { return null; }).then(function (r) {
+      if (N() && N().checkAnnouncements) N().checkAnnouncements().catch(function () {}); // объявления — отдельным запросом, сеть может быть и без расписания
+      syncing = null; return r;
+    });
     return syncing;
   }
 
@@ -203,29 +207,27 @@
     var bar = el('div', { class: 'itc-mybar' });
     var s = el('button', { type: 'button', id: 'itc-notify-open', class: 'itc-chip icon' + (APPROW ? ' itc-ctl' : ''), 'aria-label': PWA ? 'Уведомления' : 'Напоминания и виджеты' }, BELL);
     s.addEventListener('click', openSheet);
-    var qr = el('a', { href: '/qr.html', id: 'itc-qr-open', class: 'itc-chip' + (APPROW ? ' itc-ctl' : ''), 'aria-label': 'Отметиться на занятии по QR-коду', title: 'Отметиться' },
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2v2h-2zM18 14h2v2h-2z"/></svg><span>Отметиться</span>');
     var t;
     function toggleMine() {
       if (!Follows.all().length && !myMode()) { toast('Отметьте кружки звёздочкой ☆ в каталоге'); paint(); return; }
       LS.setItem(MODE_KEY, myMode() ? '0' : '1'); paint(); reload(); document.dispatchEvent(new CustomEvent('itc:mymode'));
     }
     if (APPROW) {
-      // APK: «Мои кружки» — переключатель внутри панели фильтров; в строке — только иконки QR, колокольчик, фильтры
+      // APK: «Мои кружки» — переключатель внутри панели фильтров; в строке — только колокольчик и фильтры
       var opts = document.getElementById('filter-options');
       t = el('label', { class: 'itc-only-mine', id: 'itc-my-toggle' }, '<span class="itc-only-mine-text"></span><input type="checkbox" role="switch" class="itc-switch">');
       t.querySelector('input').addEventListener('change', toggleMine);
       opts.insertBefore(t, opts.firstChild);
       var paint = function () { var n = Follows.all().length; t.querySelector('input').checked = myMode();
         t.querySelector('.itc-only-mine-text').textContent = 'Только мои кружки' + (n ? ' · ' + n : ''); };
-      bar.append(qr, s);
+      bar.append(s);
       APPROW.insertBefore(bar, APPROW.querySelector('.app-filter-btn'));
     } else {
       t = el('button', { type: 'button', id: 'itc-my-toggle', class: 'itc-chip' });
       paint = function () { var n = Follows.all().length; t.setAttribute('aria-pressed', String(myMode()));
         t.innerHTML = STAR + '<span>Мои кружки' + (n ? ' · ' + n : '') + '</span>'; t.setAttribute('aria-label', 'Мои кружки' + (n ? ': ' + n : '')); };
       t.addEventListener('click', toggleMine);
-      bar.append(t, qr, s);
+      bar.append(t, s);
       form.parentNode.insertBefore(bar, form);
     }
     document.addEventListener('itc:follows', function () { paint(); if (myMode()) reload(); });
@@ -251,6 +253,7 @@
         return '<option value="' + o[0] + '"' + (String(s.reminderMinutes) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
       '</select></label>' +
       '<label class="itc-row"><span>Сообщать об отмене и переносе</span><input type="checkbox" id="itc-changes"' + (s.notifyChanges ? ' checked' : '') + '></label>' +
+      '<label class="itc-row"><span>Объявления от администрации</span><input type="checkbox" id="itc-ann"' + (s.notifyAnnouncements !== false ? ' checked' : '') + '></label>' +
       '<p id="itc-perm" class="itc-warn" hidden>Уведомления запрещены в настройках. <button type="button" class="text-button" id="itc-perm-open">Открыть настройки</button></p>' +
       '<h3>Виджеты на рабочий стол</h3>' +
       '<div class="itc-actions"><button type="button" data-pin="next">Следующее занятие</button><button type="button" data-pin="today">Сегодня (4×2)</button></div>' +
@@ -258,12 +261,14 @@
       '<button type="button" class="itc-close">Готово</button></div>';
     document.body.appendChild(wrap);
     function save() {
-      jset(SETTINGS, { reminderMinutes: parseInt(wrap.querySelector('#itc-remind').value, 10), notifyChanges: wrap.querySelector('#itc-changes').checked });
+      jset(SETTINGS, { reminderMinutes: parseInt(wrap.querySelector('#itc-remind').value, 10), notifyChanges: wrap.querySelector('#itc-changes').checked,
+        notifyAnnouncements: wrap.querySelector('#itc-ann').checked });
       configureNative().then(checkPerm);
     }
     function checkPerm(st) { wrap.querySelector('#itc-perm').hidden = !st || st.notificationsAllowed !== false; }
     wrap.querySelector('#itc-remind').addEventListener('change', function () { save(); if (N()) N().requestNotifications().then(checkPerm, function () {}); });
     wrap.querySelector('#itc-changes').addEventListener('change', save);
+    wrap.querySelector('#itc-ann').addEventListener('change', function () { save(); if (this.checked && N()) N().requestNotifications().then(checkPerm, function () {}); });
     wrap.querySelector('#itc-perm-open').addEventListener('click', function () { if (N()) N().openNotificationSettings(); });
     wrap.querySelectorAll('[data-pin]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -282,7 +287,7 @@
     var m = /^itckruzhki:\/\/open(\/[^?#]*)?(\?[^#]*)?/.exec(url || '');
     if (!m) return null;
     var p = m[1] || '/', q = m[2] || '';
-    var map = { '/': '/index.html', '/my': '/index.html?my=1', '/clubs': '/clubs.html', '/club': '/club.html' + q, '/qr': '/qr.html', '/scan': '/qr.html?scan=1', '/today': '/index.html?from=shortcut' };
+    var map = { '/': '/index.html', '/my': '/index.html?my=1', '/clubs': '/clubs.html', '/club': '/club.html' + q, '/today': '/index.html?from=shortcut' };
     return map[p] || '/index.html';
   }
   function go(url) {
@@ -298,24 +303,9 @@
     if (P.App.addListener) P.App.addListener('appStateChange', function (st) { if (st && st.isActive) syncNow(); });
   }
 
-  // ---------- очередь отметок посещаемости без сети (используется qr.html) ----------
-  var QKEY = 'itc.checkinQueue';
-  function flushQueue() {
-    if (window.ItcQueue) return window.ItcQueue.flush().then(function (d) { return d.length; }); // t100: очередь со scanned_at (app-student.js)
-    var q = jget(QKEY, []);
-    if (!q.length) return Promise.resolve(0);
-    var rest = [], done = 0;
-    return q.reduce(function (p, item) {
-      return p.then(function () {
-        return baseFetch('/api/attendance/checkin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
-          .then(function (r) { if (r.status >= 500) rest.push(item); else done++; }, function () { rest.push(item); });
-      });
-    }, Promise.resolve()).then(function () { jset(QKEY, rest); if (done) toast('Отправлено отметок: ' + done); return done; });
-  }
-
-  window.ItcFeatures = { Follows: Follows, syncNow: syncNow, routeOf: routeOf, flushQueue: flushQueue, queueKey: QKEY, openSheet: openSheet, baseFetch: baseFetch,
+  window.ItcFeatures = { Follows: Follows, syncNow: syncNow, routeOf: routeOf, openSheet: openSheet, baseFetch: baseFetch,
     isMyMode: myMode, toast: toast, el: el, host: NATIVE ? 'native' : 'pwa' };
-  if (PWA) document.addEventListener('visibilitychange', function () { if (!document.hidden) { syncNow(); flushQueue(); } });
+  if (PWA) document.addEventListener('visibilitychange', function () { if (!document.hidden) syncNow(); });
 
   function boot() {
     var p = location.pathname;
@@ -324,7 +314,6 @@
     if (p === '/' || /\/index\.html$/.test(p)) pageSchedule();
     banner();
     if (!sessionStorage.getItem('itc.synced')) { sessionStorage.setItem('itc.synced', '1'); configureNative().then(syncNow); }
-    flushQueue();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

@@ -8,7 +8,7 @@
     <title>Расписание — KipClub</title>
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#ffffff">
-    <link rel="manifest" href="/manifest.webmanifest?v=kc4">
+    <link rel="manifest" href="/manifest.webmanifest?v=kc5">
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg?v=kc4">
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=kc4">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=kc4">
@@ -19,8 +19,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/tokens.css">
-    <link rel="stylesheet" href="/css/campus.css">
-    <link rel="stylesheet" href="/css/schedule.css">
+    <link rel="stylesheet" href="/css/campus.css?v=kc6">
+    <link rel="stylesheet" href="/css/schedule.css?v=kc6">
     <link rel="stylesheet" href="/css/components.css">
     <link rel="stylesheet" href="/css/platform.css">
 </head>
@@ -126,17 +126,10 @@
             <p id="result-status" role="status" aria-live="polite" aria-atomic="true"></p>
         </div>
         <div id="content" class="schedule-content" aria-busy="true"></div>
-        <div class="schedule-legend"><span class="status-example moved">Перенос</span><span
-                class="status-example cancelled">Отменено</span></div>
         <noscript>
             <p class="schedule-notice">Для просмотра расписания включи JavaScript в браузере.</p>
         </noscript>
     </main>
-    <footer class="campus-footer"><span>Время московское · Пн–Сб</span><a href="/clubs.html">Все кружки <svg
-                class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M5 12h14m-5-5 5 5-5 5" />
-            </svg></a></footer>
     <dialog id="event-dialog" aria-labelledby="event-title">
         <div id="event-details"></div><button id="close-event" type="button">Закрыть</button>
     </dialog>

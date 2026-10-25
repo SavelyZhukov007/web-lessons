@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "879498599349",
+    "project_id": "kipclub-9ebd8",
+    "storage_bucket": "kipclub-9ebd8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879498599349:android:2b5383ab02186ccab3d7fc",
+        "android_client_info": {
+          "package_name": "ru.kipfin.clubs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZwDXglt57WKJEIFf8qn00GxTFx1F1h7k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

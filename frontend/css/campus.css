@@ -107,8 +107,7 @@
 }
 
 .campus-header,
-.campus-page main,
-.campus-footer {
+.campus-page main {
     width: min(100%, 1520px);
     margin: 0 auto;
     padding-left: max(40px, var(--safe-left, 0px));
@@ -187,24 +186,6 @@
     padding-top: 36px;
     padding-bottom: 32px;
     min-height: calc(100vh - 155px);
-}
-
-.campus-footer {
-    min-height: 76px;
-    padding-bottom: var(--safe-bottom, 0px);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-top: 1px solid var(--line);
-    color: var(--muted);
-    font-size: calc(11px * var(--text-scale, 1));
-    gap: 20px;
-}
-
-.campus-footer a {
-    display: inline-flex;
-    gap: 10px;
-    align-items: center;
 }
 
 .ui-icon {
@@ -352,8 +333,7 @@
 @media (max-width: 1199px) {
 
     .campus-header,
-    .campus-page main,
-    .campus-footer {
+.campus-page main {
         padding-left: max(24px, var(--safe-left, 0px));
         padding-right: max(24px, var(--safe-right, 0px));
     }
@@ -366,8 +346,7 @@
 @media (max-width: 599px) {
 
     .campus-header,
-    .campus-page main,
-    .campus-footer {
+.campus-page main {
         padding-left: max(18px, var(--safe-left, 0px));
         padding-right: max(18px, var(--safe-right, 0px));
     }
@@ -421,12 +400,6 @@
 
     .campus-page h1 {
         font-size: calc(37px * var(--text-scale, 1));
-    }
-
-    .campus-footer {
-        min-height: 64px;
-        font-size: calc(10px * var(--text-scale, 1));
-        gap: 12px;
     }
 
     .public-title {

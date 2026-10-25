@@ -34,7 +34,7 @@ PAGES = [
     ("schedule", "/"),
     ("clubs", "/clubs.html"),
     ("club", "/club.html?id=1"),
-    ("qr", "/qr.html"),
+    ("admin-broadcasts", "/admin/#/broadcasts"),
     ("sheet", "/#sheet"),
     ("admin-sessions", "/admin/#/sessions"),
     ("admin-dashboard", "/admin/#/"),

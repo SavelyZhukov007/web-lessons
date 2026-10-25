@@ -9,7 +9,7 @@ const ROUTES = {
   sessions: { title: 'Занятия', icon: 'calendar', load: () => import('./views/sessions.js') },
   exceptions: { title: 'Изменения', icon: 'list', load: () => import('./views/exceptions.js') },
   reference: { title: 'Справочники', icon: 'book', load: () => import('./views/reference.js') },
-  attendance: { title: 'Посещаемость', icon: 'list', hidden: true, load: () => import('./views/attendance.js') },
+  broadcasts: { title: 'Рассылки', icon: 'megaphone', load: () => import('./views/broadcasts.js') },
   account: { title: 'Аккаунт', icon: 'key', hidden: true, load: () => import('./views/account.js') },
 };
 const LOGIN = '/admin/login.html';

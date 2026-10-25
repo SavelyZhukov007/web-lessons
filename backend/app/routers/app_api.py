@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.orm import Session
 
 from .. import settings
+from ..database import get_db
+from ..services import broadcast as broadcast_service
 from ..services import client_logs
 from .admin import require_admin
 
@@ -47,6 +52,41 @@ async def post_logs(request: Request):
     meta = {k: body.get(k) for k in ("device", "version", "platform", "os", "webview")}
     entries = [e for e in (client_logs.normalize(x, meta) for x in body["entries"][: client_logs.MAX_ENTRIES]) if e]
     return {"accepted": client_logs.append(entries)}
+
+
+class DeviceIn(BaseModel):
+    device_id: str = Field(pattern=r"^[A-Za-z0-9_-]{16,64}$")
+    token: str | None = Field(None, max_length=512)
+    platform: str = Field("android", pattern=r"^(android)$")
+    app_version: str = Field("", max_length=32)
+    club_ids: list[int] = Field(default_factory=list, max_length=100)
+    announcements: bool = True
+    changes: bool = True
+
+    @field_validator("token")
+    @classmethod
+    def _token(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        if not re.fullmatch(r"[A-Za-z0-9_:\-]{20,512}", v):
+            raise ValueError("Некорректный токен")
+        return v
+
+    @field_validator("app_version")
+    @classmethod
+    def _ver(cls, v: str) -> str:
+        return re.sub(r"[^0-9A-Za-z.+_-]", "", v)
+
+
+@router.post("/api/app/devices", status_code=204)
+def register_device(body: DeviceIn, request: Request, db: Session = Depends(get_db)):
+    """Регистрация установки APK для FCM (токен, «мои кружки», переключатели). Публичный, с ограничением частоты."""
+    ip = request.client.host if request.client else "-"
+    if not client_logs.allow("devreg-ip:" + ip) or not client_logs.allow("devreg:" + body.device_id):
+        raise HTTPException(429, "Слишком часто")
+    clubs = sorted({c for c in body.club_ids if 0 < c < 10**9})
+    broadcast_service.register_device(db, body.device_id, body.token, body.platform, body.app_version,
+                                      clubs, body.announcements, body.changes)
 
 
 def _filters(level, version, device, date_from, date_to):

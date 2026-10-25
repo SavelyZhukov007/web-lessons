@@ -27,7 +27,7 @@
 `pip-audit -r backend/requirements.lock.txt` — без известных уязвимостей на 23.10.2026; проверка включена в CI.
 
 ## Аудит
-Логгер `clubs.audit`, одна JSON-строка на событие: `login_ok/login_failed/login_blocked`, `token_refreshed`, `refresh_reuse_detected`, `password_changed`, `admin_write` (метод, путь, статус, admin_id, `request_id`); пароли и токены не логируются. Файл — `AUDIT_LOG_FILE`.
+Логгер `clubs.audit`, одна JSON-строка на событие: `login_ok/login_failed/login_blocked`, `token_refreshed`, `refresh_reuse_detected`, `password_changed`, `broadcast_sent`, `admin_write` (метод, путь, статус, admin_id, `request_id`); пароли и токены не логируются. Файл — `AUDIT_LOG_FILE`.
 
 ## Производительность хеширования
 `scrypt` (N=2^16, r=8, p=1, 64 МиБ): ≈160 мс на хеш и ≈150 мс на проверку на машине разработки (Linux, 1 поток); на железе колледжа не измерялось.

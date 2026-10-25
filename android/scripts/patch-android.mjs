@@ -1,6 +1,6 @@
 import { readVersion } from './version.mjs';
 // Идемпотентно дорабатывает сгенерированный android/ проект: HTTP по LAN (cleartext), network_security_config.
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -116,14 +116,22 @@ console.log(`[patch-android] имя «${APP_NAME}»${DEMO ? ', applicationId +.d
 }
 
 // ---- подпись release из окружения (ключ и пароли не хранятся в репозитории); без ANDROID_KEYSTORE release не подписывается
-// ---- экран сканера QR (CameraX + ML Kit)
+// ---- посещаемость по QR удалена: из уже сгенерированного проекта убираем сканер, камеру и ML Kit/CameraX
 {
   let m = readFileSync(manifestPath, 'utf8');
-  if (!m.includes('ru.kipfin.clubs.ScanActivity')) {
-    m = m.replace(/(\s*<\/application>)/, `
-        <activity android:name="ru.kipfin.clubs.ScanActivity" android:exported="false" android:screenOrientation="portrait" android:theme="@style/Theme.AppCompat.NoActionBar" />$1`);
-    writeFileSync(manifestPath, m);
+  const cleaned = m
+    .replace(/\s*<activity android:name="ru\.kipfin\.clubs\.ScanActivity"[^>]*\/>/g, '')
+    .replace(/\s*<uses-permission android:name="android\.permission\.CAMERA" \/>/g, '')
+    .replace(/\s*<uses-feature android:name="android\.hardware\.camera" android:required="false" \/>/g, '');
+  if (cleaned !== m) writeFileSync(manifestPath, cleaned);
+  if (existsSync(gradlePath)) {
+    const g = readFileSync(gradlePath, 'utf8');
+    const ng = g.replace(/\n\s*implementation "(com\.google\.mlkit:barcode-scanning|androidx\.camera:camera-[a-z0-9]+):[^"]+"/g, '');
+    if (ng !== g) writeFileSync(gradlePath, ng);
   }
+  const javaDir = join(app, 'java', 'ru', 'kipfin', 'clubs');
+  for (const f of [join(javaDir, 'ScanActivity.java'), join(javaDir, 'ItcScannerPlugin.java'), join(javaDir, 'ItcSecurePlugin.java'),
+    join(app, 'res', 'drawable', 'ic_shortcut_qr.xml')]) rmSync(f, { force: true });
 }
 if (existsSync(gradlePath)) {
   let g = readFileSync(gradlePath, 'utf8');
@@ -193,20 +201,10 @@ $1buildTypes {`);
     m = m.replace(/(\s*<\/manifest>)/, `
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />$1`);
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />$1`);
     writeFileSync(manifestPath, m);
   }
   let g = readFileSync(gradlePath, 'utf8');
-  if (!g.includes('com.google.mlkit:barcode-scanning')) { // сканер QR: CameraX + ML Kit (модель внутри APK, без Play-сервисов)
-    g = g.replace(/(\ndependencies\s*\{)/, `$1
-    implementation "com.google.mlkit:barcode-scanning:17.3.0"
-    implementation "androidx.camera:camera-camera2:1.4.2"
-    implementation "androidx.camera:camera-lifecycle:1.4.2"
-    implementation "androidx.camera:camera-view:1.4.2"`);
-    writeFileSync(gradlePath, g);
-  }
   if (!g.includes('androidx.work:work-runtime')) {
     g = g.replace(/(\ndependencies\s*\{)/, `$1
     implementation "androidx.work:work-runtime:2.10.5"
@@ -214,4 +212,46 @@ $1buildTypes {`);
     writeFileSync(gradlePath, g);
   }
   console.log(`[patch-android] нативные функции: виджеты, напоминания, ярлыки (${appId})`);
+}
+
+// ---- FCM (push от сервера) — только если есть android/google-services.json (Firebase kipclub-9ebd8) и это не демо-сборка.
+// Без файла сборка чистая, без Firebase: уведомления приходят опросом (SyncWorker / GET /api/announcements).
+// Сгенерированный app/build.gradle Capacitor сам применяет com.google.gms.google-services, когда рядом лежит google-services.json.
+{
+  const appDir = join(root, 'android', 'app');
+  const src = join(root, 'google-services.json');
+  const dst = join(appDir, 'google-services.json');
+  const javaDir = join(appDir, 'src', 'main', 'java', 'ru', 'kipfin', 'clubs');
+  let fcmOn = false;
+  if (existsSync(src) && !DEMO) {
+    const appId = JSON.parse(readFileSync(join(root, 'capacitor.config.json'), 'utf8')).appId;
+    const gs = JSON.parse(readFileSync(src, 'utf8'));
+    fcmOn = (gs.client || []).some((c) => c?.client_info?.android_client_info?.package_name === appId);
+    if (!fcmOn) console.warn(`[patch-android] google-services.json не содержит ${appId} — FCM пропущен`);
+  }
+  let m = readFileSync(manifestPath, 'utf8');
+  let g = readFileSync(gradlePath, 'utf8');
+  const SERVICE = `
+        <service android:name="ru.kipfin.clubs.ItcMessagingService" android:exported="false">
+            <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
+        </service>`;
+  const DEPS = `
+    implementation platform("com.google.firebase:firebase-bom:35.1.0")
+    implementation "com.google.firebase:firebase-messaging"`;
+  if (fcmOn) {
+    cpSync(src, dst);
+    cpSync(join(root, 'native', 'fcm'), join(appDir, 'src', 'main', 'java'), { recursive: true });
+    if (!m.includes('ru.kipfin.clubs.ItcMessagingService')) m = m.replace(/(\s*<\/application>)/, SERVICE + '$1');
+    if (!g.includes('firebase-messaging')) g = g.replace(/(\ndependencies\s*\{)/, '$1' + DEPS);
+    if (!/apply plugin: ['"]com\.google\.gms\.google-services['"]/.test(g)) g += `\napply plugin: 'com.google.gms.google-services'\n`;
+  } else { // чистим следы прошлой сборки с FCM (сгенерированный проект переиспользуется)
+    rmSync(dst, { force: true });
+    for (const f of ['ItcMessagingService.java', 'ItcFcm.java']) rmSync(join(javaDir, f), { force: true });
+    m = m.replace(/\s*<service android:name="ru\.kipfin\.clubs\.ItcMessagingService"[\s\S]*?<\/service>/, '');
+    g = g.replace(/\n\s*implementation platform\("com\.google\.firebase:firebase-bom:[^"]+"\)/, '')
+      .replace(/\n\s*implementation "com\.google\.firebase:firebase-messaging"/, '');
+  }
+  writeFileSync(manifestPath, m);
+  writeFileSync(gradlePath, g);
+  console.log(`[patch-android] FCM: ${fcmOn ? 'включён (google-services.json)' : 'нет — только опрос'}`);
 }

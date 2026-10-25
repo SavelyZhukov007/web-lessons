@@ -35,8 +35,8 @@ const DEMO = /^(1|true|yes)$/i.test(process.env.APP_DEMO || '');
 const FIXED_SERVER = !DEMO && (process.env.ITC_CHANNEL || readVersion('android').channel) === 'p';
 const PROD_SERVER = 'http://lekora.ru:7443';
 if (DEMO) {
-  // демо + инструменты подключения к тестовому серверу (app-shim), Excel-выгрузка без сервера (xlsx-lite)
-  for (const f of ['demo-backend.js', 'app-shim.js', 'xlsx-lite.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));
+  // демо + инструменты подключения к тестовому серверу (app-shim)
+  for (const f of ['demo-backend.js', 'app-shim.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));
 } else {
   cpSync(join(root, 'shim', 'app-shim.js'), join(out, 'js', 'app-shim.js'));
   if (!FIXED_SERVER) { // экран выбора сервера — только l/i
@@ -48,11 +48,9 @@ cpSync(join(root, 'shim', 'app-shell.css'), join(out, 'css', 'app-shell.css'));
 // нативная оболочка (только APK): html.is-native, safe area, «Назад», календарь, выход/вход, бренд — см. shim/native-shell.*
 cpSync(join(root, 'shim', 'native-shell.js'), join(out, 'js', 'native-shell.js'));
 cpSync(join(root, 'shim', 'native-shell.css'), join(out, 'css', 'native-shell.css'));
-// нативные функции (phase 2 C): «Мои кружки», напоминания, виджеты, ярлыки, офлайн-кэш, QR-посещаемость — см. shim/native-features.*
-for (const f of ['native-features.js', 'native-motion.js', 'qr-checkin.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));
+// нативные функции (phase 2 C): «Мои кружки», напоминания, виджеты, ярлыки, офлайн-кэш, объявления — см. shim/native-features.*
+for (const f of ['native-features.js', 'native-motion.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));
 for (const f of ['native-features.css', 'native-motion.css']) cpSync(join(root, 'shim', f), join(out, 'css', f));
-cpSync(join(root, 'shim', 'qr.html'), join(out, 'qr.html'));
-cpSync(join(root, 'node_modules', 'jsqr', 'dist', 'jsQR.js'), join(out, 'js', 'jsQR.js'));
 // phase 2 F: экран загрузки, новое «Расписание» (вместо js/schedule.js сайта), обновления внутри приложения, админка
 const ver = readVersion('android'); // номер — общий ../version.json (APK и PWA)
 // адрес проверки обновлений: APP_UPDATE_URL=https://<сайт>/api/app/android при сборке (или itc.updateUrl в приложении);
@@ -90,7 +88,7 @@ if (FIXED_SERVER) console.log(`[prepare-web] канал p: сервер заши
 
 // вставляем shim первым скриптом в <head> каждой html-страницы (до модулей и api.js)
 const SHIM = DEMO ? 'demo-backend.js' : 'app-shim.js';
-const TAG = DEMO ? '<script>window.ITC_CHANNEL=' + JSON.stringify(ver.channel) + '</script><script src="/js/xlsx-lite.js"></script><script src="/js/demo-backend.js"></script><script src="/js/app-shim.js"></script>' : PRE + '<script src="/js/app-shim.js"></script>';
+const TAG = DEMO ? '<script>window.ITC_CHANNEL=' + JSON.stringify(ver.channel) + '</script><script src="/js/demo-backend.js"></script><script src="/js/app-shim.js"></script>' : PRE + '<script src="/js/app-shim.js"></script>';
 let patched = 0;
 const stripPwa = html => html
   .replace(/\s*<link rel="manifest"[^>]*>/g, '')

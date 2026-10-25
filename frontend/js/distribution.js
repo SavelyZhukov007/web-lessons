@@ -1,4 +1,6 @@
 // Логика страниц /ios, /ios/pwa, /android/ (CSP: script-src 'self' — только внешний файл).
+import { parseIosVersion, isTooOld, tooOldMessage } from './ios-version.js?v=kc5';
+
 const ua = navigator.userAgent || '';
 export const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
 export const isAndroid = /Android/i.test(ua);
@@ -28,6 +30,14 @@ async function copyText(text) {
 
 function initIos() {
     if (isStandalone()) { $('ios-installed').hidden = false; return; }
+    const ver = isIOS ? parseIosVersion(ua) : null;
+    if (isTooOld(ver)) { // старая iOS: шаги установки бесполезны — объясняем, как обновиться
+        $('ios-too-old-text').textContent = tooOldMessage(ver);
+        $('ios-too-old').hidden = false;
+        $('ios-steps').hidden = true;
+        $('ios-min-note').hidden = true;
+        return;
+    }
     const browser = isIOS ? iosBrowser() : null;
     if (!browser) return;
     const url = `${location.origin}/ios/pwa`;

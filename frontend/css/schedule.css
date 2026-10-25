@@ -374,39 +374,6 @@
     display: none;
 }
 
-.grid-hint {
-    font-size: calc(11px * var(--text-scale, 1));
-    color: var(--muted);
-    margin: 10px 0 0;
-}
-
-.schedule-legend {
-    display: flex;
-    gap: 24px;
-    margin-top: 18px;
-    font-size: calc(10px * var(--text-scale, 1));
-    color: var(--muted);
-}
-
-.status-example {
-    padding-left: 14px;
-    position: relative;
-}
-
-.status-example::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 5px;
-    width: 6px;
-    height: 6px;
-    border: 1px solid var(--accent);
-}
-
-.status-example.cancelled::before {
-    border-style: dashed;
-}
-
 .schedule-list {
     border-top: 1px solid var(--ink);
 }
@@ -952,10 +919,6 @@
     #event-dialog h2 {
         font-size: calc(27px * var(--text-scale, 1));
     }
-
-    .grid-hint {
-        font-size: calc(10px * var(--text-scale, 1));
-    }
 }
 
 /* ===== Статусы: цвет + текст + форма (не только цвет) ===== */
@@ -997,16 +960,6 @@
 .calendar-event.cancelled .event-leader {
     color: inherit;
     opacity: .85;
-}
-
-.status-example.moved::before {
-    border-color: var(--status-moved-line);
-    background: var(--status-moved-bg);
-}
-
-.status-example.cancelled::before {
-    border-color: var(--status-cancelled-line);
-    background: var(--status-cancelled-bg);
 }
 
 #event-dialog .event-badge {

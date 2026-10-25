@@ -105,6 +105,6 @@
     setInterval(function () { if (!document.hidden) maybe(); }, 3600e3);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) maybe(); });
   }
-  if (/^\/admin\/|^\/qr\.html|^\/settings\.html/.test(location.pathname)) return; // не мешаем вводу в админке/сканеру
+  if (/^\/admin\/|^\/settings\.html/.test(location.pathname)) return; // не мешаем вводу в админке и настройках
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

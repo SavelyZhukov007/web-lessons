@@ -5,7 +5,11 @@ import { pushAvailability, urlBase64ToUint8Array, isStandalone } from '../js/pus
 const OK = { native: false, secure: true, hasSW: true, hasPush: true, hasNotification: true, platform: 'desktop', standalone: false, permission: 'default' };
 
 test('всё есть → ok', () => assert.equal(pushAvailability(OK).state, 'ok'));
-test('нативное приложение → FCM ещё не подключён', () => assert.equal(pushAvailability({ ...OK, native: true }).state, 'native'));
+test('нативное приложение → свои уведомления (FCM / фоновая проверка)', () => {
+  const r = pushAvailability({ ...OK, native: true });
+  assert.equal(r.state, 'native');
+  assert.match(r.message, /Firebase/);
+});
 test('http без localhost → insecure', () => assert.equal(pushAvailability({ ...OK, secure: false }).state, 'insecure'));
 test('iOS в обычной вкладке Safari → нужно «На экран Домой»', () => {
   const r = pushAvailability({ ...OK, platform: 'ios', standalone: false, hasPush: false });

@@ -111,16 +111,6 @@ html.is-native ::-webkit-scrollbar {
   height: 0;
 }
 
-/* --- 4. Легенда «Перенос / Отменено» под списком --- */
-html.is-native .schedule-legend {
-  display: none !important;
-}
-
-/* --- 5. Нижняя панель «Время московское · Пн–Сб» / «Все кружки →» --- */
-html.is-native .campus-footer {
-  display: none !important;
-}
-
 /* --- 11. Заголовок «KipClub» --- */
 html.is-native .campus-brand>span.native-brand {
   letter-spacing: -.04em;
@@ -510,7 +500,7 @@ html.is-native .admin-header .app-nav-toggle {
   font-weight: 500;
 }
 
-/* вкладки «Расписание · Направления · Руководители · Аудитории · Посещаемость» — сетка равных чипов в 2 ряда, без обрезки на 320px */
+/* вкладки «Расписание · Направления · Руководители · Аудитории» — сетка равных чипов в 2 ряда, без обрезки на 320px */
 html.is-native .native-sessions-tabs {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr));

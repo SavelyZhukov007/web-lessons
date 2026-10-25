@@ -17,7 +17,7 @@ from .database import DB_PATH, SessionLocal
 from .logging_setup import configure_logging
 from .middleware import request_pipeline
 from .migrations import current_revision, head_revision, prepare_database
-from .routers import admin, app_api, attendance, distribution, public, push
+from .routers import admin, announcements, app_api, distribution, public, push
 
 configure_logging()
 log = logging.getLogger("clubs.app")
@@ -33,9 +33,6 @@ async def lifespan(app):
     prepare_database()
     from .services import client_logs, mdns
     client_logs.cleanup()
-    from .database import SessionLocal
-    with SessionLocal() as db:  # посещаемость: хранение 21 день
-        attendance.purge(db)
     import asyncio
 
     async def _daily():
@@ -43,8 +40,6 @@ async def lifespan(app):
             await asyncio.sleep(24 * 3600)
             try:
                 client_logs.cleanup()
-                with SessionLocal() as db:
-                    attendance.purge(db)
             except Exception:  # noqa: BLE001 — фоновая уборка не должна ронять сервер
                 pass
     daily = asyncio.create_task(_daily())
@@ -83,7 +78,7 @@ app.include_router(public.router)
 app.include_router(admin.router)
 app.include_router(push.router)
 app.include_router(distribution.router)
-app.include_router(attendance.router)
+app.include_router(announcements.router)
 app.include_router(app_api.router)
 
 

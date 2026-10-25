@@ -25,7 +25,7 @@ export async function mount(root, { signal }) {
       stat('#/reference', data.rooms.length, 'аудиторий', 'book')),
     h('section', { class: 'card' }, h('h2', {}, 'Ближайшие изменения расписания'),
       upcoming.length ? h('ul', { class: 'change-list' }, upcoming.map(changeLine)) : h('p', { class: 'field-hint' }, 'Отмен и переносов впереди нет.'),
-      h('div', { class: 'form-actions' }, h('a', { class: 'btn btn--tonal', href: '#/exceptions' }, 'Отменить или перенести занятие'), h('a', { class: 'btn btn--tonal', href: '#/attendance' }, 'Посещаемость (QR)'))),
+      h('div', { class: 'form-actions' }, h('a', { class: 'btn btn--tonal', href: '#/exceptions' }, 'Отменить или перенести занятие'), h('a', { class: 'btn btn--tonal', href: '#/broadcasts' }, 'Отправить объявление'))),
     data.clubs.length === 0 && h('div', { class: 'empty-state' }, h('strong', {}, 'Пока нет ни одного кружка'), 'Начни со справочников (направление, руководитель, аудитория), потом добавь кружок.')].filter(Boolean));
   root.querySelector('#view-title').focus({ preventScroll: true });
 }

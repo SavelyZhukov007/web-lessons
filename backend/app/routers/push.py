@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.club import Club
 from ..models.push_subscription import PushSubscription
-from ..schemas.push import PushStatusRequest, PushSubscribeRequest, PushUnsubscribeRequest
+from ..schemas.push import PushPreferencesRequest, PushStatusRequest, PushSubscribeRequest, PushUnsubscribeRequest
 from ..services import push as push_service
 
 router = APIRouter(prefix="/api/push", tags=["push"])
@@ -51,12 +51,18 @@ def subscribe(payload: PushSubscribeRequest, response: Response, db: Session = D
     )
     if total >= MAX_SUBSCRIPTIONS_PER_ENDPOINT:
         raise HTTPException(429, "Слишком много подписок для этого устройства")
+    # выбор «Объявления» относится к браузеру целиком: новая подписка наследует его
+    opted_out = db.scalar(
+        select(func.count()).select_from(PushSubscription)
+        .where(PushSubscription.endpoint == payload.endpoint, PushSubscription.announcements.is_(False))
+    )
     db.add(
         PushSubscription(
             endpoint=payload.endpoint,
             p256dh=payload.keys.p256dh,
             auth=payload.keys.auth,
             club_id=payload.club_id,
+            announcements=not opted_out,
         )
     )
     # те же ключи на других подписках этого endpoint могли устареть
@@ -86,5 +92,16 @@ def unsubscribe(payload: PushUnsubscribeRequest, db: Session = Depends(get_db)):
 @router.post("/status")
 def status(payload: PushStatusRequest, db: Session = Depends(get_db)):
     """На какие кружки подписан этот endpoint (чтобы кнопка на странице показывала правильное состояние)."""
-    rows = list(db.scalars(select(PushSubscription.club_id).where(PushSubscription.endpoint == payload.endpoint)))
-    return {"all": any(r is None for r in rows), "club_ids": sorted(r for r in rows if r is not None)}
+    rows = list(db.execute(select(PushSubscription.club_id, PushSubscription.announcements).where(PushSubscription.endpoint == payload.endpoint)))
+    return {"all": any(r[0] is None for r in rows), "club_ids": sorted(r[0] for r in rows if r[0] is not None),
+            "announcements": all(r[1] for r in rows) if rows else True}
+
+
+@router.post("/preferences")
+def preferences(payload: PushPreferencesRequest, db: Session = Depends(get_db)):
+    """«Объявления» вкл/выкл для всех подписок этого браузера (переносы и отмены не затрагивает)."""
+    updated = db.execute(
+        PushSubscription.__table__.update().where(PushSubscription.endpoint == payload.endpoint).values(announcements=payload.announcements)
+    ).rowcount
+    db.commit()
+    return {"updated": updated, "announcements": payload.announcements}

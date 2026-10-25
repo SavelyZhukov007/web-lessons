@@ -65,14 +65,13 @@ def _security_headers(response: Response, request: Request) -> None:
     h.setdefault("X-Content-Type-Options", "nosniff")
     h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     h.setdefault("X-Frame-Options", "DENY")
-    camera = "(self)" if request.url.path == "/qr.html" else "()"
-    h.setdefault("Permissions-Policy", f"camera={camera}, microphone=(), geolocation=(), payment=()")
+    h.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
     h.setdefault("Cross-Origin-Opener-Policy", "same-origin")
     if not request.url.path.startswith("/api/"):
         h.setdefault("Content-Security-Policy", CSP)
     if settings.is_production() or request.url.scheme == "https":
         h.setdefault("Strict-Transport-Security", "max-age=31536000")
-    if request.url.path.startswith(("/api/admin", "/api/attendance", "/api/push/status")):
+    if request.url.path.startswith(("/api/admin", "/api/push/status")):
         h["Cache-Control"] = "no-store"
 
 

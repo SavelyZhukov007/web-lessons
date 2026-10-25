@@ -169,22 +169,3 @@ export function pageHeader(title, ...actions) {
   return h('div', { class: 'admin-head' }, h('h1', { id: 'view-title', tabindex: -1 }, title), h('div', { class: 'admin-head-actions' }, actions));
 }
 export const loading = () => h('div', { class: 'skeleton-block', 'aria-busy': 'true' }, h('div', { class: 'skeleton' }), h('div', { class: 'skeleton' }), h('div', { class: 'skeleton' }));
-
-/** Показ секрета один раз (одноразовый код): моноширинно, «Скопировать идентификатор». */
-export function secretDialog({ title, secret, message, qrSvg = '' }) {
-  return new Promise(resolve => {
-    const code = h('code', { class: 'secret-code', 'data-secret': '' }, secret);
-    const copy = h('button', { type: 'button', class: 'btn btn--tonal', onclick: async () => {
-      try { await navigator.clipboard.writeText(secret); copy.textContent = 'Скопировано ✓'; } catch { const r = document.createRange(); r.selectNodeContents(code); getSelection().removeAllRanges(); getSelection().addRange(r); copy.textContent = 'Выделено — скопируйте'; }
-    } }, 'Скопировать идентификатор');
-    const done = h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово');
-    const dialog = h('dialog', { class: 'sheet', 'aria-labelledby': 'sd-title', role: 'alertdialog' },
-      h('div', { class: 'sheet-head' }, h('h2', { id: 'sd-title' }, title)),
-      h('div', { class: 'sheet-body' }, h('p', {}, message), qrSvg ? Object.assign(h('div', { class: 'secret-qr', style: 'width:min(260px,70vw);aspect-ratio:1;margin:0 auto;background:#fff;padding:8px;border-radius:12px' }), { innerHTML: qrSvg }) : null, code,
-        h('p', { class: 'field-hint' }, qrSvg ? 'Код одноразовый и действует 10 минут.' : 'Больше он показан не будет: на сервере хранится только его хеш. Потеряли — «Перевыпустить».')),
-      h('div', { class: 'sheet-foot' }, copy, done));
-    dialog.addEventListener('close', () => resolve(true), { once: true });
-    showDialog(dialog);
-    copy.focus();
-  });
-}

@@ -6,7 +6,7 @@
   var doc = document, root = doc.documentElement, LS = window.localStorage;
   var F = window.ItcFeatures; // native-features.js
   if (!F) return;
-  var PUSH_KEY = 'itc.pwa.push', SUBS_KEY = 'itc.pwa.pushClubs', SEEN_KEY = 'itc.pwa.seen', ASKED_KEY = 'itc.pwa.asked';
+  var ANN_KEY = 'itc.pwa.announcements', PUSH_KEY = 'itc.pwa.push', SUBS_KEY = 'itc.pwa.pushClubs', SEEN_KEY = 'itc.pwa.seen', ASKED_KEY = 'itc.pwa.asked';
   var ios = root.classList.contains('is-pwa-ios');
   function jget(k, d) { try { var v = JSON.parse(LS.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
   function jset(k, v) { try { LS.setItem(k, JSON.stringify(v)); } catch (e) { /* полон */ } }
@@ -67,9 +67,17 @@
           return Promise.all(del.map(function (id) { return api('/api/push/unsubscribe', { endpoint: j.endpoint, club_id: id }).catch(function () { return null; }); }))
             .then(function () {
               var now = have.filter(function (id) { return del.indexOf(id) < 0; }).concat(ok.filter(Boolean));
-              jset(SUBS_KEY, now); return now;
+              jset(SUBS_KEY, now);
+              return (LS.getItem(ANN_KEY) === '0' ? applyAnnouncements() : Promise.resolve()).catch(function () {}).then(function () { return now; });
             });
         });
+    });
+  }
+  // «Объявления» (рассылки админа) — выбор хранится локально и отправляется серверу для всех подписок этого браузера
+  function applyAnnouncements() {
+    if (!enabled()) return Promise.resolve(null);
+    return subscription(false).then(function (s) {
+      return s ? api('/api/push/preferences', { endpoint: s.endpoint, announcements: LS.getItem(ANN_KEY) !== '0' }) : null;
     });
   }
   // ВАЖНО: Notification.requestPermission вызывается только отсюда — из обработчика нажатия пользователя
@@ -124,6 +132,7 @@
       '<p class="itc-muted">' + (n ? 'Для «Моих кружков» (' + n + ').' : 'Сначала отметьте кружки звёздочкой ☆ в каталоге.') + ' Придут, даже когда приложение закрыто.</p>' +
       '<label class="itc-row"><span>Сообщать об отмене и переносе</span><input type="checkbox" id="itc-push"' + (on ? ' checked' : '') + (a.ok || on ? '' : ' disabled') + '></label>' +
       '<p id="itc-push-msg" class="itc-warn"' + (a.ok ? ' hidden' : '') + '>' + a.msg + '</p>' +
+      '<label class="itc-row"><span>Объявления от администрации</span><input type="checkbox" id="itc-ann"' + (LS.getItem(ANN_KEY) !== '0' ? ' checked' : '') + (on ? '' : ' disabled') + '></label>' +
       '<label class="itc-row"><span>Значок с числом изменений на иконке</span><input type="checkbox" id="itc-badge"' + (LS.getItem('itc.pwa.badge') !== '0' ? ' checked' : '') + ('setAppBadge' in navigator ? '' : ' disabled') + '></label>' +
       ('setAppBadge' in navigator ? '' : '<p class="itc-muted small">Значок на иконке это устройство не поддерживает.</p>') +
       '<p class="itc-muted small">Напоминания перед занятием и виджеты есть в Android-приложении. В календарь: страница кружка → «Добавить в календарь».</p>' +
@@ -133,6 +142,12 @@
     box.addEventListener('change', function () {
       if (box.checked) enableFromGesture().then(function (ok) { box.checked = ok; var m = wrap.querySelector('#itc-push-msg'); var av = availability(); m.hidden = av.ok; m.textContent = av.msg; });
       else disable();
+    });
+    var ann = wrap.querySelector('#itc-ann');
+    box.addEventListener('change', function () { setTimeout(function () { ann.disabled = !enabled(); }, 0); });
+    ann.addEventListener('change', function () {
+      LS.setItem(ANN_KEY, ann.checked ? '1' : '0');
+      applyAnnouncements().then(function () { toast(ann.checked ? 'Объявления включены' : 'Объявления отключены'); }, function () { toast('Не удалось сохранить — повторим при следующем запуске'); });
     });
     wrap.querySelector('#itc-badge').addEventListener('change', function (e) { LS.setItem('itc.pwa.badge', e.target.checked ? '1' : '0'); refreshBadge(); });
     function close() { wrap.remove(); }

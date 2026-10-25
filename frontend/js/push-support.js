@@ -1,7 +1,7 @@
 // Чистая логика «можно ли подписаться на push» — без обращения к DOM, чтобы проверять в node:test.
 /** @param {{native?:boolean, secure:boolean, hasSW:boolean, hasPush:boolean, hasNotification:boolean, platform:string, standalone:boolean, permission:string}} env */
 export function pushAvailability(env) {
-  if (env.native) return { state: 'native', message: 'В приложении уведомления через Firebase (FCM) пока не подключены — это следующий этап. Пока смотри изменения в расписании.' };
+  if (env.native) return { state: 'native', message: 'В приложении уведомления приходят через Firebase, а если он недоступен — фоновой проверкой расписания (раз в ~30 минут). Включить или выключить их можно в настройках приложения.' };
   if (!env.secure) return { state: 'insecure', message: 'Уведомления работают только по HTTPS (или на localhost). Открой сайт по защищённому адресу.' };
   // iOS/iPadOS: Web Push есть только у сайта, добавленного на экран «Домой» (iOS/iPadOS 16.4+), в обычной вкладке Safari его нет вовсе.
   if (env.platform === 'ios' && !env.standalone) {

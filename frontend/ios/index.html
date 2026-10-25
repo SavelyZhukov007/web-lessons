@@ -8,7 +8,7 @@
     <title>Установка на iPhone — KipClub</title>
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#ffffff">
-    <link rel="manifest" href="/manifest.webmanifest?v=kc4">
+    <link rel="manifest" href="/manifest.webmanifest?v=kc5">
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg?v=kc4">
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=kc4">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=kc4">
@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="/css/components.css">
     <link rel="stylesheet" href="/css/pages.css">
     <link rel="stylesheet" href="/css/platform.css">
-    <link rel="stylesheet" href="/css/distribution.css?v=kc4">
+    <link rel="stylesheet" href="/css/distribution.css?v=kc5">
 </head>
 <body class="campus-page dist-page" data-dist-page="ios">
     <a class="skip-link" href="#public-main">К содержимому</a>
@@ -41,6 +41,17 @@
             <div>
                 <h1>KipClub на iPhone</h1>
                 <p class="dist-lead">Добавьте расписание на экран «Домой» — оно откроется как обычное приложение, без App Store, и будет присылать уведомления о переносах.</p>
+            </div>
+        </section>
+
+        <p class="dist-note" id="ios-min-note">Установка поддерживается только на iOS 16.4 и новее.</p>
+
+        <section id="ios-too-old" class="dist-alert" role="alert" hidden>
+            <div class="dist-alert__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg></div>
+            <div class="dist-alert__body">
+                <h2>Нужно обновить iOS</h2>
+                <p id="ios-too-old-text"></p>
+                <a class="btn btn--filled" href="/">Открыть расписание на сайте</a>
             </div>
         </section>
 
@@ -65,6 +76,7 @@
             </div>
         </section>
 
+        <div id="ios-steps">
         <h2 class="dist-subtitle">Как установить</h2>
         <ol class="dist-steps">
             <li class="dist-step">
@@ -84,6 +96,7 @@
                 <div><h3>Нажмите «Добавить»</h3><p>Иконка «KipClub» появится на экране «Домой». Запускайте приложение с неё.</p></div>
             </li>
         </ol>
+        </div>
 
         <section class="dist-card">
             <h2>Уведомления о переносах</h2>
@@ -91,7 +104,7 @@
         </section>
         <p class="dist-foot">Android? <a href="/android/">Скачать приложение для Android</a></p>
     </main>
-    <script type="module" src="/js/distribution.js"></script>
+    <script type="module" src="/js/distribution.js?v=kc5"></script>
     <script type="module" src="/js/settings.js"></script>
     <script type="module" src="/js/pwa-register.js"></script>
 </body>

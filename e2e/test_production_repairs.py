@@ -37,7 +37,7 @@ def test_club_calendar_link_downloads_the_current_week(new_page):
     assert not page.errors
 
 
-def test_attendance_choices_use_moved_occurrence_identity(admin):
+def test_broadcast_screen_sends_to_selected_club(admin):
     page = admin
 
     def post(path, body):
@@ -45,21 +45,15 @@ def test_attendance_choices_use_moved_occurrence_identity(admin):
         assert response.status == 201, response.text()
         return response.json()
 
-    category = post('categories', {'name': 'QR regression', 'color': '#123456'})
-    leader = post('leaders', {'name': 'QR regression teacher', 'contact': '', 'position': ''})
-    room = post('rooms', {'name': 'QR regression room', 'building': 'Test', 'capacity': 30})
-    club = post('clubs', {'name': 'QR regression club', 'description': '', 'category_id': category['id'], 'leader_id': leader['id'], 'is_active': True})
-    session = post('sessions', {'club_id': club['id'], 'room_id': room['id'], 'weekday': 1, 'start_time': '10:00', 'end_time': '11:00'})
-    post('exceptions/moves', {'session_id': session['id'], 'original_date': '2027-11-01', 'new_date': '2027-11-02',
-                            'new_start_time': '12:00', 'new_end_time': '13:00', 'new_room_id': room['id']})
-    page.goto('/admin/#/attendance')
-    date_input = page.get_by_label('Дата занятия', exact=True)
-    expect(date_input).to_be_visible()
-    date_input.fill('2027-11-02')
-    date_input.press('Tab')
-    select = page.get_by_label('Занятие', exact=True)
-    expect(select).to_contain_text('QR regression club · перенос')
-    select.select_option(f"{session['id']}:2027-11-01")
-    page.get_by_role('button', name='Показать QR-код', exact=True).click()
-    expect(page.locator('.attendance-qr-title')).to_contain_text('QR regression club')
+    category = post('categories', {'name': 'Рассылка e2e', 'color': '#123456'})
+    leader = post('leaders', {'name': 'Рассылка e2e руководитель', 'contact': '', 'position': ''})
+    club = post('clubs', {'name': 'Рассылка e2e кружок', 'description': '', 'category_id': category['id'], 'leader_id': leader['id'], 'is_active': True})
+    page.goto('/admin/#/broadcasts')
+    page.get_by_label('Заголовок', exact=False).first.fill('Проверка e2e')
+    page.get_by_label('Текст', exact=False).first.fill('Занятие переносится на 15:00')
+    page.get_by_role('radio', name='Кружкам').click()
+    page.get_by_label(club['name']).check()
+    page.get_by_role('button', name='Отправить').first.click()
+    page.get_by_role('dialog').get_by_role('button', name='Отправить').click()
+    expect(page.locator('#admin-main')).to_contain_text('Проверка e2e')
     assert not page.errors

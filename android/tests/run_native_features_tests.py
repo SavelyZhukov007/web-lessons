@@ -91,7 +91,7 @@ with sync_playwright() as p:
 
     # 4. ссылки ярлыков
     r = pg.evaluate("['itckruzhki://open/','itckruzhki://open/my','itckruzhki://open/clubs','itckruzhki://open/club?id=5','itckruzhki://open/qr','https://x'].map(ItcFeatures.routeOf)")
-    check("маршруты ярлыков", r == ["/index.html", "/index.html?my=1", "/clubs.html", "/club.html?id=5", "/qr.html", None], str(r))
+    check("маршруты ярлыков", r == ["/index.html", "/index.html?my=1", "/clubs.html", "/club.html?id=5", None, None], str(r))
     c2 = ctx(); c2.add_init_script("window.__launch='itckruzhki://open/clubs'"); p2 = c2.new_page()
     p2.goto(B + "/index.html"); p2.wait_for_timeout(1200)
     check("запуск по ярлыку открывает нужный экран", p2.url.endswith("/clubs.html"), p2.url); c2.close()
@@ -110,23 +110,25 @@ with sync_playwright() as p:
     pg.wait_for_timeout(900)
     check("поиск при IME-композиции (compositionend)", pg.inner_text("#result-status") != after or "Соко" in pg.input_value("#search"), pg.inner_text("#result-status"))
 
-    # 6. QR-посещаемость (демо-бэкенд)
-    tok = pg.evaluate("""(async()=>{const s=JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>{try{return JSON.parse(localStorage.getItem(k)).sessions}catch(e){}}))).sessions;
-      const d=new Date();const iso=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
-      for(let k=0;k<7;k++){const t=new Date(d.getFullYear(),d.getMonth(),d.getDate()+k);const wd=t.getDay()||7;const ss=s.find(x=>x.weekday===wd);
-        if(ss){const r=await fetch('/api/admin/attendance/qr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:ss.id,date:iso(t)})});
-          if(r.ok) return (await r.json()).token;}} return null})()""")
-    check("демо: админ получает QR-токен", bool(tok) and tok.startswith("itc-att1."))
-    pg.evaluate("localStorage.setItem('itc.studentName','Анна Петрова')")
-    pg.goto(B + "/qr.html?token=" + tok); pg.wait_for_timeout(900)
-    check("отметка по QR", "Вы отмечены" in pg.inner_text("#qr-status"), pg.inner_text("#qr-status"))
-    pg.screenshot(path=str(SHOTS / "qr-checkin-light.png"))
-    pg.goto(B + "/qr.html?token=" + tok); pg.wait_for_timeout(900)
-    check("повторная отметка -> «уже отмечены»", "уже отмечены" in pg.inner_text("#qr-status"))
-    pg.goto(B + "/qr.html?token=itc-att1.bad.sig"); pg.wait_for_timeout(700)
-    check("чужой код отклоняется", "не распознан" in pg.inner_text("#qr-status"))
+    # 6. объявления: переключатель в шторке уходит в нативный configure, демо-бэкенд ведёт журнал рассылок
+    pg.goto(B + "/index.html"); pg.wait_for_timeout(900)
+    pg.evaluate("ItcFeatures.openSheet && ItcFeatures.openSheet()"); pg.wait_for_timeout(500)
+    if pg.locator("#itc-ann").count():
+        check("в шторке есть «Объявления от администрации»", pg.locator("#itc-ann").is_checked())
+        pg.click("#itc-ann"); pg.wait_for_timeout(300)
+        check("выключение объявлений уходит в configure", calls(pg, "configure")[-1].get("notifyAnnouncements") is False, str(calls(pg, "configure")[-1:]))
+        pg.click(".itc-close"); pg.wait_for_timeout(400)
+    else:
+        check("в шторке есть «Объявления от администрации»", False)
+    sent = pg.evaluate("""(async()=>{const j=(m,b)=>({method:m,headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+      const e=await (await fetch('/api/admin/broadcasts/estimate',j('POST',{audience:'all'}))).json();
+      const r=await fetch('/api/admin/broadcasts',j('POST',{title:'Тест',body:'Проверка рассылки',audience:'all',idempotency_key:'k'.repeat(32)}));
+      const again=await (await fetch('/api/admin/broadcasts',j('POST',{title:'Тест',body:'Проверка рассылки',audience:'all',idempotency_key:'k'.repeat(32)}))).json();
+      const list=await (await fetch('/api/admin/broadcasts')).json(); return {e, status:r.status, dup:again.duplicate, n:list.length}})()""")
+    check("демо: рассылка с оценкой охвата и защитой от повтора", sent.get("status") == 201 and sent.get("dup") is True and sent.get("n") == 1 and "web" in sent.get("e", {}), str(sent))
+    check("старые маршруты посещаемости удалены", pg.evaluate("fetch('/api/attendance/mine').then(r=>r.status)") >= 400)
 
-    # 7. админка: «Справочники» внутри «Занятий», подписи навигации в одну строку, посещаемость
+    # 7. админка: «Справочники» внутри «Занятий», подписи навигации в одну строку, рассылки
     pg.goto(B + "/admin/index.html#/reference/rooms"); pg.wait_for_timeout(1300)
     check("вкладки «Справочник» нет в нижней навигации", pg.locator('.bottom-nav a[data-route="reference"]').is_visible() is False)
     check("сегменты «Занятия» на экране справочника", pg.locator("#native-sessions-tabs a").count() == 5 and
@@ -137,13 +139,10 @@ with sync_playwright() as p:
     pg.screenshot(path=str(SHOTS / "admin-sessions-reference-light.png"))
     pg.click('#native-sessions-tabs a:has-text("Расписание")'); pg.wait_for_timeout(900)
     check("переход в «Расписание» из сегментов", pg.url.endswith("#/sessions") and pg.locator("#native-sessions-tabs").count() == 1)
-    pg.goto(B + "/admin/index.html#/attendance"); pg.wait_for_timeout(1300)
-    pg.evaluate("""()=>{const i=document.querySelector('input[aria-label="По"]');const d=new Date(Date.now()+8*864e5);
-      i.value=d.toISOString().slice(0,10);i.dispatchEvent(new Event('change'))}"""); pg.wait_for_timeout(700)
-    check("статистика посещаемости", "Всего отметок: 1" in pg.inner_text("#admin-main"), pg.inner_text("#admin-main")[:200])
-    pg.click('button:has-text("Показать QR-код")'); pg.wait_for_timeout(900)
-    check("QR-код рисуется в админке", pg.locator(".attendance-qr-code svg").count() == 1 or "занятий нет" in pg.inner_text("#admin-main"))
-    pg.screenshot(path=str(SHOTS / "admin-attendance-light.png"), full_page=True)
+    pg.goto(B + "/admin/index.html#/broadcasts"); pg.wait_for_timeout(1300)
+    main = pg.inner_text("#admin-main")
+    check("экран «Рассылки» открывается", "Рассылки" in pg.inner_text("body") and "Тест" in main, main[:200])
+    pg.screenshot(path=str(SHOTS / "admin-broadcasts-light.png"), full_page=True)
     pg.goto(B + "/admin/login.html"); pg.wait_for_timeout(700)
     t = pg.inner_text("body")
     check("на входе нет подсказок для разработчиков", "Демо-режим" not in t and "reset-password" not in t)

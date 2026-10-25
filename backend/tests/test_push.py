@@ -124,7 +124,7 @@ def test_unsubscribe_one_and_all(admin_client):
     admin_client.post("/api/push/subscribe", json=sub_body())
     admin_client.post("/api/push/subscribe", json=sub_body(club_id=w["club"]["id"]))
     st = admin_client.post("/api/push/status", json={"endpoint": ENDPOINT}).json()
-    assert st == {"all": True, "club_ids": [w["club"]["id"]]}
+    assert st == {"all": True, "club_ids": [w["club"]["id"]], "announcements": True}
     r = admin_client.post("/api/push/unsubscribe", json={"endpoint": ENDPOINT, "club_id": w["club"]["id"]})
     assert r.status_code == 200 and r.json() == {"removed": 1, "remaining": 1}
     assert admin_client.post("/api/push/unsubscribe", json={"endpoint": ENDPOINT}).json() == {"removed": 1, "remaining": 0}

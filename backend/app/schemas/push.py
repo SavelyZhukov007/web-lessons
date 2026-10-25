@@ -64,3 +64,8 @@ class PushUnsubscribeRequest(InputSchema):
 
 class PushStatusRequest(InputSchema):
     endpoint: Endpoint
+
+
+class PushPreferencesRequest(InputSchema):
+    endpoint: Endpoint
+    announcements: bool

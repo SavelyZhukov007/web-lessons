@@ -1,6 +1,6 @@
 """Часть шаблона проекта. Назначение описано в docs/START_HERE.md."""
 from .admin import Admin, AdminSession
-from .attendance import Attendance, QrNonce, StudentDevice
+from .broadcast import AppDevice, Broadcast
 from .category import Category
 from .club import Club
 from .leader import Leader
@@ -13,9 +13,8 @@ from .session_exception import SessionException
 __all__ = [
     "Admin",
     "AdminSession",
-    "Attendance",
-    "QrNonce",
-    "StudentDevice",
+    "AppDevice",
+    "Broadcast",
     "Category",
     "Club",
     "Leader",

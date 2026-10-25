@@ -461,116 +461,172 @@
     outline: none;
 }
 
-/* Посещаемость (QR) */
-.attendance-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: end;
-    margin-bottom: 12px;
+/* Рассылки: форма, выбор кружков, предпросмотр уведомления, журнал */
+.bc-layout {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
 }
 
-.attendance-form label {
+@media (min-width: 960px) {
+    .bc-layout {
+        grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+        align-items: start;
+    }
+
+    .bc-side {
+        position: sticky;
+        top: 16px;
+    }
+}
+
+.bc-layout .card,
+.bc-history {
+    min-width: 0;
+}
+
+.bc-counter {
+    justify-self: end;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-surface-muted);
+    font-size: calc(13px * var(--text-scale));
+}
+
+.bc-counter[data-over] {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.bc-form textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.bc-clubs {
+    display: grid;
+    gap: 8px;
+}
+
+.bc-club-list {
     display: grid;
     gap: 4px;
+    max-height: 340px;
+    overflow: auto;
+    padding: 4px;
+    border: 1px solid var(--outline-variant);
+    border-radius: var(--radius-m);
+    background: var(--surface-1);
+    overscroll-behavior: contain;
+}
+
+.bc-club {
+    display: grid;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: var(--radius-s);
     min-width: 0;
-    flex: 1 1 160px;
 }
 
-.attendance-qr {
-    display: grid;
-    justify-items: center;
-    gap: 8px;
-    text-align: center;
+.bc-club[data-on] {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
 }
 
-.attendance-qr-code {
-    width: min(320px, 80vw);
-    background: #fff;
-    padding: 8px;
-    border-radius: 12px;
+.bc-club .checkbox {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
-.attendance-qr-code svg {
-    display: block;
-    width: 100%;
-    height: auto;
-}
-
-.attendance-qr-title {
-    font-weight: 600;
-    margin: 0;
-}
-
-.attendance-total {
-    font-weight: 600;
-}
-
-.attendance-card {
-    margin-bottom: 16px;
-}
-
-/* секрет (показ один раз) */
-.secret-code {
-    display: block;
-    padding: 14px 12px;
-    border-radius: 10px;
-    background: var(--surface-2);
-    font: 600 calc(17px * var(--text-scale))/1.5 ui-monospace, "Roboto Mono", monospace;
-    letter-spacing: .04em;
-    word-break: break-all;
-    user-select: all;
-    text-align: center;
-}
-
-/* посещаемость: живой список и QR */
-.attendance-state {
-    font-weight: 600;
-    margin: 4px 0;
-}
-
-.attendance-live {
-    display: grid;
-    gap: 6px;
-    margin: 12px 0 0;
-    padding: 0;
-    list-style: none;
-}
-
-.attendance-live li {
+.bc-sessions {
     display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 0 6px 32px;
+}
+
+.bc-chip {
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    border-radius: 10px;
+    gap: 6px;
+    min-height: 32px;
+    padding: 2px 12px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    background: var(--surface-1);
+    color: var(--on-surface);
+    font-size: calc(13px * var(--text-scale));
+    cursor: pointer;
+}
+
+.bc-chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.bc-chip:has(input:checked) {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+}
+
+.bc-chip:has(input:focus-visible) {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.bc-reach {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-m);
     background: var(--surface-2);
-    animation: att-in .35s ease-out;
-    min-width: 0;
-}
-
-.attendance-live li code {
-    font: 600 calc(14px * var(--text-scale)) ui-monospace, monospace;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-    flex: 1;
-}
-
-.attendance-live li time {
-    color: var(--ink-muted, inherit);
     font-variant-numeric: tabular-nums;
 }
 
-@keyframes att-in {
-    from {
-        opacity: 0;
-        transform: translateY(-6px);
-    }
+.bc-preview {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 4px 12px;
+    padding: 14px;
+    border-radius: var(--radius-l);
+    background: var(--surface-2);
+    box-shadow: var(--shadow);
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .attendance-live li {
-        animation: none;
-    }
+.bc-preview img {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    grid-row: span 3;
+}
+
+.bc-preview small {
+    color: var(--on-surface-muted);
+}
+
+.bc-preview strong,
+.bc-preview p {
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+}
+
+.bc-preview p {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.bc-preview [data-empty] {
+    color: var(--on-surface-muted);
+    font-style: italic;
+}
+
+.bc-history {
+    margin-top: 24px;
+}
+
+.bc-history td {
+    overflow-wrap: anywhere;
 }

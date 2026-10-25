@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 
-/** Общее состояние нативной части: события «моих» кружков, настройки уведомлений, адрес сервера. Без Google Play Services. */
+/** Общее состояние нативной части: события «моих» кружков, настройки уведомлений, адрес сервера, последнее объявление (Announcements). Без Google Play Services. */
 public final class Store {
     static final String PREFS = "itc_native";
     static final TimeZone MSK = TimeZone.getTimeZone("Europe/Moscow");
@@ -121,6 +121,7 @@ public final class Store {
 
     static int reminderMinutes(Context c) { return prefs(c).getInt("reminder_minutes", 15); }
     static boolean notifyChanges(Context c) { return prefs(c).getBoolean("notify_changes", true); }
+    static boolean notifyAnnouncements(Context c) { return prefs(c).getBoolean("notify_announcements", true); }
     static String server(Context c) { return prefs(c).getString("server", ""); }
     static boolean demo(Context c) { return prefs(c).getBoolean("demo", false); }
 }

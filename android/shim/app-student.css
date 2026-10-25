@@ -1,4 +1,4 @@
-/* Полноэкранные шаги (роль, профиль студента, ID, резервный код, преподаватель) — см. js/app-student.js */
+/* Полноэкранные шаги приложения (выбор роли: гость или сотрудник) и экран настроек. */
 html.itc-ob-open body { overflow: hidden; }
 .itc-ob { position: fixed; inset: 0; z-index: 2147482000; display: flex; justify-content: center; align-items: safe center; overflow-y: auto;
   padding: calc(24px + var(--safe-top, 0px)) 20px calc(24px + var(--safe-bottom, 0px)); background: var(--paper, var(--bg, #fff)); color: var(--ink, inherit);
@@ -22,7 +22,7 @@ html.itc-ob-open body { overflow: hidden; }
 .itc-ob-link { background: none; border: 0; color: var(--primary); min-height: 44px; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .itc-danger { color: var(--status-cancelled-fg, #b00020); }
 .itc-ob-field { display: grid; gap: 6px; font-weight: 600; min-width: 0; }
-.itc-ob-field input, .itc-ob-field textarea, .itc-manual input { box-sizing: border-box; width: 100%; min-height: 48px; padding: 10px 12px; font: 400 calc(17px * var(--text-scale, 1)) var(--font-ui, system-ui);
+.itc-ob-field input, .itc-ob-field textarea { box-sizing: border-box; width: 100%; min-height: 48px; padding: 10px 12px; font: 400 calc(17px * var(--text-scale, 1)) var(--font-ui, system-ui);
   border: 1px solid var(--outline, #8886); border-radius: 12px; background: var(--bg, transparent); color: inherit; }
 .itc-ob-field input[aria-invalid="true"], .itc-ob-field textarea[aria-invalid="true"] { border-color: var(--status-cancelled-fg, #b00020); }
 .itc-ob-field input:disabled { opacity: .5; }
@@ -32,35 +32,6 @@ html.itc-ob-open body { overflow: hidden; }
 .itc-ob-err:empty { display: none; }
 .itc-ob-check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: -6px; }
 .itc-ob-check input { width: 22px; height: 22px; accent-color: var(--primary); }
-.itc-id { display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: var(--surface-2, #8881); }
-.itc-id-label { font-size: calc(13px * var(--text-scale, 1)); color: var(--muted, inherit); }
-.itc-id-code { display: block; font: 600 calc(16px * min(var(--text-scale, 1), 1.4))/1.45 ui-monospace, "Roboto Mono", monospace; letter-spacing: .03em; word-break: break-all; user-select: all; text-align: center; }
-.itc-backup { padding: 12px; border-radius: 12px; background: var(--surface-2, #8881); }
-.itc-ob-qr, .itc-qr-code { justify-self: center; width: min(260px, 70vw); aspect-ratio: 1; background: #fff; border-radius: 16px; padding: 8px; box-sizing: border-box; }
-.itc-ob-qr svg, .itc-qr-code svg { width: 100%; height: 100%; display: block; }
-.itc-qrscreen .itc-qr-code { width: min(340px, 82vw); }
-.itc-qrstage { display: grid; justify-items: center; gap: 8px; min-height: 120px; }
-.itc-qr-wait { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 22px 16px; border-radius: 16px; background: var(--surface-2, #8881); width: 100%; box-sizing: border-box; }
-.itc-qr-wait b { font-size: calc(20px * var(--text-scale, 1)); } .itc-qr-wait time { font-variant-numeric: tabular-nums; font-weight: 700; }
-.itc-live { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.itc-live li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--surface-2, #8881); min-width: 0; flex-wrap: wrap; }
-.itc-live li.new { animation: itc-live-in .4s cubic-bezier(.2, .8, .2, 1); }
-.itc-live code { font: 600 calc(14px * var(--text-scale, 1)) ui-monospace, monospace; } .itc-live span { flex: 1; min-width: 8em; color: var(--muted, inherit); }
-.itc-del { min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--outline, #8886); background: none; color: var(--status-cancelled-fg, #b00020); font: inherit; }
-@keyframes itc-live-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
-@media (prefers-reduced-motion: reduce) { .itc-live li.new { animation: none; } }
-.itc-manual { display: flex; gap: 8px; flex-wrap: wrap; } .itc-manual input { flex: 1 1 12em; min-width: 0; } .itc-manual button { flex: 1 0 auto; }
-.itc-tlist { display: grid; gap: 8px; }
-.itc-tsession { display: flex; gap: 12px; align-items: center; text-align: left; padding: 12px; border-radius: 14px; border: 1px solid var(--outline, #8886); background: var(--bg, transparent);
-  color: inherit; font: inherit; min-height: 64px; cursor: pointer; min-width: 0; }
-.itc-tsession.is-today { border-color: var(--primary); }
-.itc-tsession-time { display: grid; flex: 0 0 4.2em; text-align: center; color: var(--muted, inherit); font-size: calc(13px * var(--text-scale, 1)); }
-.itc-tsession-time b { color: var(--ink, inherit); font-size: calc(17px * var(--text-scale, 1)); font-variant-numeric: tabular-nums; }
-.itc-tsession-main { display: grid; min-width: 0; } .itc-tsession-main b { overflow-wrap: anywhere; } .itc-tsession-main small { color: var(--muted, inherit); overflow-wrap: anywhere; }
-.itc-visits ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
-.itc-visits li { display: grid; padding: 10px 12px; border-radius: 12px; background: var(--surface-2, #8881); } .itc-visits li span { color: var(--muted, inherit); }
-.itc-set-sec { display: grid; gap: 8px; } .itc-set-sec h3 { margin: 0; } .itc-set-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.itc-qr-name code { display: block; font: 600 15px ui-monospace, monospace; word-break: break-all; }
 
 /* быстрая отмена/перенос */
 .itc-field { display: grid; gap: 6px; margin: 8px 0 12px; font-size: .9rem; }
@@ -123,10 +94,6 @@ html.itc-ob-open body { overflow: hidden; }
 .itc-sw[aria-checked="true"] { box-shadow: 0 0 0 3px var(--bg, #fff), 0 0 0 5px var(--ink, #222); }
 /* кнопка «к своей роли» в шапке расписания */
 html.is-native .itc-home-chip { flex: none; align-self: center; padding: 6px 12px; border-radius: 999px; background: var(--primary-container, #fde4df); color: #5a1a10; font-weight: 600; font-size: 14px; text-decoration: none; white-space: nowrap; }
-.itc-vstat { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 12px; scrollbar-width: none; }
-.itc-vstat > div { flex: 0 0 auto; min-width: 96px; padding: 10px 12px; border-radius: 14px; background: var(--md-sys-color-surface-container, rgba(127,127,127,.12)); display: grid; }
-.itc-vstat b { font-size: 22px; line-height: 1.1; }
-.itc-vstat small { opacity: .75; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-count] { display: inline-block; }
 .itc-bump { animation: itc-bump .35s cubic-bezier(.2,.8,.2,1.4); }
 @keyframes itc-bump { 40% { transform: scale(1.35); } }

@@ -77,25 +77,6 @@ export async function request(path, options = {}) {
   }
 }
 
-// Файл (например, .xlsx) с авторизацией админки: {blob, name}. 401 → одна попытка обновить сессию.
-export async function requestBlob(path, { signal } = {}) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const headers = adminToken() ? { Authorization: `Bearer ${adminToken()}` } : {};
-    let response;
-    try { response = await fetch(path, { credentials: 'same-origin', headers, signal }); }
-    catch (e) { if (e.name === 'AbortError') throw e; throw new ApiError('Не удалось связаться с сервером. Проверь подключение и повтори попытку.'); }
-    if (response.status === 401 && attempt === 0 && (await refreshSession())) continue;
-    if (!response.ok) {
-      let detail; try { detail = (await response.json())?.detail; } catch { /* не JSON */ }
-      throw new ApiError(errorMessage(response.status, detail), response.status, detail);
-    }
-    const cd = response.headers.get('Content-Disposition') || '';
-    const name = decodeURIComponent((cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="?([^";]+)/i) || [])[1] || 'download');
-    return { blob: await response.blob(), name };
-  }
-  throw new ApiError(errorMessage(401));
-}
-
 async function send(path, options = {}) {
   const { signal, timeout = 15000, ...fetchOptions } = options;
   if (path.startsWith('/api/admin') && adminToken()) {

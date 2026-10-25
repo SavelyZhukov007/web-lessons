@@ -1,7 +1,7 @@
 /* Установленное PWA (phase 2 D). Подключается сборкой `server.py build pwa` в <head> сразу после theme-init.js.
  * В обычной вкладке браузера НИЧЕГО не делает: сайт остаётся прежним. В режиме standalone (иконка на экране «Домой»
  * на iPhone/iPad или установленное PWA на Android) включает ту же оболочку, что и APK: правки вида, анимации,
- * «Мои кружки», офлайн-кэш, QR — плюс web push для «Моих кружков», значок на иконке и .ics (pwa-features.js). */
+ * «Мои кружки», офлайн-кэш — плюс web push для «Моих кружков», значок на иконке и .ics (pwa-features.js). */
 (function () {
   'use strict';
   var w = window, doc = document, root = doc.documentElement;
@@ -18,7 +18,4 @@
             '<link rel="stylesheet" href="/css/native-motion.css"><link rel="stylesheet" href="/css/app-student.css"><link rel="stylesheet" href="/pwa/pwa.css" data-pwa-css>');
   doc.write('<script src="/js/native-shell.js"></script><script src="/js/native-features.js"></script>' +
             '<script src="/js/native-motion.js"></script><script src="/js/app-admin.js" defer></script><script src="/pwa/pwa-features.js"></script>');
-  // Opening the public timetable must not require choosing a role. The private
-  // student profile is needed only on the check-in screen.
-  if (/\/qr\.html$/.test(location.pathname)) doc.write('<script src="/js/app-student.js"></script>');
 })();

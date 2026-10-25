@@ -34,6 +34,13 @@
 - `GET /api/push/vapid-public-key` → `{public_key}`.
 - `POST /api/push/subscribe` `{endpoint, keys:{p256dh,auth}, club_id?}` → 201 `subscribed` / 200 `already-subscribed` (идемпотентно). `endpoint` — только из списка push-сервисов (иначе 422); не более N подписок на устройство (429).
 - `POST /api/push/unsubscribe` `{endpoint, club_id?}`; `POST /api/push/status` `{endpoint, club_id?}`.
+- `POST /api/push/preferences` `{endpoint, announcements}` — получать ли объявления этим браузером (переносы/отмены не затрагивает).
+- `POST /api/app/devices` `{device_id, token|null, platform:"android", app_version, club_ids[], announcements, changes}` → 204 — регистрация FCM-токена установки APK (публичный, ограничение частоты по IP и устройству, 429).
+- `GET /api/announcements?since=<id>&clubs=<id,id>&device=<id установки>&off=0|1` → `{items:[{id,title,body,url,created_at}], last_id}` — объявления за 14 дней для APK (не более 20).
+
+## Рассылки (админ)
+- `GET /api/admin/broadcasts?limit=50` — журнал. `POST /api/admin/broadcasts/estimate` `{audience:"all"|"clubs", club_ids, session_ids}` → `{web, apk}`.
+- `POST /api/admin/broadcasts` `{title≤80, body≤500, url?, audience, club_ids, session_ids, idempotency_key}` → 201; тот же ключ → 200 `duplicate:true`; тот же текст тем же админом за 2 минуты → 409.
 - Отправка — фоновая задача после отмены/переноса; ошибки отправки не влияют на ответ API; «мёртвые» подписки (404/410) удаляются.
 
 ## Админские (`/api/admin/*`)

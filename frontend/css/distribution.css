@@ -407,3 +407,27 @@
     text-decoration: underline;
 }
 
+
+/* «Только iOS 16.4+» — заметка с акцентом над инструкцией */
+.dist-note {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-l);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--ink);
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+#ios-too-old .btn {
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+}
+
+@media (max-width: 360px) {
+    #ios-too-old { flex-direction: column; gap: 8px; }
+    #ios-too-old .btn { width: 100%; }
+}

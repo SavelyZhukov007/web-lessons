@@ -304,7 +304,6 @@ function renderGrid(events, days) {
     content.append(notice);
   }
   content.append(grid);
-  content.append(node('p', 'grid-hint', 'Нажмите на занятие, чтобы открыть подробности. Короткие занятия удобнее смотреть списком.'));
 }
 
 function render() {

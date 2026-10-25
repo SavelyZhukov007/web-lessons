@@ -63,12 +63,12 @@
     if (!doc.getElementById('schedule-main')) window.addEventListener('load', function () { api.progress(0.9); api.done(); });
     setTimeout(api.done, MAX_MS);
   }
-  // t100 perf: прогрев, пока виден сплэш — следующие экраны (QR, каталог, админка) открываются уже из кэша WebView,
+  // t100 perf: прогрев, пока виден сплэш — следующие экраны (каталог, админка) открываются уже из кэша WebView,
   // а JIT успевает разобрать их скрипты. Только в простое и только на холодном старте.
   function warm() {
     var idle = window.requestIdleCallback || function (f) { return setTimeout(f, 300); };
     idle(function () {
-      ['/qr.html', '/clubs.html', '/js/jsQR.js', '/js/vendor/qrcode.js'].forEach(function (u) {
+      ['/clubs.html'].forEach(function (u) {
         var l = doc.createElement('link'); l.rel = 'prefetch'; l.href = u; doc.head.appendChild(l);
       });
       try { if (/"role":"admin"/.test(localStorage.getItem('itc.session') || '')) { var a = doc.createElement('link'); a.rel = 'prefetch'; a.href = '/admin/index.html'; doc.head.appendChild(a); } } catch (e) {}

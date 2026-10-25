@@ -23,8 +23,6 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ItcNativePlugin.class);
         registerPlugin(ItcUpdatePlugin.class);
         registerPlugin(ItcDiscoveryPlugin.class);
-        registerPlugin(ItcSecurePlugin.class);
-        registerPlugin(ItcScannerPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

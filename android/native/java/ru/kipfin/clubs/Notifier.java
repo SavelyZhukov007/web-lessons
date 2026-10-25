@@ -14,10 +14,11 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 
-/** Локальные уведомления (без FCM/GMS): напоминания и изменения расписания. */
+/** Локальные уведомления (без FCM/GMS): напоминания, изменения расписания, объявления. */
 final class Notifier {
     static final String CH_REMIND = "itc_reminders";
     static final String CH_CHANGES = "itc_changes";
+    static final String CH_ANN = "itc_announcements";
 
     private Notifier() {}
 
@@ -28,8 +29,11 @@ final class Notifier {
         r.setDescription("Перед началом занятий отмеченных кружков");
         NotificationChannel ch = new NotificationChannel(CH_CHANGES, "Переносы и отмены", NotificationManager.IMPORTANCE_HIGH);
         ch.setDescription("Когда занятие отмечённого кружка отменили или перенесли");
+        NotificationChannel an = new NotificationChannel(CH_ANN, "Объявления", NotificationManager.IMPORTANCE_DEFAULT);
+        an.setDescription("Сообщения от администрации кружков");
         nm.createNotificationChannel(r);
         nm.createNotificationChannel(ch);
+        nm.createNotificationChannel(an);
     }
 
     static boolean allowed(Context c) {
@@ -57,8 +61,6 @@ final class Notifier {
             .setCategory(CH_REMIND.equals(channel) ? NotificationCompat.CATEGORY_REMINDER : NotificationCompat.CATEGORY_EVENT)
             .setPriority(CH_CHANGES.equals(channel) ? NotificationCompat.PRIORITY_HIGH : NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(open(c, path, id));
-        // t100: у напоминания о занятии — действие «Отметиться» (сразу открывает сканер QR)
-        if (CH_REMIND.equals(channel)) b.addAction(R.drawable.ic_shortcut_qr, "Отметиться", open(c, "/scan", id + 1));
         NotificationManagerCompat.from(c).notify(id, b.build());
     }
 }

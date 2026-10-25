@@ -38,7 +38,7 @@
 
   // ---------- pull-to-refresh (расписание, каталог, кружок) ----------
   function ptr() {
-    if (/^\/admin\//.test(location.pathname) || /qr\.html$/.test(location.pathname)) return;
+    if (/^\/admin\//.test(location.pathname)) return;
     var ind = document.createElement('div'); ind.className = 'itc-ptr'; ind.innerHTML = '<i></i>'; ind.setAttribute('aria-hidden', 'true'); document.body.appendChild(ind);
     var y0 = null, d = 0, busy = false, TH = 72;
     document.addEventListener('touchstart', function (e) {

@@ -245,10 +245,7 @@ try:
         pg.wait_for_selector("#itc-my-toggle")
         pg.wait_for_timeout(600)
         check("Android standalone: is-pwa-other", pg.evaluate("document.documentElement.classList.contains('is-pwa-other')"))
-        pg.goto("/qr.html")
-        pg.wait_for_timeout(800)
-        check("QR-страница открывается в PWA", pg.locator("#qr-manual, form, input").count() > 0)
-        pg.screenshot(path=str(SHOTS / "d-qr-android360-dark.png"))
+        check("в PWA нет страницы QR-отметки", pg.request.get("/qr.html").status == 404)
         pg.goto("/admin/login.html")
         pg.wait_for_selector("#login-form")
         pg.fill("input[name=login]", ADMIN)
@@ -264,12 +261,12 @@ try:
         c.close()
         manifest = json.loads((st.www / "manifest.webmanifest").read_text(encoding="utf-8"))
         check(
-            "manifest: ярлыки «Мои кружки» и «Отметиться»",
+            "manifest: ярлык «Мои кружки», без «Отметиться»",
             {
                 s["url"].split("?")[0] + "?" + s["url"].split("?")[1].split("&")[0] if "?" in s["url"] else s["url"]
                 for s in manifest["shortcuts"]
             }
-            >= {"/?my=1", "/qr.html?source=shortcut"},
+            == {"/?my=1"} or not any("qr" in s["url"] for s in manifest["shortcuts"]),
         )
         br.close()
 finally:
