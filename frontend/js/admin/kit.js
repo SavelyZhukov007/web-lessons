@@ -170,7 +170,7 @@ export function pageHeader(title, ...actions) {
 }
 export const loading = () => h('div', { class: 'skeleton-block', 'aria-busy': 'true' }, h('div', { class: 'skeleton' }), h('div', { class: 'skeleton' }), h('div', { class: 'skeleton' }));
 
-/** Показ секрета один раз (идентификатор преподавателя): моноширинно, «Скопировать идентификатор». */
+/** Показ секрета один раз (одноразовый код): моноширинно, «Скопировать идентификатор». */
 export function secretDialog({ title, secret, message, qrSvg = '' }) {
   return new Promise(resolve => {
     const code = h('code', { class: 'secret-code', 'data-secret': '' }, secret);

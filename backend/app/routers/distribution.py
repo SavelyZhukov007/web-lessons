@@ -118,6 +118,10 @@ def android_page():
     return _page("android/index.html")
 
 
+# APK по умолчанию раздаётся из GitHub Releases (последний релиз, файл kipclub.apk)
+GITHUB_APK_URL = "https://github.com/SavelyZhukov007/web-lessons/releases/latest/download/kipclub.apk"
+
+
 @router.get("/api/app/android")
 def android_info():
     """Метаданные для страницы /android/ и для проверки обновлений внутри приложения.
@@ -128,7 +132,7 @@ def android_info():
     """
     rel = latest_release()
     url = os.getenv("APP_DOWNLOAD_URL", "").strip()
-    url = url if url.startswith("https://") else "/android/download"
+    url = url if url.startswith("https://") else ("/android/download" if rel else GITHUB_APK_URL)
     data = {"available": rel is not None, "rustore_url": settings.rustore_url(), "download_url": url, "url": url if rel else None}
     if rel:
         data.update({k: rel[k] for k in ("file", "version", "size", "sha256", "updated", "versionCode", "changelog")})
@@ -142,9 +146,8 @@ def android_info():
 def android_download():
     rel = latest_release()
     if rel is None:
-        # отвечаем сами (а не HTTPException), иначе общий обработчик подменит текст страницей 404.html
-        return PlainTextResponse("APK ещё не опубликован: сборка для Android пока не выложена. Подробнее: /android/",
-                                 status_code=404, headers={"Cache-Control": "no-cache"})
+        # локального релиза нет — последний APK из GitHub Releases
+        return RedirectResponse(GITHUB_APK_URL, status_code=307, headers={"Cache-Control": "no-cache"})
     return FileResponse(
         rel["path"],
         media_type=APK_MEDIA_TYPE,

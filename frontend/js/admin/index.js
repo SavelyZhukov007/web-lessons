@@ -35,7 +35,7 @@ function buildChrome() {
     h('a', { class: 'settings-button', href: '#/account', 'aria-label': `Аккаунт: ${admin.login}`, title: `Аккаунт: ${admin.login}`, dataset: { route: 'account' } }, icon('key')),
     h('button', { type: 'button', class: 'settings-button', 'aria-label': 'Выйти', title: 'Выйти', onclick: async () => { if (await guarded(logout)) toLogin(); } }, icon('logout')));
   document.querySelector('#admin-header').replaceChildren(
-    h('a', { class: 'campus-brand', href: '/', 'aria-label': 'На сайт' }, h('span', {}, 'кружки', h('i', { 'aria-hidden': 'true' })), h('small', {}, 'Администрирование')), nav, slot);
+    h('a', { class: 'campus-brand', href: '/', 'aria-label': 'На сайт' }, h('span', {}, 'KipClub', h('i', { 'aria-hidden': 'true' })), h('small', {}, 'Администрирование')), nav, slot);
   document.body.append(bottom);
 }
 

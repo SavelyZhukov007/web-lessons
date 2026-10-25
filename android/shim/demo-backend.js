@@ -283,7 +283,7 @@
     if (method === 'DELETE') { db.session_exceptions.splice(db.session_exceptions.indexOf(item), 1); return [204, null]; }
   }
 
-  // ---------- анонимная посещаемость (как backend/app/routers/attendance.py + teacher.py; подпись в демо не секретная)
+  // ---------- анонимная посещаемость (как backend/app/routers/attendance.py; подпись в демо не секретная)
   // (B32 объявлен внутри randB32: seedAttendance вызывается из load() раньше, чем выполнится эта строка)
   function randB32(n, r) { var B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', s = ''; for (var i = 0; i < n; i++) s += B32[Math.floor((r ? r() : Math.random()) * 32)]; return s; }
   function grp(prefix, t) { return prefix + '-' + t.match(/.{1,4}/g).join('-'); }
@@ -386,45 +386,6 @@
     var moved = db.session_exceptions.find(function (x) { return x.session_id === data.s && x.original_date === data.d && x.type === 'moved'; });
     return record(data.s, moved ? moved.new_date : data.d, sid, 'qr', 'qr', data.d);
   }
-  // преподаватели: в демо идентификатор T-… хранится открыто (на сервере — только SHA-256)
-  function teacherByToken(tok) {
-    var t = String(tok || '').replace(/[\s-]/g, '').toUpperCase(); if (t[0] === 'T') t = t.slice(1);
-    var norm = /^[A-Z2-7]{26}$/.test(t) ? grp('T', t) : '';
-    return db.leaders.find(function (l) { return l.access && l.access === norm; });
-  }
-  function issueAccess(l) { l.access = grp('T', randB32(26)); l.access_issued_at = new Date().toISOString();
-    return { leader_id: l.id, name: l.name, token: l.access, issued_at: l.access_issued_at, note: 'Идентификатор показывается один раз — скопируйте и передайте преподавателю.' }; }
-  function teacherFromReq(hdr) {
-    var m = /^Bearer\s+tch-demo\.(\d+)\.(.+)$/.exec(hdr || ''); var l = m && db.leaders.find(function (x) { return x.id === +m[1]; });
-    if (!l || !l.access || l.access_issued_at !== decodeURIComponent(m[2])) fail(401, 'Требуется вход преподавателя');
-    return l;
-  }
-  function ownSession(l, sessionId) { var s = db.sessions.find(function (x) { return x.id === sessionId; }); var c = s && db.clubs.find(function (x) { return x.id === s.club_id; });
-    if (!c || c.leader_id !== l.id) fail(403, 'Это занятие не относится к вашим кружкам'); return s; }
-  function teacherRoute(method, p, q, body, auth) {
-    if (p === '/api/teacher/login' && method === 'POST') { var l = teacherByToken(body.token); if (!l) fail(401, 'Неверный идентификатор преподавателя или доступ отозван');
-      return { access_token: 'tch-demo.' + l.id + '.' + encodeURIComponent(l.access_issued_at), token_type: 'bearer', expires_in: 43200, teacher: { id: l.id, name: l.name } }; }
-    if (p === '/api/teacher/transfer' && method === 'POST') { var tm = /^itc-tx1\.(\d+)\.([^.]+)\.(\d+)$/.exec(String(body.code || '').trim());
-      var tx = tm && db.leaders.find(function (x) { return x.id === +tm[1]; });
-      if (!tx || +tm[3] < Date.now() || encodeURIComponent(tx.access_issued_at || '-') !== tm[2]) fail(401, 'Код переноса недействителен или устарел — попросите администратора показать новый QR');
-      var iss = issueAccess(tx); save();
-      return { access_token: 'tch-demo.' + tx.id + '.' + encodeURIComponent(tx.access_issued_at), token_type: 'bearer', expires_in: 43200, teacher: { id: tx.id, name: tx.name }, token: iss.token }; }
-    var t = teacherFromReq(auth);
-    if (p === '/api/teacher/me') {
-      var clubs = db.clubs.filter(function (c) { return c.leader_id === t.id && c.is_active; }).sort(cmp('name')); var ids = clubs.map(function (c) { return c.id; }); var rooms = idx(db.rooms);
-      return { id: t.id, name: t.name, clubs: clubs.map(function (c) { return { id: c.id, name: c.name }; }),
-        sessions: db.sessions.filter(function (s) { return ids.indexOf(s.club_id) >= 0; }).sort(cmp('weekday', 'start_time')).map(function (s) {
-          return { id: s.id, club_id: s.club_id, club_name: (clubs.find(function (c) { return c.id === s.club_id; }) || {}).name, weekday: s.weekday, start_time: s.start_time, end_time: s.end_time, room_id: s.room_id, room_name: (rooms[s.room_id] || {}).name || '' }; }) };
-    }
-    if (p === '/api/teacher/occurrences' && method === 'GET') return dayEvents(q.get('date'), Number(q.get('days') || 1), t.id);
-    if (p === '/api/teacher/attendance/qr' && method === 'POST') { ownSession(t, Number(body.session_id)); return qrPayload(Number(body.session_id), body.date, body.original_date); }
-    if (p === '/api/teacher/attendance' && method === 'GET') { ownSession(t, Number(q.get('session_id'))); return liveList(Number(q.get('session_id')), q.get('original_date') || q.get('date'), Number(q.get('since_id') || 0)); }
-    if (p === '/api/teacher/attendance/manual' && method === 'POST') { ownSession(t, Number(body.session_id)); return record(Number(body.session_id), body.date, normSid(body.student_id), 'manual', 'session', body.original_date); }
-    var m = p.match(/^\/api\/teacher\/attendance\/(\d+)$/);
-    if (m && method === 'DELETE') { var r = db.attendance.find(function (x) { return x.id === +m[1]; }); if (!r) fail(404, 'Отметка не найдена'); ownSession(t, r.session_id);
-      db.attendance = db.attendance.filter(function (x) { return x !== r; }); console.info('[audit] attendance_revoked teacher:' + t.id + ' ' + shortId(r.student_id)); return [204, null]; }
-    fail(404, 'Not Found');
-  }
   function attendanceRoute(method, a, q, body) {
     if (a === '/attendance/occurrences' && method === 'GET') return dayEvents(q.get('date'), 1);
     if (a === '/attendance/qr' && method === 'POST') return qrPayload(Number(body.session_id), body.date, body.original_date);
@@ -453,15 +414,6 @@
       return { date_from: from, date_to: to, total: list.reduce(function (n, o) { return n + o.count; }, 0), clubs: cl, occurrences: list };
     }
     if (a === '/attendance') return liveList(Number(q.get('session_id')), q.get('date')).items;
-    if (a === '/teachers' && method === 'POST') { if (!body.name || String(body.name).trim().length < 2) fail(422, 'Укажите ФИО');
-      var l = { id: nextId(db.leaders), name: String(body.name).trim().replace(/\s+/g, ' '), position: body.position || '', contact: '' }; db.leaders.push(l); return [201, issueAccess(l)]; }
-    if (a === '/teachers') return db.leaders.slice().sort(cmp('name')).map(function (l) { return { leader_id: l.id, name: l.name, has_access: !!l.access, issued_at: l.access_issued_at || null }; });
-    m = a.match(/^\/leaders\/(\d+)\/transfer$/);
-    if (m && method === 'POST') { var tl = db.leaders.find(function (x) { return x.id === +m[1]; }); if (!tl) fail(404, 'Руководитель не найден');
-      return { leader_id: tl.id, name: tl.name, code: 'itc-tx1.' + tl.id + '.' + encodeURIComponent(tl.access_issued_at || '-') + '.' + (Date.now() + 600000), expires_in: 600 }; }
-    m = a.match(/^\/leaders\/(\d+)\/access$/);
-    if (m) { var ld = db.leaders.find(function (x) { return x.id === +m[1]; }); if (!ld) fail(404, 'Руководитель не найден');
-      if (method === 'POST') return issueAccess(ld); if (method === 'DELETE') { ld.access = null; ld.access_issued_at = null; return [204, null]; } }
     return null;
   }
   function attendanceXlsx(q) {
@@ -525,7 +477,6 @@
     if (p === '/api/push/unsubscribe') { db.push_subscriptions = db.push_subscriptions.filter(function (x) { return !(x.endpoint === body.endpoint && (body.club_id == null || x.club_id === body.club_id)); }); return [204, null]; }
     if (p === '/api/attendance/checkin' && method === 'POST') return checkin(body || {});
     if (p === '/api/attendance/mine') { var hs = curHdr; var msid = normSid(hs['x-student-id']); deviceCheck(msid, hs['x-device-token'], false); return historyOf(msid); }
-    if (p.indexOf('/api/teacher/') === 0) return teacherRoute(method, p, q, body || {}, curHdr.authorization);
     // админка: вход всегда выполнен (демо)
     if (p.indexOf('/api/admin') === 0) {
       var a = p.slice('/api/admin'.length);
@@ -544,7 +495,7 @@
         if (!body.new_password || body.new_password.length < 8) fail(422, 'Пароль должен быть не короче 8 символов'); if (body.new_password === ad.password) fail(422, 'Новый пароль должен отличаться от текущего'); ad.password = body.new_password; return [204, null]; }
       if (a === '/notifications') return db.notifications;
       if (a === '/users') return db.users;
-      if (a.indexOf('/attendance') === 0 || a.indexOf('/teachers') === 0 || /^\/leaders\/\d+\/(access|transfer)$/.test(a)) { var ar = attendanceRoute(method, a, q, body || {}); if (ar) return ar; }
+      if (a.indexOf('/attendance') === 0) { var ar = attendanceRoute(method, a, q, body || {}); if (ar) return ar; }
       m = a.match(/^\/(categories|leaders|rooms|clubs|sessions|exceptions)(?:\/(\d+|cancellations|moves))?$/);
       if (m) {
         var id = m[2] && /^\d+$/.test(m[2]) ? +m[2] : null; var sub = id == null ? m[2] : null;

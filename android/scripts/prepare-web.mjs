@@ -64,7 +64,7 @@ for (const f of ['app-schedule.js', 'app-admin.js', 'app-student.js', 'app-extra
 for (const f of ['app-schedule.css', 'app-splash.css', 'app-student.css']) cpSync(join(root, 'shim', f), join(out, 'css', f));
 { // передний слой адаптивной иконки (как у системного сплэша); нет бренда — maskable-иконка сайта
   const fg = [process.env.BRAND_ANDROID_DIR && join(process.env.BRAND_ANDROID_DIR, 'res', 'mipmap-xxxhdpi', 'ic_launcher_foreground.png'),
-    resolve(root, '../../brand/android/res/mipmap-xxxhdpi/ic_launcher_foreground.png'),
+    resolve(root, '../assets/brand/kipclub/android/res/mipmap-xxxhdpi/ic_launcher_foreground.png'),
     join(root, 'android', 'app', 'src', 'main', 'res', 'mipmap-xxxhdpi', 'ic_launcher_foreground.png')].filter(Boolean).find(existsSync);
   mkdirSync(join(out, 'icons'), { recursive: true });
   cpSync(fg || join(out, 'icons', 'maskable-512.png'), join(out, 'icons', 'splash-fg.png'));

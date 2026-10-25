@@ -106,7 +106,7 @@ export async function mount(root, { signal }) {
       const svg = await qrSvg(r.token);
       if (!active()) return;
       stage.replaceChildren(svg, title,
-        h('p', { class: 'field-hint' }, `Студенты сканируют код в приложении «Кружки» → «Отметиться». Код меняется каждые ${r.rotate} с; приём отметок ещё ${Math.ceil(r.closes_in / 60)} мин.`));
+        h('p', { class: 'field-hint' }, `Студенты сканируют код в приложении «KipClub» → «Отметиться». Код меняется каждые ${r.rotate} с; приём отметок ещё ${Math.ceil(r.closes_in / 60)} мин.`));
       timer = setTimeout(tick, Math.min(r.rotate, Math.max(1, r.closes_in + 1)) * 1000);
     }
     tick();

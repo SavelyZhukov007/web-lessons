@@ -19,10 +19,10 @@ function app(initial = {}) {
     location: { href: 'https://clubs.test/', pathname: '/' } });
   return { window, data, offline() { online = false; } };
 }
-test('teacher and student responses are never stored or replayed offline', async () => {
-  const state = app({ 'itc.cache:/api/teacher/me': JSON.stringify({ t: Date.now(), b: { secret: 'old user' } }) });
-  assert.equal(state.data.has('itc.cache:/api/teacher/me'), false);
-  for (const path of ['/api/teacher/me', '/api/attendance/mine', '/api/push/status']) {
+test('admin and student responses are never stored or replayed offline', async () => {
+  const state = app({ 'itc.cache:/api/admin/status': JSON.stringify({ t: Date.now(), b: { secret: 'old user' } }) });
+  assert.equal(state.data.has('itc.cache:/api/admin/status'), false);
+  for (const path of ['/api/admin/status', '/api/attendance/mine', '/api/push/status']) {
     await state.window.fetch(path);
     assert.equal(state.data.has('itc.cache:' + path), false);
   }

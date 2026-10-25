@@ -70,7 +70,7 @@ const apkDir = join(root, 'android', 'app', 'build', 'outputs', 'apk', variant);
 const apk = join(apkDir, `app-${variant}.apk`);
 if (!existsSync(apk)) { console.error('APK не найден в ' + apkDir + ': ' + (existsSync(apkDir) ? readdirSync(apkDir).join(', ') : 'нет папки')); process.exit(3); }
 mkdirSync(join(root, 'dist'), { recursive: true });
-const dest = join(root, 'dist', `itc-kruzhki-${ver.versionName}.apk`);
+const dest = join(root, 'dist', `kipclub-${ver.versionName}.apk`);
 copyFileSync(apk, dest);
 console.log(`\n✔ APK готов: ${dest} (${(statSync(dest).size / 1048576).toFixed(1)} MB)\nУстановка: adb install -r "${dest}"`);
 if (install) {

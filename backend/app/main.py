@@ -17,7 +17,7 @@ from .database import DB_PATH, SessionLocal
 from .logging_setup import configure_logging
 from .middleware import request_pipeline
 from .migrations import current_revision, head_revision, prepare_database
-from .routers import admin, app_api, attendance, distribution, public, push, teacher
+from .routers import admin, app_api, attendance, distribution, public, push
 
 configure_logging()
 log = logging.getLogger("clubs.app")
@@ -85,7 +85,6 @@ app.include_router(push.router)
 app.include_router(distribution.router)
 app.include_router(attendance.router)
 app.include_router(app_api.router)
-app.include_router(teacher.router)
 
 
 @app.get("/api/health", include_in_schema=False)

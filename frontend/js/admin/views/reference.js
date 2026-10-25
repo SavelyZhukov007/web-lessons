@@ -1,7 +1,6 @@
 import { h, icon } from '../../ui.js';
 import { categories, leaders, rooms, loadAll } from '../api.js';
-import { pageHeader, loading, dataTable, actionButton, formDialog, confirmDialog, guarded, secretDialog } from '../kit.js';
-import { request } from '../../api.js';
+import { pageHeader, loading, dataTable, actionButton, formDialog, confirmDialog, guarded } from '../kit.js';
 
 const send = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
 
@@ -27,42 +26,10 @@ export async function mount(root, { signal, param }) {
   const key = SECTIONS[param] ? param : 'categories';
   const cfg = SECTIONS[key];
   let data;
-  let access = new Map(); // leader_id → {has_access, issued_at}: доступ преподавателя (идентификатор T-…)
   const refresh = async () => {
     data = await loadAll({ signal });
-    if (key === 'leaders') { try { access = new Map((await request('/api/admin/teachers', { signal })).map(t => [t.leader_id, t])); } catch { access = new Map(); } }
     draw();
   };
-  const showToken = (r, verb) => secretDialog({ title: `Идентификатор: ${r.name}`, secret: r.token,
-    message: `${verb}. Передайте его преподавателю: в приложении «Кружки» → «Я преподаю» → вставить идентификатор. Права: только просмотр своих кружков и отметка посещаемости.` });
-  async function addTeacher() {
-    let res = null;
-    await formDialog({ title: 'Добавить преподавателя', submitLabel: 'Создать и выдать идентификатор',
-      intro: 'Создаётся руководитель и одноразово показывается его идентификатор доступа (T-…).',
-      fields: [{ name: 'name', label: 'ФИО', required: true, maxlength: 120 }, { name: 'position', label: 'Должность', maxlength: 300 }],
-      onSubmit: async v => { res = await request('/api/admin/teachers', send('POST', v)); return res; } });
-    if (res) { await showToken(res, 'Преподаватель добавлен'); await refresh(); }
-  }
-  async function grant(x) {
-    const has = access.get(x.id)?.has_access;
-    if (has && !await confirmDialog({ title: `Перевыпустить для «${x.name}»?`, message: 'Старый идентификатор и все его входы сразу перестанут работать.', confirmLabel: 'Перевыпустить' })) return;
-    const r = await guarded(() => request(`/api/admin/leaders/${x.id}/access`, send('POST')));
-    if (r) { await showToken(r, has ? 'Идентификатор перевыпущен' : 'Доступ выдан'); await refresh(); }
-  }
-  // перенос на новый телефон: одноразовый QR на 10 минут (старый телефон отключится после сканирования)
-  async function transfer(x) {
-    const r = await guarded(() => request(`/api/admin/leaders/${x.id}/transfer`, send('POST')));
-    if (!r) return;
-    let svg = '';
-    try { if (!window.qrcode) await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = '/js/vendor/qrcode.js'; sc.onload = ok; sc.onerror = no; document.head.append(sc); }); const q = window.qrcode(0, 'M'); q.addData(r.code); q.make(); svg = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); } catch { /* без QR — только код */ }
-    await secretDialog({ title: `Перенос на новый телефон: ${r.name}`, secret: r.code, qrSvg: svg,
-      message: 'На новом телефоне: «Войти» → «Я преподаю» → «Сканировать QR переноса». Код действует 10 минут и один раз; после сканирования старый телефон выйдет из аккаунта.' });
-  }
-  async function revoke(x) {
-    if (await confirmDialog({ title: `Отозвать доступ «${x.name}»?`, message: 'Преподаватель сразу потеряет доступ к отметкам.', confirmLabel: 'Отозвать' })
-      && await guarded(() => request(`/api/admin/leaders/${x.id}/access`, send('DELETE')), 'Доступ отозван')) await refresh();
-  }
-
   async function edit(item) {
     const saved = await formDialog({
       title: item ? `Изменить: ${cfg.one}` : `Добавить ${cfg.one}`, fields: cfg.fields, initial: item ?? cfg.defaults ?? {},
@@ -85,17 +52,12 @@ export async function mount(root, { signal, param }) {
     const tabs = h('div', { class: 'segmented admin-tabs', role: 'tablist', 'aria-label': 'Справочники' },
       Object.entries(SECTIONS).map(([k, c]) => h('a', { role: 'tab', href: `#/reference/${k}`, 'aria-selected': String(k === key), class: k === key ? 'is-current' : '' }, c.title)));
     root.replaceChildren(
-      pageHeader('Справочники', key === 'leaders' && h('button', { type: 'button', class: 'btn btn--tonal', 'data-add-teacher': '', onclick: addTeacher }, icon('plus'), 'Добавить преподавателя'),
-        h('button', { type: 'button', class: 'btn btn--filled', onclick: () => edit(null) }, icon('plus'), `Добавить ${cfg.one}`)),
+      pageHeader('Справочники', h('button', { type: 'button', class: 'btn btn--filled', onclick: () => edit(null) }, icon('plus'), `Добавить ${cfg.one}`)),
       tabs,
       dataTable({
         caption: cfg.title, rows: data[key], empty: `${cfg.title}: пока пусто`,
-        columns: [...cfg.columns, { label: 'Используется', cell: x => String(cfg.usedBy(data, x)) },
-          ...(key === 'leaders' ? [{ label: 'Доступ', cell: x => access.get(x.id)?.has_access
-            ? h('span', { class: 'badge badge--ok', title: `выдан ${new Date(access.get(x.id).issued_at).toLocaleString('ru-RU')}` }, 'выдан') : h('span', { class: 'badge' }, 'нет') }] : [])],
-        actions: x => [...(key === 'leaders' ? [actionButton(access.get(x.id)?.has_access ? 'Перевыпустить' : 'Выдать доступ', 'key', () => grant(x)),
-            ...(access.get(x.id)?.has_access ? [actionButton('QR переноса', 'key', () => transfer(x)), actionButton('Отозвать', 'close', () => revoke(x), 'btn--danger-text')] : [])] : []),
-          actionButton('Изменить', 'edit', () => edit(x)), actionButton('Удалить', 'trash', () => remove(x), 'btn--danger-text')],
+        columns: [...cfg.columns, { label: 'Используется', cell: x => String(cfg.usedBy(data, x)) }],
+        actions: x => [actionButton('Изменить', 'edit', () => edit(x)), actionButton('Удалить', 'trash', () => remove(x), 'btn--danger-text')],
       }));
     // цвет метки задаётся через CSSOM (CSP запрещает style="…" в разметке)
     for (const dot of root.querySelectorAll('.dot[data-color]')) dot.style.setProperty('--dot', dot.dataset.color);

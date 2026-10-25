@@ -67,12 +67,12 @@
       .catch(function (e) { if (ctl) ctl.abort(); if (e && / с\. /.test(e.message)) throw e;
         throw new Error('Не удалось связаться с ' + base + '. Проверь адрес и порт; в браузере причиной бывает CORS.'); })
       .then(function (r) {
-        if (r.status === 404) throw new Error('По адресу ' + base + ' отвечает другой сервер (нет /api/app/info) — это не сервер «Кружков» или он устарел.');
+        if (r.status === 404) throw new Error('По адресу ' + base + ' отвечает другой сервер (нет /api/app/info) — это не сервер KipClub или он устарел.');
         if (!r.ok) throw new Error('Сервер ответил HTTP ' + r.status);
-        return r.json().catch(function () { throw new Error('Ответ не похож на сервер «Кружков» (не JSON).'); });
+        return r.json().catch(function () { throw new Error('Ответ не похож на сервер KipClub (не JSON).'); });
       })
       .then(function (j) {
-        if (!j || j.app !== 'itc-kruzhki') throw new Error('Это другое приложение (' + (j && j.app || 'неизвестно') + '), а не сервер «Кружков».');
+        if (!j || j.app !== 'itc-kruzhki') throw new Error('Это другое приложение (' + (j && j.app || 'неизвестно') + '), а не сервер KipClub.');
         return { base: base, name: j.name || base, version: j.version || '?', server_id: j.server_id || '', api_version: j.api_version,
           compatible: j.api_version === API_VERSION,
           warning: j.api_version === API_VERSION ? '' : 'Версия API сервера (' + j.api_version + ') отличается от приложения (' + API_VERSION + '): что-то может не работать.' };

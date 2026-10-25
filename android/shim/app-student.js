@@ -2,11 +2,11 @@
  * «Я студент»: ФИО и группа хранятся ТОЛЬКО на устройстве, зашифрованно (Android Keystore через ItcSecure; в браузере —
  * WebCrypto AES-GCM с неэкспортируемым ключом в IndexedDB). На сервер уходит только ID: S- + base32(HMAC-SHA256(секрет
  * устройства 256 бит, «фио|ГРУППА»))[:128 бит]. Резервный код = секрет (восстановление на новом телефоне).
- * «Я преподаю»: вход по идентификатору T-… (выдаёт администратор) → только свои кружки, QR занятия и отметки. */
+ * Роли сервера: только гость и администратор (роль преподавателя удалена в 0.7.013; отметки ведёт админка). */
 (function () {
   'use strict';
   var LS = window.localStorage, P = (window.Capacitor && window.Capacitor.Plugins) || {};
-  var ROLE_KEY = 'itc.role', VAULT_KEY = 'itc.vault.v1', TSES = 'itc.teacher.session';
+  var ROLE_KEY = 'itc.role', VAULT_KEY = 'itc.vault.v1';
   var B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   var GROUP_RE = /^[1-6][А-ЯЁ]{2,10}-\d{3,4}$/; // {курс}{специальность}-{номер группы}: 1ИСИП-126
 
@@ -106,17 +106,18 @@
   }
   window.ItcHuman = { error: humanError, clean: clean };
 
-  // ---------- t99: единая сессия {role: guest|student|teacher|admin, name, exp} ----------
-  // Секреты (ключ ID студента, идентификатор преподавателя) — в Vault (Android Keystore); здесь только роль и имя для UI.
+  // ---------- t99: единая сессия {role: guest|student|admin, name, exp}; student — гость с локальным профилем ----------
+  // Секреты (ключ ID студента) — в Vault (Android Keystore); здесь только роль и имя для UI.
   // Админ: токены выдаёт и хранит админка сайта (clubs.adminToken / clubs.adminRefresh); роль ставится по успешному
   // POST /api/admin/login и снимается по /api/admin/logout или 401 при обновлении. Срок — по refresh_expires_in.
-  var SES_KEY = 'itc.session', ROLES = { guest: 'Гость', student: 'Студент', teacher: 'Преподаватель', admin: 'Сотрудник' };
+  var SES_KEY = 'itc.session', ROLES = { guest: 'Гость', student: 'Студент', admin: 'Сотрудник' };
   var Session = {
     get: function () {
       var v = null; try { v = JSON.parse(LS.getItem(SES_KEY)); } catch (e) { /* битое */ }
       if (!v) { var old = LS.getItem(ROLE_KEY); if (!old) return null; v = { role: old }; } // миграция с itc.role
+      if (v.role === 'teacher') { v = { role: 'guest' }; LS.setItem(SES_KEY, JSON.stringify(v)); LS.setItem(ROLE_KEY, 'guest'); LS.removeItem('itc.teacher.session'); } // роль удалена
       if (!ROLES[v.role]) return null;
-      if (v.exp && v.exp < Date.now() && v.role !== 'guest' && v.role !== 'student') { // истёк вход сотрудника/преподавателя
+      if (v.exp && v.exp < Date.now() && v.role !== 'guest' && v.role !== 'student') { // истёк вход сотрудника
         if (v.role === 'admin') { LS.removeItem('clubs.adminToken'); LS.removeItem('clubs.adminRefresh'); }
         v = { role: 'guest', expired: v.role }; LS.setItem(SES_KEY, JSON.stringify(v)); LS.setItem(ROLE_KEY, 'guest');
       }
@@ -133,7 +134,6 @@
     },
     logout: async function () {
       var r = Session.role();
-      if (r === 'teacher') await Teacher.logout();
       if (r === 'admin') {
         try { await fetch('/api/admin/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + (LS.getItem('clubs.adminToken') || '') } }); } catch (e) { /* без сети — всё равно выходим локально */ }
         LS.removeItem('clubs.adminToken'); LS.removeItem('clubs.adminRefresh');
@@ -204,9 +204,8 @@
 
   function roleScreen() {
     var L = window.ITC_CHANNEL === 'l';
-    var s = screen('<div class="itc-ob-card">' + ICON + '<h1>ИТС Кружки</h1><p class="itc-ob-lead">Как вы будете пользоваться приложением? Роль можно сменить в Настройках.</p>' +
+    var s = screen('<div class="itc-ob-card">' + ICON + '<h1>KipClub</h1><p class="itc-ob-lead">Как вы будете пользоваться приложением? Роль можно сменить в Настройках.</p>' +
       '<button type="button" class="itc-ob-primary" data-role="student">Я студент</button>' +
-      '<button type="button" class="itc-ob-secondary" data-role="teacher">Я преподаю</button>' +
       '<button type="button" class="itc-ob-secondary" data-role="admin">Сотрудник (вход в админку)</button>' +
       (L ? '<button type="button" class="itc-ob-link" data-role="demo-admin">Демо: войти как администратор</button>' : '') +
       '<button type="button" class="itc-ob-guest" data-role="guest">Продолжить как гость</button></div>' +
@@ -218,7 +217,6 @@
       if (cur && cur !== 'guest' && cur !== r && !(r === 'demo-admin' && cur === 'admin')) await Session.logout(); // одна роль за раз
       s.close();
       if (r === 'student') { var st = await Student.load(); if (st) { Session.set('student', [st.profile.first, st.profile.last].join(' ')); location.href = '/'; } else profileScreen({ onboarding: true }); }
-      else if (r === 'teacher') teacherLogin();
       else if (r === 'admin') location.href = '/admin/login.html';
       else if (r === 'demo-admin') location.href = '/admin/login.html?demo=1';
       else { Session.set('guest'); if (/^\/admin\//.test(location.pathname)) location.href = '/'; }
@@ -336,42 +334,6 @@
     } catch (e) { box.innerHTML = '<p class="itc-ob-err">' + esc(clean(e.message) || HUMAN[0]) + '</p>'; }
   }
 
-  // ---------- преподаватель ----------
-  var Teacher = {
-    session: function () { try { var v = JSON.parse(LS.getItem(TSES)); return v && v.exp > Date.now() ? v : null; } catch (e) { return null; } },
-    login: async function (token) {
-      var r = await fetch('/api/teacher/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) });
-      var j = await r.json().catch(function () { return {}; });
-      if (!r.ok) throw new Error(r.status === 422 ? 'Идентификатор выглядит так: T-XXXX-XXXX-…' : humanError(r.status, j.detail));
-      LS.setItem(TSES, JSON.stringify({ tok: j.access_token, exp: Date.now() + (j.expires_in - 60) * 1000, name: j.teacher.name }));
-      await Vault.set(Object.assign({}, (await Vault.get()) || {}, { teacherToken: token })); // для тихого повторного входа
-      Session.set('teacher', j.teacher.name, 30 * 864e5); return j;
-    },
-    // перенос аккаунта: одноразовый QR из админки → новый постоянный идентификатор сохраняется в Keystore
-    transfer: async function (code) {
-      var r = await fetch('/api/teacher/transfer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code }) });
-      var j = await r.json().catch(function () { return {}; });
-      if (!r.ok) throw new Error(r.status === 422 ? 'Это не QR переноса. Попросите администратора открыть «QR переноса».' : humanError(r.status, j.detail));
-      LS.setItem(TSES, JSON.stringify({ tok: j.access_token, exp: Date.now() + (j.expires_in - 60) * 1000, name: j.teacher.name }));
-      await Vault.set(Object.assign({}, (await Vault.get()) || {}, { teacherToken: j.token }));
-      Session.set('teacher', j.teacher.name, 30 * 864e5); return j;
-    },
-    api: async function (path, opt) {
-      var s = Teacher.session();
-      if (!s) { var v = await Vault.get(); if (v && v.teacherToken) { await Teacher.login(v.teacherToken); s = Teacher.session(); } }
-      if (!s) throw Object.assign(new Error('Войдите по идентификатору преподавателя'), { status: 401 });
-      opt = opt || {}; opt.headers = Object.assign({ Authorization: 'Bearer ' + s.tok }, opt.body ? { 'Content-Type': 'application/json' } : {}, opt.headers || {});
-      var r = await fetch(path, opt);
-      if (r.status === 204) return null;
-      var j = await r.json().catch(function () { return {}; });
-      if (r.status === 401) LS.removeItem(TSES);
-      if (!r.ok) throw Object.assign(new Error(humanError(r.status, j.detail)), { status: r.status });
-      return j;
-    },
-    logout: async function () { LS.removeItem(TSES); var v = await Vault.get(); if (v) { delete v.teacherToken; if (v.secret) await Vault.set(v); else await Vault.wipe(); } Session.set('guest'); },
-  };
-  window.ItcTeacher = Teacher;
-
   // ---------- офлайн-очередь отметок (t100) ----------
   // Без сети отметка сохраняется с реальным временем сканирования; сервер проверяет, что QR был действителен
   // именно в тот момент и попадал в окно отметки (не позже 6 ч). Отправляем при появлении сети.
@@ -407,118 +369,6 @@
     setTimeout(function () { Queue.flush(); }, 1500);
   }
 
-  function teacherLogin() {
-    var s = screen('<form class="itc-ob-card" novalidate>' + ICON + '<h1>Вход преподавателя</h1><p class="itc-ob-lead">Вставьте идентификатор, который выдал администратор (T-…).</p>' +
-      '<label class="itc-ob-field"><span>Идентификатор</span><input name="tok" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="T-XXXX-XXXX-…"><small class="itc-ob-err" data-err="tok" role="alert"></small></label>' +
-      '<button type="submit" class="itc-ob-primary">Войти</button>' +
-      (P.ItcScanner ? '<button type="button" class="itc-ob-secondary" data-transfer>Сканировать QR переноса</button>' : '') +
-      '<button type="button" class="itc-ob-link" data-cancel>Назад</button></form>');
-    var f = s.querySelector('form');
-    s.addEventListener('click', async function (e) {
-      if (!e.target.closest('[data-transfer]')) return;
-      try {
-        var r = await P.ItcScanner.scan({ hint: 'Наведите на QR переноса из админки' });
-        if (!r || r.cancelled || !r.text) return;
-        if (r.text.indexOf('itc-tx1.') !== 0) throw new Error('Это не QR переноса. Попросите администратора открыть «QR переноса».');
-        await Teacher.transfer(r.text); Haptics.success(); s.close(); toast('Аккаунт перенесён на этот телефон'); teacherHome();
-      } catch (x) { showErrors(f, { tok: clean(x.message) || 'Не удалось открыть камеру' }); Haptics.error(); }
-    });
-    s.addEventListener('click', function (e) { if (e.target.closest('[data-cancel]')) { s.close(); if (!Student.role()) roleScreen(); } });
-    f.addEventListener('submit', async function (e) {
-      e.preventDefault(); var b = f.querySelector('[type=submit]'); b.disabled = true;
-      try { await Teacher.login(f.elements.tok.value.trim()); Haptics.success(); s.close(); teacherHome(); }
-      catch (x) { showErrors(f, { tok: x.message }); Haptics.error(); }
-      finally { b.disabled = false; }
-    });
-  }
-  var WD = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-  function mskNow() { var d = new Date(Date.now() + (new Date().getTimezoneOffset() + 180) * 60000); return d; }
-  function isoDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-  async function teacherHome() {
-    var s = screen('<div class="itc-ob-card itc-ob-wide"><h1>Мои кружки</h1><p class="itc-ob-lead" data-name></p><div data-list class="itc-tlist">Загрузка…</div>' +
-      '<button type="button" class="itc-ob-secondary" data-close>К расписанию</button><button type="button" class="itc-ob-link" data-logout>Выйти из режима преподавателя</button></div>', 'itc-ob-scroll');
-    s.addEventListener('click', async function (e) {
-      if (e.target.closest('[data-close]')) s.close();
-      if (e.target.closest('[data-logout]')) { await Teacher.logout(); s.close(); toast('Вы вышли из режима преподавателя'); }
-      var b = e.target.closest('[data-session]'); if (b) { Haptics.tap(); sessionScreen(JSON.parse(b.getAttribute('data-session'))); }
-    });
-    try {
-      var me = await Teacher.api('/api/teacher/me'); var now = mskNow(), wd = (now.getDay() || 7);
-      s.querySelector('[data-name]').textContent = me.name + ' · только просмотр и отметка посещаемости';
-      var list = await Teacher.api('/api/teacher/occurrences?date=' + isoDate(now) + '&days=7');
-      s.querySelector('[data-list]').innerHTML = list.length ? list.map(function (x) {
-        var d = new Date(x.date + 'T12:00:00'), today = x.date === isoDate(now);
-        return '<button type="button" class="itc-tsession' + (today ? ' is-today' : '') + '" data-session=\'' + esc(JSON.stringify({ id: x.session_id, date: x.date, original_date: x.original_date, club: x.club_name, t: x.start_time + '–' + x.end_time, room: x.room_name })) + '\'>' +
-          '<span class="itc-tsession-time">' + (today ? 'Сегодня' : WD[d.getDay() || 7]) + '<b>' + x.start_time + '</b></span><span class="itc-tsession-main"><b>' + esc(x.club_name) + '</b><small>' + esc(x.room_name) + ' · ' + x.start_time + '–' + x.end_time + (x.status === 'moved' ? ' · перенос' : '') + '</small></span></button>';
-      }).join('') : '<p class="itc-ob-lead">За вами пока нет кружков. Обратитесь к администратору.</p>';
-    } catch (x) { s.querySelector('[data-list]').innerHTML = '<p class="itc-ob-err">' + esc(x.message) + '</p>'; if (x.status === 401) { s.close(); teacherLogin(); } }
-  }
-  function mmss(n) { n = Math.max(0, n); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); }
-  function hm(t) { return new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); }
-  function sessionScreen(ss) {
-    var s = screen('<div class="itc-ob-card itc-ob-wide itc-qrscreen"><h1>' + esc(ss.club) + '</h1><p class="itc-ob-lead">' + ss.date.split('-').reverse().join('.') + ' · ' + esc(ss.t) + (ss.room ? ' · ' + esc(ss.room) : '') + '</p>' +
-      '<div class="itc-qrstage" data-stage aria-live="polite"></div><h2>Отметились: <b data-count>0</b></h2><ol class="itc-live" data-live></ol>' +
-      '<form class="itc-manual" data-manual><input name="sid" placeholder="S-XXXX-XXXX-…" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label="ID студента"><button type="submit" class="itc-ob-secondary">Отметить по ID</button></form>' +
-      '<button type="button" class="itc-ob-primary" data-close>Закрыть</button></div>', 'itc-ob-scroll');
-    var stage = s.querySelector('[data-stage]'), live = s.querySelector('[data-live]'), cnt = s.querySelector('[data-count]');
-    var timer = 0, poll = 0, since = 0, alive = true, first = true;
-    function stop() { alive = false; clearTimeout(timer); clearInterval(poll); }
-    s.addEventListener('click', async function (e) {
-      if (e.target.closest('[data-close]')) { stop(); s.close(); return; }
-      var del = e.target.closest('[data-del]');
-      if (del && confirm('Удалить отметку ' + del.getAttribute('data-sid') + '?')) {
-        try { await Teacher.api('/api/teacher/attendance/' + del.getAttribute('data-del'), { method: 'DELETE' }); del.closest('li').remove(); cnt.textContent = String(Math.max(0, +cnt.textContent - 1)); Haptics.tap(); }
-        catch (x) { toast(x.message); }
-      }
-    });
-    s.querySelector('[data-manual]').addEventListener('submit', async function (e) {
-      e.preventDefault(); var inp = this.elements.sid;
-      try { await Teacher.api('/api/teacher/attendance/manual', { method: 'POST', body: JSON.stringify({ session_id: ss.id, date: ss.date, original_date: ss.original_date, student_id: inp.value }) }); inp.value = ''; Haptics.success(); pull(); }
-      catch (x) { Haptics.error(); toast(x.message); }
-    });
-    async function tick() {
-      if (!alive) return;
-      var r; try { r = await Teacher.api('/api/teacher/attendance/qr', { method: 'POST', body: JSON.stringify({ session_id: ss.id, date: ss.date, original_date: ss.original_date }) }); }
-      catch (x) { stage.innerHTML = '<p class="itc-ob-err">' + esc(x.message) + '</p>'; timer = setTimeout(tick, 5000); return; }
-      if (!alive) return;
-      if (r.state === 'early') {
-        var left = r.opens_in;
-        stage.innerHTML = '<div class="itc-qr-wait"><b>QR ещё не готов</b><span>откроется за 10 с до начала через <time data-cd>' + mmss(left) + '</time></span></div>';
-        var cd = stage.querySelector('[data-cd]');
-        (function step() { if (!alive) return; left -= 1; cd.textContent = mmss(left); if (left <= 0) tick(); else timer = setTimeout(step, 1000); })();
-        return;
-      }
-      if (r.state === 'closed') { stage.innerHTML = '<div class="itc-qr-wait"><b>Отметка закрыта</b><span>QR выдавался первые ' + r.window_min + ' мин. Вручную по ID — до ' + hm(r.manual_until) + '.</span></div>'; return; }
-      var svg = await qrSvg(r.token);
-      if (!alive) return;
-      stage.innerHTML = '<div class="itc-qr-code">' + svg + '</div><p class="itc-ob-hint">Код меняется каждые ' + r.rotate + ' с · приём ещё ' + Math.ceil(r.closes_in / 60) + ' мин' + (r.demo_free_window ? ' · демо: окно не ограничено' : '') + '</p>';
-      timer = setTimeout(tick, Math.min(r.rotate, Math.max(1, r.closes_in + 1)) * 1000);
-    }
-    async function pull() {
-      if (!alive) return;
-      try {
-        var r = await Teacher.api('/api/teacher/attendance?session_id=' + ss.id + '&date=' + ss.date + (ss.original_date ? '&original_date=' + ss.original_date : ''));
-        if (!alive) return;
-        var ids = new Set(r.items.map(function (it) { return String(it.id); }));
-        live.querySelectorAll('[data-del]').forEach(function (b) { if (!ids.has(b.getAttribute('data-del'))) b.closest('li').remove(); });
-        if (cnt.textContent !== String(r.count) && !first) { cnt.classList.remove('itc-bump'); void cnt.offsetWidth; cnt.classList.add('itc-bump'); }
-        cnt.textContent = String(r.count);
-        // живой счётчик: короткая вибрация на каждую новую отметку (без звука), не чаще раза в 120 мс
-        r.items.forEach(function (it) {
-          if (live.querySelector('[data-del="' + it.id + '"]')) return;
-          if (!first) Haptics.success();
-          since = Math.max(since, it.id);
-          live.insertAdjacentHTML('afterbegin', '<li class="' + (first ? '' : 'new') + '"><code title="' + esc(it.student_id) + '">' + esc(it.short) + '</code><span>' + (it.method === 'manual' ? 'вручную' : 'отметился') + ', ' + hm(it.at) + '</span>' +
-            '<button type="button" class="itc-del" data-del="' + it.id + '" data-sid="' + esc(it.short) + '" aria-label="Удалить отметку">Удалить</button></li>');
-        });
-        first = false;
-      } catch (x) { /* следующий опрос */ }
-    }
-    tick(); pull(); poll = setInterval(pull, 2000);
-    // экран не гаснет, пока показан QR (если плагин доступен)
-    try { if (P.KeepAwake) P.KeepAwake.keepAwake(); } catch (e) { /* нет */ }
-  }
-
   async function openProfile() {
     var st = await Student.load(); if (!st) { profileScreen({ onboarding: true }); return; }
     var p = st.profile;
@@ -536,7 +386,7 @@
       if (e.target.closest('[data-wipe]') && confirm('Удалить профиль и ключ ID с телефона? Без резервного кода прежний ID не восстановить.')) { await Vault.wipe(); cache = null; Session.set('guest'); s.close(); toast('Профиль удалён'); }
     });
   }
-  Student.openProfile = openProfile; Student.myVisits = myVisits; Student.roleScreen = roleScreen; Student.profileScreen = profileScreen; Teacher.home = teacherHome; Teacher.loginScreen = teacherLogin;
+  Student.openProfile = openProfile; Student.myVisits = myVisits; Student.roleScreen = roleScreen; Student.profileScreen = profileScreen;
 
   // ---------- t99: экран «Настройки» (шестерёнка в шапке) — сгруппированный список ----------
   var CHEV = '<svg class="itc-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -557,11 +407,10 @@
     var ses = Session.get() || { role: 'guest' }, r = ses.role, DEV = window.ITC_CHANNEL && window.ITC_CHANNEL !== 'p';
     var acc;
     if (r === 'guest' || !r) acc = '<div class="itc-acc"><div class="itc-acc-ava" aria-hidden="true">?</div><div class="itc-acc-tx"><b>Вы не вошли</b><small>' +
-      (ses.expired ? 'Срок входа истёк — войдите снова' : 'Студенту — отметки на занятиях, преподавателю — QR и список группы') + '</small></div></div>' +
+      (ses.expired ? 'Срок входа истёк — войдите снова' : 'Студенту — отметки на занятиях по QR') + '</small></div></div>' +
       '<button type="button" class="itc-ob-primary itc-acc-btn" data-act="login">Войти</button>';
     else acc = '<div class="itc-acc"><div class="itc-acc-ava" aria-hidden="true">' + esc((ses.name || ROLES[r]).trim().charAt(0).toUpperCase()) + '</div><div class="itc-acc-tx"><b>' + esc(ses.name || ROLES[r]) + '</b><small>' + ROLES[r] + '</small></div></div>' +
       (r === 'student' ? row('Профиль', { act: 'profile', sub: 'ФИО, группа, ID, резервный код' }) + row('Мои посещения', { act: 'visits' }) : '') +
-      (r === 'teacher' ? row('Мои занятия', { act: 'thome', sub: 'QR для отметки и список группы' }) : '') +
       (r === 'admin' ? row('Админка', { act: 'admin' }) : '') +
       row('Сменить роль', { act: 'login' }) + row('Выйти', { act: 'logout', danger: true });
     var s = screen('<div class="itc-set">' +
@@ -597,7 +446,6 @@
       if (a === 'login') roleScreen();
       else if (a === 'profile') openProfile();
       else if (a === 'visits') myVisits();
-      else if (a === 'thome') teacherHome();
       else if (a === 'admin') location.href = '/admin/index.html';
       else if (a === 'update') { if (window.ItcAppUpdate) window.ItcAppUpdate.check({ manual: true }); else toast('Обновления проверяются только в приложении'); }
     });
@@ -605,11 +453,11 @@
   window.ItcSettings = { open: settingsScreen, row: row };
 
   // ---------- t99: запуск и разделение ролей ----------
-  // admin → админка; teacher → «Мои занятия»; student/guest → расписание. Не-админ в /admin/* → вход для сотрудников.
+  // admin → админка; student/guest → расписание. Не-админ в /admin/* → вход для сотрудников.
   function roleHomeChip() {
-    var r = Session.role(); if (r !== 'teacher' && r !== 'admin') return;
+    var r = Session.role(); if (r !== 'admin') return;
     var h = document.querySelector('body.campus-page:not(.admin-page) > .campus-header'); if (!h || h.querySelector('.itc-home-chip')) return;
-    var a = el('<a class="itc-home-chip" href="' + (r === 'admin' ? '/admin/index.html' : '/?teacher=1') + '">' + (r === 'admin' ? 'Админка' : 'Мои занятия') + '</a>');
+    var a = el('<a class="itc-home-chip" href="/admin/index.html">Админка</a>');
     var g = h.querySelector('.app-gear'); if (g) h.insertBefore(a, g); else h.appendChild(a);
   }
   function boot() {
@@ -621,7 +469,6 @@
     if (home && !r) { setTimeout(roleScreen, window.ItcSplash ? 700 : 0); return; }
     var cold = home && !sessionStorage.getItem('itc.launched') && !q.get('from'); sessionStorage.setItem('itc.launched', '1');
     if (cold && r === 'admin') { location.replace('/admin/index.html'); return; }
-    if ((cold && r === 'teacher') || (q.get('teacher') === '1' && r === 'teacher')) teacherHome();
     roleHomeChip(); setTimeout(roleHomeChip, 400);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

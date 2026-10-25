@@ -67,7 +67,7 @@ def cors_origins() -> list[str]:
 
 def server_name() -> str:
     """Имя сервера для приложения (поиск в сети, бейдж «Тестовый сервер: …»)."""
-    return (os.getenv("SERVER_NAME") or "ИТС Кружки").strip()[:60]
+    return (os.getenv("SERVER_NAME") or "KipClub").strip()[:60]
 
 
 def mdns_enabled() -> bool:

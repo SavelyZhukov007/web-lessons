@@ -46,17 +46,18 @@ def test_slash_redirects(client, path, target):
     assert res.status_code == 308 and res.headers["location"] == target
 
 
-def test_download_without_release_is_clear_404(client, releases):
-    res = client.get("/android/download")
-    assert res.status_code == 404
-    assert "APK" in res.text  # понятное сообщение, не пустая страница
+def test_download_without_release_redirects_to_github(client, releases):
+    res = client.get("/android/download", follow_redirects=False)
+    assert res.status_code == 307
+    assert res.headers["location"] == "https://github.com/SavelyZhukov007/web-lessons/releases/latest/download/kipclub.apk"
     info = client.get("/api/app/android").json()
     assert info["available"] is False and info["rustore_url"] is None
+    assert info["download_url"] == "https://github.com/SavelyZhukov007/web-lessons/releases/latest/download/kipclub.apk"
 
 
 def test_download_missing_dir_is_404(client, monkeypatch, tmp_path):
     monkeypatch.setenv("APP_RELEASES_DIR", str(tmp_path / "nope"))
-    assert client.get("/android/download").status_code == 404
+    assert client.get("/android/download", follow_redirects=False).status_code == 307
 
 
 def test_download_latest_by_mtime(client, releases):

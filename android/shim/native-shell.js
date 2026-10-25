@@ -1,7 +1,7 @@
 /* Нативная оболочка APK (Capacitor). Подключается prepare-web.mjs ТОЛЬКО в www/ приложения, сразу после shim.
  * Ничего не делает вне Capacitor.isNativePlatform(): сайт (frontend/) не меняется вообще.
  * Ставит <html class="is-native"> (под ним вся вёрстка из css/native-shell.css) и добавляет нативное поведение:
- * системные бары по теме, кнопка «Назад» Android, запись в календарь устройства, выход/вход, бренд «ИТС Кружки». */
+ * системные бары по теме, кнопка «Назад» Android, запись в календарь устройства, выход/вход, бренд «KipClub». */
 (function () {
   'use strict';
   var Cap = window.Capacitor;
@@ -40,10 +40,10 @@
   function patchDom() {
     doc.querySelectorAll('.campus-brand > span:not(.native-brand)').forEach(function (s) {
       var t = s.firstChild;
-      if (t && t.nodeType === 3 && /кружки/i.test(t.nodeValue)) { t.nodeValue = 'ИТС Кружки'; s.classList.add('native-brand'); }
+      if (t && t.nodeType === 3 && /кружки|kipclub/i.test(t.nodeValue)) { t.nodeValue = 'KipClub'; s.classList.add('native-brand'); }
       var small = s.parentNode.querySelector('small');
       if (small && /КИПФИН/.test(small.textContent)) small.remove();
-      if (/главная/.test(s.parentNode.getAttribute('aria-label') || '')) s.parentNode.setAttribute('aria-label', 'ИТС Кружки — главная');
+      if (/главная/.test(s.parentNode.getAttribute('aria-label') || '')) s.parentNode.setAttribute('aria-label', 'KipClub — главная');
     });
     doc.querySelectorAll('a.settings-button[href="#/account"]:not([data-native-icon])').forEach(function (a) {
       var svg = a.querySelector('svg'); if (!svg) return;

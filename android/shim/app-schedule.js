@@ -445,16 +445,6 @@ function filterSheet() {
   handle.setAttribute('aria-hidden', 'true');
   const mine = $('#itc-my-toggle'), mineHome = mine?.parentNode, mineNext = mine?.nextSibling;
   if (mine) body.append(mine);
-  // t99: преподаватель — «Мои занятия» (занятия, которые он ведёт) = фильтр по его имени в справочнике руководителей
-  let teachRow = null;
-  const ses = window.ItcSession?.get(), lsel = fields.leader_id;
-  const myLeader = ses?.role === 'teacher' && ses.name && lsel ? [...lsel.options].find(o => o.value && o.textContent.trim().toLowerCase() === ses.name.trim().toLowerCase()) : null;
-  if (myLeader) {
-    teachRow = node('label', 'itc-only-mine'); teachRow.innerHTML = '<span class="itc-only-mine-text">Мои занятия</span><input type="checkbox" role="switch" class="itc-switch">';
-    const sw = teachRow.querySelector('input'); sw.checked = pending.leader_id === myLeader.value;
-    sw.addEventListener('change', () => { pending.leader_id = sw.checked ? myLeader.value : ''; body.querySelectorAll('[aria-label="Руководитель"] .itc-fchip').forEach(x => x.setAttribute('aria-checked', String(x.dataset.v === pending.leader_id))); window.ItcHaptics?.tap(); });
-    body.append(teachRow);
-  }
   for (const [k, title] of GROUPS) {
     const sel = fields[k]; if (!sel) continue;
     const sec = node('section', 'itc-fgroup'); sec.append(node('h3', '', title));
@@ -462,7 +452,7 @@ function filterSheet() {
     for (const o of sel.options) {
       const c = node('button', 'itc-fchip', o.value ? o.textContent : 'Все'); c.type = 'button'; c.setAttribute('role', 'radio'); c.dataset.v = o.value;
       c.setAttribute('aria-checked', String(pending[k] === o.value));
-      c.addEventListener('click', () => { pending[k] = o.value; for (const x of list.children) x.setAttribute('aria-checked', String(x.dataset.v === o.value)); if (k === 'leader_id' && teachRow) teachRow.querySelector('input').checked = o.value === myLeader.value; window.ItcHaptics?.tap(); });
+      c.addEventListener('click', () => { pending[k] = o.value; for (const x of list.children) x.setAttribute('aria-checked', String(x.dataset.v === o.value)); window.ItcHaptics?.tap(); });
       list.append(c);
     }
     sec.append(list); body.append(sec);

@@ -77,7 +77,7 @@ console.log('[patch-android] цвета светлой/тёмной темы + S
 // ---- демо-сборка (APP_DEMO=1): своё имя/ID (ставится рядом с обычным приложением) + иконки бренда, если есть
 import { readdirSync, cpSync } from 'node:fs';
 const DEMO = /^(1|true|yes)$/i.test(process.env.APP_DEMO || '');
-const APP_NAME = process.env.APP_NAME || (DEMO ? 'ИТС Кружки' : 'Кружки КИПФИН');
+const APP_NAME = process.env.APP_NAME || (DEMO ? 'KipClub' : 'KipClub');
 const stringsPath = join(app, 'res', 'values', 'strings.xml');
 if (existsSync(stringsPath)) {
   let s = readFileSync(stringsPath, 'utf8');
@@ -90,9 +90,10 @@ if (existsSync(gradlePath)) {
   if (DEMO) g = g.replace(/(applicationId "[^"]+")/, '$1\n        applicationIdSuffix ".demo"');
   writeFileSync(gradlePath, g);
 }
-const brand = process.env.BRAND_ANDROID_DIR || resolve(root, '../../brand/android');
+// иконка KipClub (adaptive + monochrome + legacy mipmap) — из репозитория assets/brand/kipclub/android; BRAND_ANDROID_DIR переопределяет
+const brand = process.env.BRAND_ANDROID_DIR || resolve(root, '../assets/brand/kipclub/android');
 let icons = 0;
-if (DEMO && existsSync(brand)) {
+if (existsSync(brand)) {
   const walk = (dir) => { for (const n of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, n.name);
     if (n.isDirectory()) { if (/^(mipmap|drawable|values)[\w-]*$/.test(n.name) && readdirSync(p).some(f => /^ic_launcher/.test(f))) { mkdirSync(join(app, 'res', n.name), { recursive: true });
@@ -100,7 +101,7 @@ if (DEMO && existsSync(brand)) {
   } };
   walk(brand);
 }
-console.log(`[patch-android] имя «${APP_NAME}»${DEMO ? ', applicationId +.demo' : ''}; иконок бренда: ${icons}${DEMO && !existsSync(brand) ? ' (нет ' + brand + ')' : ''}`);
+console.log(`[patch-android] имя «${APP_NAME}»${DEMO ? ', applicationId +.demo' : ''}; иконок бренда: ${icons}${!existsSync(brand) ? ' (нет ' + brand + ')' : ''}`);
 
 // ---- версия приложения: android/version.json (build-apk.mjs поднимает её перед каждой сборкой)
 {

@@ -48,8 +48,15 @@ function initIosPwa() {
     overlay.querySelector('a')?.focus({ preventScroll: true });
 }
 
+// APK публикуется в GitHub Releases: стабильная ссылка на последний релиз (файл kipclub.apk)
+export const APK_URL = 'https://github.com/SavelyZhukov007/web-lessons/releases/latest/download/kipclub.apk';
+
 async function initAndroid() {
     const btn = $('apk-download'), meta = $('apk-meta');
+    btn.href = APK_URL;
+    // запасной путь: через 2,5 с после нажатия — ссылка на зеркало на нашем сервере (/download/kipclub.apk)
+    const fallback = $('apk-fallback');
+    if (fallback) btn.addEventListener('click', () => { setTimeout(() => { fallback.hidden = false; }, 2500); });
     let info;
     try {
         const res = await fetch('/api/app/android', { headers: { Accept: 'application/json' }, cache: 'no-store' });
@@ -60,11 +67,7 @@ async function initAndroid() {
         return;
     }
     if (info.rustore_url) { $('rustore-link').href = info.rustore_url; $('rustore-block').hidden = false; }
-    if (!info.available) {
-        btn.setAttribute('aria-disabled', 'true'); btn.removeAttribute('href'); btn.tabIndex = -1;
-        meta.hidden = true; $('apk-missing').hidden = false;
-        return;
-    }
+    if (!info.available) { meta.hidden = true; return; } // локального релиза нет — кнопка ведёт на GitHub Releases
     const parts = [info.version ? `Версия ${info.version}` : null, formatSize(info.size), info.updated ? new Date(info.updated).toLocaleDateString('ru-RU') : null];
     meta.textContent = parts.filter(Boolean).join(' · ');
     if (info.sha256) { const sha = $('apk-sha'); sha.textContent = `SHA-256: ${info.sha256}`; sha.hidden = false; }

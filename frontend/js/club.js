@@ -43,7 +43,7 @@ function changesBlock(club) {
 
 function render(club) {
   heading.textContent = club.name;
-  document.title = `${club.name} — КИПФИН`;
+  document.title = `${club.name} — KipClub`;
   if (club.category?.name) {
     badge.textContent = club.category.name;
     badge.hidden = false;
@@ -69,7 +69,7 @@ async function load() {
   try {
     render(await getClub(id));
   } catch (error) {
-    if (error.status === 404) { heading.textContent = 'Кружок не найден'; document.title = 'Кружок не найден — КИПФИН'; }
+    if (error.status === 404) { heading.textContent = 'Кружок не найден'; document.title = 'Кружок не найден — KipClub'; }
     const box = h('div', { class: error.status === 404 ? 'empty-state' : 'error-state', role: error.status === 404 ? undefined : 'alert' }, h('p', {}, error.message));
     if (error.status !== 404) box.append(h('button', { type: 'button', class: 'btn btn--small', onclick: load }, 'Повторить попытку'));
     else box.append(h('a', { class: 'btn btn--tonal', href: '/clubs.html' }, 'К списку кружков'));

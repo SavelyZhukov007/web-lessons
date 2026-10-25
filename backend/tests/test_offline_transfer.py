@@ -4,7 +4,6 @@ from __future__ import annotations
 import secrets
 
 from backend.app.routers import attendance as att
-from backend.app.routers import teacher as tch
 
 from .test_attendance import _CLOCK, MONDAY, SID, SID2, _fixed_clock, _qr, set_clock  # noqa: F401
 from .test_exception_conflicts_api import admin_client, make_world  # noqa: F401
@@ -50,32 +49,3 @@ def test_offline_window_enforced_at_scan_time(admin_client):
     r = _ci(admin_client, SID, sid, tok, scanned_at=s)
     assert r.status_code == 403 and r.json()["detail"] == "Отметка закрыта"
 
-
-def test_transfer_qr_one_time(admin_client):
-    w = make_world(admin_client)
-    lid = w["leader"]["id"]
-    t1 = admin_client.post(f"/api/admin/leaders/{lid}/access").json()["token"]
-    old = admin_client.post("/api/teacher/login", json={"token": t1}).json()["access_token"]
-    code = admin_client.post(f"/api/admin/leaders/{lid}/transfer").json()["code"]
-    assert code.startswith("itc-tx1.")
-    r = admin_client.post("/api/teacher/transfer", json={"code": code})
-    assert r.status_code == 200, r.text
-    new = r.json()
-    assert new["token"].startswith("T-") and new["token"] != t1
-    assert admin_client.get("/api/teacher/me", headers={"Authorization": "Bearer " + new["access_token"]}).status_code == 200
-    assert admin_client.get("/api/teacher/me", headers={"Authorization": "Bearer " + old}).status_code == 401  # старый телефон отключён
-    assert admin_client.post("/api/teacher/login", json={"token": t1}).status_code == 401
-    assert admin_client.post("/api/teacher/transfer", json={"code": code}).status_code == 401  # повторно нельзя
-    assert admin_client.post("/api/teacher/transfer", json={"code": code[:-2] + "AA"}).status_code == 401
-    admin_client.cookies.clear()
-    assert admin_client.post(f"/api/admin/leaders/{lid}/transfer").status_code == 401
-
-
-def test_transfer_expires(admin_client, monkeypatch):
-    w = make_world(admin_client)
-    lid = w["leader"]["id"]
-    admin_client.post(f"/api/admin/leaders/{lid}/access")
-    code = admin_client.post(f"/api/admin/leaders/{lid}/transfer").json()["code"]
-    real = tch.time.time
-    monkeypatch.setattr(tch.time, "time", lambda: real() + tch.TRANSFER_TTL + 5)
-    assert admin_client.post("/api/teacher/transfer", json={"code": code}).status_code == 401

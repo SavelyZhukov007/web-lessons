@@ -393,3 +393,9 @@
     cursor: pointer;
     border-radius: 50%;
 }
+.dist-fallback a {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: underline;
+}
+

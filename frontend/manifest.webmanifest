@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Расписание кружков — КИПФИН",
-  "short_name": "Кружки",
+  "name": "KipClub — расписание кружков КИПФИН",
+  "short_name": "KipClub",
   "description": "Расписание кружков КИПФИН: занятия, переносы и отмены.",
   "lang": "ru",
   "dir": "ltr",
@@ -9,7 +9,7 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#ffffff",
+  "background_color": "#B83B29",
   "theme_color": "#ffffff",
   "categories": [
     "education"

@@ -37,7 +37,7 @@
       var later = null; try { later = JSON.parse(localStorage.getItem(LATER)); } catch (e) {}
       if (!forced && !opts.manual && later && later.code === latest && Date.now() - later.t < DAY) return null;
       d.download = new URL(d.url || d.download_url || '/android/download', url).href;
-      d.page = new URL('/android/download', url).href;
+      d.page = 'https://github.com/SavelyZhukov007/web-lessons/releases/latest/download/kipclub.apk'; // запасной путь: последний релиз на GitHub
       sheet(d, forced, app);
       return d;
     }).catch(function (e) { if (opts.manual) toast('Не удалось проверить обновления'); return null; })

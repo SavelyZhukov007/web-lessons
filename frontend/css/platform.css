@@ -129,3 +129,121 @@
         display: none;
     }
 }
+/* ---------- Мобильные: без зума и без горизонтальной прокрутки (iPhone Safari / PWA, 320–430 px) ---------- */
+html,
+body {
+    overflow-x: clip; /* горизонтальная прокрутка — только внутри явных контейнеров (overflow-x: auto) */
+    max-width: 100%;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation; /* без double-tap zoom */
+}
+
+/* Поля ≥16px на любых тач-устройствах — Safari не приближает страницу при фокусе */
+@media (pointer: coarse) {
+    input,
+    select,
+    textarea,
+    .campus-page input,
+    .campus-page select,
+    .campus-page textarea {
+        font-size: max(16px, 1em) !important;
+    }
+}
+
+/* input[type=date] в Safari имеет собственную минимальную ширину и выталкивал «24 окт. 2026 г.» за экран */
+input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+    text-align: center;
+    margin: 0;
+}
+
+@media (max-width: 599px) {
+    /* «Текущая неделя» + дата: две равные колонки, ничего не вылезает */
+    .week-actions {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        width: 100%;
+        gap: 8px;
+    }
+
+    .week-actions>button,
+    .date-picker,
+    .campus-page .date-picker input {
+        width: 100% !important;
+        min-width: 0 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .campus-page .date-picker input {
+        display: block;
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    /* Поиск + «Фильтры»: поле занимает всё, кнопка компактная; панель фильтров — столбиком */
+    #schedule-filters {
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        gap: 8px !important;
+        min-width: 0;
+    }
+
+    .search-field,
+    .search-input,
+    .campus-page .search-input input {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .campus-page .search-input input {
+        text-overflow: ellipsis;
+    }
+
+    .campus-page .mobile-filter-toggle {
+        flex: none;
+        white-space: nowrap;
+        min-height: 44px;
+    }
+
+    .filter-options {
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 10px !important;
+        padding: 12px 0 !important;
+    }
+
+    .filter-options label,
+    .filter-options select {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
+@media (min-width: 400px) and (max-width: 599px) {
+    .filter-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 359px) {
+    /* очень узкие: у «Фильтры» остаётся только иконка (подпись — в aria-label) */
+    .campus-page .mobile-filter-toggle span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+}

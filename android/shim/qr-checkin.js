@@ -1,4 +1,4 @@
-/* Отметка посещения: студент сканирует ротируемый QR преподавателя (в APK — нативный сканер ItcScanner: CameraX + ML Kit;
+/* Отметка посещения: студент сканирует ротируемый QR занятия (показывает админка) (в APK — нативный сканер ItcScanner: CameraX + ML Kit;
  * в браузере — jsQR + getUserMedia в полноэкранном видоискателе)
  * и отправляет {student_id, session_id, qr_token, nonce, device_token}. Имя не отправляется. Без сети отметка встаёт
  * в очередь (ItcQueue) с реальным временем сканирования scanned_at — сервер проверит её на тот момент. */
@@ -56,7 +56,7 @@
     if (!me) { if (window.ItcStudent) window.ItcStudent.profileScreen({ onboarding: true }); return; }
     say('');
     if (Scanner) { // нативный полноэкранный сканер (CameraX + ML Kit)
-      Scanner.scan({ hint: 'Наведите камеру на QR-код преподавателя' }).then(function (r) {
+      Scanner.scan({ hint: 'Наведите камеру на QR-код занятия' }).then(function (r) {
         if (r && r.text) { H.tap(); checkin(r.text); }
       }, function (e) {
         say(e && e.code === 'camera-denied' ? 'Нет доступа к камере. Разрешите его в настройках телефона или введите код вручную'

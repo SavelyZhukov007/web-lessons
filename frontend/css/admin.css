@@ -510,7 +510,7 @@
     margin-bottom: 16px;
 }
 
-/* идентификатор преподавателя (показ один раз) */
+/* секрет (показ один раз) */
 .secret-code {
     display: block;
     padding: 14px 12px;

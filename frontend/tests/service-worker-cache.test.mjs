@@ -44,8 +44,8 @@ test('expired API cache is rejected rather than presented as current', async () 
   sw.offline();
   await assert.rejects(sw.get('/api/clubs'), /offline/);
 });
-test('private attendance and teacher responses never enter the cache', async () => {
+test('private attendance and admin responses never enter the cache', async () => {
   const sw = worker();
-  assert.equal(await sw.get('/api/teacher/me'), undefined);
+  assert.equal(await sw.get('/api/admin/status'), undefined);
   assert.equal(await sw.get('/api/attendance/mine'), undefined);
 });

@@ -254,7 +254,7 @@
       '<p id="itc-perm" class="itc-warn" hidden>Уведомления запрещены в настройках. <button type="button" class="text-button" id="itc-perm-open">Открыть настройки</button></p>' +
       '<h3>Виджеты на рабочий стол</h3>' +
       '<div class="itc-actions"><button type="button" data-pin="next">Следующее занятие</button><button type="button" data-pin="today">Сегодня (4×2)</button></div>' +
-      '<p class="itc-muted small">Если кнопка не сработала: долгое нажатие на рабочем столе → Виджеты → «ИТС Кружки».</p>' +
+      '<p class="itc-muted small">Если кнопка не сработала: долгое нажатие на рабочем столе → Виджеты → «KipClub».</p>' +
       '<button type="button" class="itc-close">Готово</button></div>';
     document.body.appendChild(wrap);
     function save() {
@@ -282,7 +282,7 @@
     var m = /^itckruzhki:\/\/open(\/[^?#]*)?(\?[^#]*)?/.exec(url || '');
     if (!m) return null;
     var p = m[1] || '/', q = m[2] || '';
-    var map = { '/': '/index.html', '/my': '/index.html?my=1', '/clubs': '/clubs.html', '/club': '/club.html' + q, '/qr': '/qr.html', '/scan': '/qr.html?scan=1', '/today': '/index.html?from=shortcut', '/teacher': '/index.html?teacher=1&from=shortcut' };
+    var map = { '/': '/index.html', '/my': '/index.html?my=1', '/clubs': '/clubs.html', '/club': '/club.html' + q, '/qr': '/qr.html', '/scan': '/qr.html?scan=1', '/today': '/index.html?from=shortcut' };
     return map[p] || '/index.html';
   }
   function go(url) {

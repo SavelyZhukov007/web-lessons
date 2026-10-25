@@ -2,7 +2,7 @@
 // Единая точка сборки: node scripts/build.mjs --version v0.4.312pd [--platform android|web|pwa|all] [--no-bump] [--release] [--no-demo]
 //  - --version: v<X.Y.Z><канал l|i|p><стадия a|d|r>; буква платформы (A/W/M) дописывается автоматически.
 //  - канал задаёт конфиг: p — без демо-инструментов, тестового сервера и отладки; l/i — с ними.
-//  - результат: builds/<platform>/<полный id>/ (например builds/android/v0.4.312pdA/itc-kruzhki-v0.4.312pdA.apk).
+//  - результат: builds/<platform>/<полный id>/ (например builds/android/v0.4.312pdA/kipclub-v0.4.312pdA.apk).
 //    Разные id лежат рядом; пересборка того же id заменяет только его папку.
 import { spawnSync } from 'node:child_process';
 import { existsSync, rmSync, mkdirSync, copyFileSync, cpSync, writeFileSync, readFileSync } from 'node:fs';
@@ -32,10 +32,10 @@ for (const t of targets) {
     writeFileSync(androidVersionPath, JSON.stringify(a, null, 2) + '\n');
     run(`node scripts/build-apk.mjs --no-bump ${has('--no-demo') ? '' : '--demo'} ${has('--release') ? '--release' : ''}`, root);
     const v = readVersion('android'); const { d, full } = outDir(t);
-    const apk = join(root, 'dist', `itc-kruzhki-${full}.apk`);
-    copyFileSync(apk, join(d, `itc-kruzhki-${full}.apk`));
+    const apk = join(root, 'dist', `kipclub-${full}.apk`);
+    copyFileSync(apk, join(d, `kipclub-${full}.apk`));
     writeFileSync(join(d, 'version.json'), JSON.stringify({ versionName: full, versionCode: v.versionCode, channel: id.channel, stage: id.stage }, null, 2) + '\n');
-    console.log(`✔ ${join(d, `itc-kruzhki-${full}.apk`)} (versionCode ${v.versionCode})`);
+    console.log(`✔ ${join(d, `kipclub-${full}.apk`)} (versionCode ${v.versionCode})`);
   } else {
     const py = process.env.PYTHON || (existsSync(join(repo, '..', 'venv310', 'bin', 'python')) ? join(repo, '..', 'venv310', 'bin', 'python') : 'python3');
     const { d, full } = outDir(t);

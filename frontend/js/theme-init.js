@@ -116,6 +116,22 @@
     root.addEventListener && root.addEventListener('storage', function (e) { if (e.key === KEY) { prefs = load(); apply(); emit(); } });
   } catch (e) {}
 
+  // Без зума на iOS: Safari игнорирует user-scalable=no — гасим pinch (gesture*) и double-tap (два касания < 300 мс)
+  try {
+    var d = root.document;
+    if (d && d.addEventListener) {
+      var stop = function (e) { e.preventDefault(); };
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (n) { d.addEventListener(n, stop, { passive: false }); });
+      d.addEventListener('touchmove', function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+      var lastTouch = 0;
+      d.addEventListener('touchend', function (e) {
+        var now = Date.now();
+        if (now - lastTouch < 300 && !(e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable]'))) e.preventDefault();
+        lastTouch = now;
+      }, { passive: false });
+    }
+  } catch (e) {}
+
   root.ClubsTheme = {
     get: get, set: set, onChange: onChange,
     resolved: function () { return resolved; },

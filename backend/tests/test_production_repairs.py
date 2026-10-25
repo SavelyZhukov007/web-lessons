@@ -15,51 +15,12 @@ from backend.app.database import SessionLocal
 from backend.app.models import Leader
 from backend.app.models.attendance import Attendance, QrNonce, StudentDevice
 from backend.app.routers import attendance as att
-from backend.app.routers import public, teacher
+from backend.app.routers import public
 from backend.app.services import client_logs
 from backend.app.services.clock import MSK
 
 from .test_attendance import MONDAY, SID, _checkin, _fixed_clock, _qr, set_clock  # noqa: F401
 from .test_exception_conflicts_api import _post, admin_client, make_world  # noqa: F401
-
-
-def signed(data, *, transfer=False, prefix=None):
-    body = teacher._b64(json.dumps(data).encode())
-    key = teacher._tkey() if transfer else teacher._skey()
-    sig = teacher._b64(hmac.new(key, body.encode(), hashlib.sha256).digest())
-    return f"{prefix or ('itc-tx1' if transfer else 'tch1')}.{body}.{sig[:22] if transfer else sig}"
-
-
-@pytest.mark.parametrize("kind", ["signature", "prefix", "expired", "scope", "leader_type", "array"])
-def test_teacher_credentials_reject_forgery_and_malformed_claims(admin_client, kind):
-    w = make_world(admin_client)
-    issued = admin_client.post(f"/api/admin/leaders/{w['leader']['id']}/access").json()
-    valid = admin_client.post("/api/teacher/login", json={"token": issued["token"]}).json()["access_token"]
-    assert admin_client.get("/api/teacher/me", headers={"Authorization": f"Bearer {valid}"}).status_code == 200
-    with SessionLocal() as db:
-        leader = db.get(Leader, w["leader"]["id"])
-        data = {"l": leader.id, "a": teacher._epoch(leader.access_issued_at), "e": int(time.time()) + 300, "scope": "teacher"}
-    for transfer in (False, True):
-        claims = dict(data)
-        if kind == "expired":
-            claims["e"] = 1
-        if kind == "scope" and not transfer:
-            claims["scope"] = "admin"
-        if kind == "leader_type":
-            claims["l"] = []
-        if kind == "array":
-            claims = []
-        token = signed(claims, transfer=transfer, prefix="wrong" if kind == "prefix" else None)
-        if kind == "signature":
-            token = token.rsplit(".", 1)[0] + ".invalidsignature"
-        if transfer:
-            if kind == "scope":
-                continue  # transfer has its own key, no session scope
-            response = admin_client.post("/api/teacher/transfer", json={"code": token})
-        else:
-            response = admin_client.get("/api/teacher/me", headers={"Authorization": f"Bearer {token}"})
-        assert response.status_code == 401, (kind, transfer, response.text)
-    assert admin_client.get("/api/teacher/me", headers={"Authorization": f"Bearer {valid}"}).status_code == 200
 
 
 @pytest.mark.parametrize("secret", ["", "short", " " * 40 + "short" + " " * 40])
@@ -186,7 +147,7 @@ def test_upcoming_changes_exclude_past_but_keep_incoming_move(admin_client, monk
 def test_camera_policy_is_limited_to_qr_document(client):
     assert "camera=(self)" in client.get("/qr.html").headers["permissions-policy"]
     assert "camera=()" in client.get("/").headers["permissions-policy"]
-    assert client.get("/api/teacher/me").headers["cache-control"] == "no-store"
+    assert client.get("/api/attendance/mine").headers["cache-control"] == "no-store"
 
 
 @pytest.mark.parametrize("query", ["weekday=0", "weekday=99", "category_id=-1", "room_id=0", "leader_id=-5"])
@@ -204,9 +165,3 @@ def test_canonical_attendance_dates_cannot_bypass_cancellation(admin_client, ali
     with SessionLocal() as db:
         assert db.query(Attendance).count() == 0
 
-
-def test_permanent_teacher_login_secrets_are_redacted():
-    token = teacher.new_access_token()
-    for form in [token, token.lower(), token.replace('-', ' '), token.replace('-', ''), token[2:].replace('-', '')]:
-        entry = client_logs.normalize({'msg': form, 'stack': form, 'page': form}, {'device': form})
-        assert form not in json.dumps(entry)

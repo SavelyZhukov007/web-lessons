@@ -148,7 +148,7 @@ def make_parser() -> argparse.ArgumentParser:
     build.add_argument("--server-url", help="android: адрес сервера, вшитый как значение по умолчанию (иначе приложение спросит при запуске)")
     build.add_argument("--install", action="store_true", help="android: после сборки поставить APK через adb")
     build.add_argument("--check-only", action="store_true", help="android: только проверить окружение (JDK 21+, SDK, Node), не собирать")
-    build.add_argument("--demo", action="store_true", help="офлайн-демо: локальный бэкенд в браузере (localStorage), случайные данные, админ без входа (android → только itc-kruzhki-demo-debug-<версия>.apk; web → builds/web-demo)")
+    build.add_argument("--demo", action="store_true", help="офлайн-демо: локальный бэкенд в браузере (localStorage), случайные данные, админ без входа (android → только kipclub-demo-debug-<версия>.apk; web → builds/web-demo)")
     build.add_argument("--no-demo", action="store_true", help="android: не собирать демо-вариант вместе с основным APK")
     build.add_argument("--no-publish", action="store_true", help="android: не класть APK в каталог релизов (APP_RELEASES_DIR, по умолчанию releases/android) для /android/download")
     build.set_defaults(func=_build)

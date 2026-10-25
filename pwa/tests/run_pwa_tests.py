@@ -89,7 +89,7 @@ try:
             pg.evaluate("!!(window.NativeShell && window.ItcFeatures && window.ItcMotion && window.ItcPwaFeatures)"),
         )
         check("standalone: NativeShell.host = pwa", pg.evaluate("window.NativeShell.host") == "pwa")
-        check("бренд «ИТС Кружки» как в APK", "ИТС Кружки" in pg.locator(".campus-brand").first.inner_text())
+        check("бренд «KipClub» как в APK", "KipClub" in pg.locator(".campus-brand").first.inner_text())
         check("разрешение на уведомления НЕ запрашивается при запуске", not calls(pg, "requestPermission"))
         pg.screenshot(path=str(SHOTS / "d-schedule-iphone15-light.png"))
         pg.goto("/club.html?id=1")

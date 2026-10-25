@@ -38,7 +38,7 @@
     var e = env();
     if (!e.secure) return { ok: false, msg: 'Уведомления работают только по HTTPS.' };
     if (!e.sw || !e.push || !e.notif) return { ok: false, msg: ios ? 'Для уведомлений нужен iOS/iPadOS 16.4 или новее.' : 'Это устройство не поддерживает push-уведомления.' };
-    if (e.perm === 'denied') return { ok: false, denied: true, msg: ios ? 'Уведомления запрещены: Настройки → Уведомления → «Кружки».' : 'Уведомления запрещены в настройках сайта/приложения.' };
+    if (e.perm === 'denied') return { ok: false, denied: true, msg: ios ? 'Уведомления запрещены: Настройки → Уведомления → «KipClub».' : 'Уведомления запрещены в настройках сайта/приложения.' };
     return { ok: true, msg: '' };
   }
   function enabled() { return LS.getItem(PUSH_KEY) === '1' && env().perm === 'granted'; }
@@ -77,7 +77,7 @@
     var a = availability();
     if (!a.ok) { toast(a.msg); return Promise.resolve(false); }
     return Notification.requestPermission().then(function (p) {
-      if (p !== 'granted') { LS.setItem(PUSH_KEY, '0'); toast(ios ? 'Без разрешения уведомления не придут. Включить: Настройки → Уведомления → «Кружки».' : 'Разрешение на уведомления не выдано.'); return false; }
+      if (p !== 'granted') { LS.setItem(PUSH_KEY, '0'); toast(ios ? 'Без разрешения уведомления не придут. Включить: Настройки → Уведомления → «KipClub».' : 'Разрешение на уведомления не выдано.'); return false; }
       LS.setItem(PUSH_KEY, '1');
       return syncSubs().then(function () { toast('Готово: сообщим об отменах и переносах в «Моих кружках»'); refreshBadge(); return true; },
         function (e) { toast('Не удалось подписаться: ' + (e && e.message || e)); return false; });

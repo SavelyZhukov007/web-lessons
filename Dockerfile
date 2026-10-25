@@ -8,11 +8,14 @@ RUN pip install -r backend/requirements.lock.txt
 
 COPY backend backend
 COPY frontend frontend
+COPY pwa pwa
+COPY android/shim android/shim
 COPY tools tools
 COPY data data
 COPY server.py pyproject.toml ./
-# Продовая сборка фронта: хэш сборки в service worker, без тестов/служебных файлов
-RUN python server.py build web --out /app/builds/web
+# Продовая сборка фронта = сборка PWA: в обычной вкладке сайт как прежде, в установленном PWA (standalone)
+# — та же оболочка, что в APK. Хэш сборки в service worker, без тестов/служебных файлов
+RUN python server.py build pwa --out /app/builds/web
 
 RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
     && mkdir -p /data /backups && chown app:app /data /backups

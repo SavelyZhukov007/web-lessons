@@ -121,7 +121,7 @@ html.is-native .campus-footer {
   display: none !important;
 }
 
-/* --- 11. Заголовок «ИТС Кружки» --- */
+/* --- 11. Заголовок «KipClub» --- */
 html.is-native .campus-brand>span.native-brand {
   letter-spacing: -.04em;
   white-space: nowrap;
@@ -603,5 +603,66 @@ html.is-native .native-sessions-tabs a:nth-child(5):last-child {
   }
   html.is-native .native-sessions-tabs a:last-child:nth-child(odd) {
     grid-column: span 2 !important;
+  }
+}
+
+/* ---------- Шапка APK/PWA не вылезает за экран (320–420 px): «KipClub» + «Все кружки» + «Админка» + ⚙ ----------
+   Раньше все элементы были flex:none/nowrap и в сумме шире экрана — шестерёнка уезжала за правый край.
+   Теперь сжимаются текстовые элементы (многоточие, шрифт через clamp), кнопка-иконка — фиксированные 44×44. */
+html.is-native .campus-header[data-app-header],
+html.is-native .campus-header[data-native-admin] {
+  box-sizing: border-box;
+  max-width: 100%;
+  flex-wrap: nowrap !important;
+  gap: clamp(4px, 2vw, 8px) !important;
+  min-width: 0;
+}
+html.is-native .campus-header[data-app-header] .campus-brand,
+html.is-native .campus-header[data-native-admin] .campus-brand {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+html.is-native .campus-header[data-app-header] .campus-brand>span.native-brand,
+html.is-native .campus-header[data-native-admin] .campus-brand>span.native-brand {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(18px, 6.2vw, 24px);
+}
+html.is-native .campus-header[data-app-header] nav,
+html.is-native .campus-header[data-native-admin] nav {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+html.is-native .campus-header[data-app-header] .app-nav-toggle,
+html.is-native .campus-header[data-native-admin] .app-nav-toggle {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: clamp(13px, 3.9vw, 15px) !important;
+  padding-left: clamp(4px, 1.5vw, 10px) !important;
+  padding-right: clamp(4px, 1.5vw, 10px) !important;
+}
+html.is-native .campus-header[data-app-header] .itc-home-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: clamp(12px, 3.6vw, 14px);
+  padding: 6px clamp(8px, 2.5vw, 12px);
+}
+html.is-native .campus-header .app-menu-btn {
+  flex: 0 0 44px !important;
+  width: 44px;
+  min-width: 44px;
+}
+@media (max-width: 380px) {
+  html.is-native .campus-header[data-app-header],
+  html.is-native .campus-header[data-native-admin] {
+    padding-left: max(12px, var(--safe-left, 0px));
+    padding-right: max(8px, var(--safe-right, 0px));
   }
 }

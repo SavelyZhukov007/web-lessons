@@ -108,7 +108,7 @@
     var w = sheet('<h2>Журнал приложения</h2><p class="itc-muted small">Ошибки и предупреждения за 21 день (не больше ' + MAX + ' строк). Хранится только на телефоне.</p>' +
       '<pre class="itc-log">' + esc(window.ItcLog.text().split('\n').slice(-150).join('\n') || 'Пусто') + '</pre>' +
       '<div class="itc-actions"><button type="button" data-share>Поделиться</button><button type="button" data-clear>Очистить</button></div>');
-    w.querySelector('[data-share]').addEventListener('click', function () { window.ItcFiles.save(new Blob([window.ItcLog.text()], { type: 'text/plain' }), 'itc-log.txt', 'Журнал «Кружки»'); });
+    w.querySelector('[data-share]').addEventListener('click', function () { window.ItcFiles.save(new Blob([window.ItcLog.text()], { type: 'text/plain' }), 'itc-log.txt', 'Журнал «KipClub»'); });
     w.querySelector('[data-clear]').addEventListener('click', function () { window.ItcLog.clear(); w.querySelector('pre').textContent = 'Пусто'; });
   }
   var T = window.ItcServerTools;
