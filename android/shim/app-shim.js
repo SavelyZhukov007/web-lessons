@@ -19,8 +19,12 @@
     if (u.port && (Number(u.port) < 1 || Number(u.port) > 65535)) throw new Error('Порт должен быть 1–65535');
     return u.origin; // без пути и без «/» на конце
   }
-  function get() { try { return localStorage.getItem(KEY) || window.APP_DEFAULT_SERVER || ''; } catch (e) { return window.APP_DEFAULT_SERVER || ''; } } // APP_DEFAULT_SERVER — опционально, из `build android --server-url`
-  function set(v) { localStorage.setItem(KEY, normalize(v)); return get(); }
+  // канал p: адрес зашит при сборке (prepare-web → default-server.js), сохранённый ранее адрес игнорируется
+  var FIXED = !!(window.APP_FIXED_SERVER && window.APP_DEFAULT_SERVER);
+  if (FIXED) { try { localStorage.removeItem(KEY); } catch (e) {} }
+  function get() { if (FIXED) return window.APP_DEFAULT_SERVER;
+    try { return localStorage.getItem(KEY) || window.APP_DEFAULT_SERVER || ''; } catch (e) { return window.APP_DEFAULT_SERVER || ''; } } // APP_DEFAULT_SERVER — опционально, из `build android --server-url`
+  function set(v) { if (FIXED) return get(); localStorage.setItem(KEY, normalize(v)); return get(); }
   function clear() { try { localStorage.removeItem(KEY); } catch (e) {} }
 
   function withTimeout(promise, ms, message) {
@@ -74,7 +78,7 @@
           warning: j.api_version === API_VERSION ? '' : 'Версия API сервера (' + j.api_version + ') отличается от приложения (' + API_VERSION + '): что-то может не работать.' };
       });
   }
-  var api = { KEY: KEY, normalize: normalize, get: get, set: set, clear: clear, test: test, info: info, API_VERSION: API_VERSION };
+  var api = { fixed: FIXED, KEY: KEY, normalize: normalize, get: get, set: set, clear: clear, test: test, info: info, API_VERSION: API_VERSION };
   window.ItcServerTools = api;
   // демо-сборка без выбранного тестового сервера: только инструменты (подключение из Настроек), демо-бэкенд работает как раньше
   if (window.APP_DEMO_BUILD && !localStorage.getItem(KEY)) return;
@@ -99,12 +103,13 @@
     if (a && base) { e.preventDefault(); location.href = base + a.getAttribute('href'); }
   }, true);
 
+  if (FIXED && onSettings) { location.replace('/index.html'); return; }
   // --- первый запуск
   if (!base && !onSettings) { location.replace('/settings.html?first=1'); return; }
 
   // --- кнопка смены сервера
   function addGear() {
-    if (onSettings || !document.body) return;
+    if (FIXED || onSettings || !document.body) return;
     if (document.querySelector('[data-settings-button]')) return; // сайт уже имеет свою кнопку «Настройки» (там же блок «Сервер»)
     var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/app-shell.css'; document.head.appendChild(l);
     var a = document.createElement('a');

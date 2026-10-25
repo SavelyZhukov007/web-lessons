@@ -31,7 +31,7 @@ function swatches(current, onPick) {
 
 function serverSection() {
   const S = window.AppServer;
-  if (!S) return null;
+  if (!S || S.fixed) return null; // публичная сборка APK: сервер зашит, менять нельзя
   const input = h('input', { type: 'url', id: 'settings-server', value: S.get(), inputmode: 'url', autocomplete: 'off', placeholder: 'http://192.168.1.50:8000' });
   const status = h('p', { class: 'field-hint', role: 'status' }, S.get() ? `Текущий сервер: ${S.get()}` : 'Сервер не задан.');
   const test = h('button', { type: 'button', class: 'btn btn--small' }, 'Проверить');

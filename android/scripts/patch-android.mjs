@@ -10,7 +10,21 @@ const manifestPath = join(app, 'AndroidManifest.xml');
 if (!existsSync(manifestPath)) throw new Error('Нет ' + manifestPath + ' — сначала `npx cap add android`');
 
 mkdirSync(join(app, 'res', 'xml'), { recursive: true });
-writeFileSync(join(app, 'res', 'xml', 'network_security_config.xml'), `<?xml version="1.0" encoding="utf-8"?>
+// канал p (не демо): http разрешён только к production-серверу (APP_SERVER_URL, по умолчанию lekora.ru), остальное — только HTTPS
+const PUBLIC = !/^(1|true|yes)$/i.test(process.env.APP_DEMO || '') && (process.env.ITC_CHANNEL || readVersion('android').channel) === 'p';
+const serverHost = new URL(process.env.APP_SERVER_URL || process.env.APP_DEFAULT_SERVER || 'http://lekora.ru:7443').hostname;
+if (PUBLIC) writeFileSync(join(app, 'res', 'xml', 'network_security_config.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<!-- PUBLIC (канал p): cleartext только к серверу расписания ${serverHost}; остальные адреса — только HTTPS. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors><certificates src="system" /></trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">${serverHost}</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
+`); else writeFileSync(join(app, 'res', 'xml', 'network_security_config.xml'), `<?xml version="1.0" encoding="utf-8"?>
 <!-- DEBUG/LAN: разрешён http:// к любым хостам (IP:PORT вводит пользователь). Для production — только HTTPS и убрать этот файл. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true">
@@ -24,7 +38,7 @@ const set = (attr, val) => {
   const re = new RegExp(`\\s${attr.replace('.', '\\.')}="[^"]*"`);
   xml = re.test(xml) ? xml.replace(re, ` ${attr}="${val}"`) : xml.replace('<application', `<application\n        ${attr}="${val}"`);
 };
-set('android:usesCleartextTraffic', 'true');
+set('android:usesCleartextTraffic', 'true'); // канал p: фактически решает networkSecurityConfig (API 24+); 'false' конфликтует с манифестом cordova-плагинов
 set('android:networkSecurityConfig', '@xml/network_security_config');
 if (!xml.includes('android.permission.INTERNET')) xml = xml.replace('</manifest>', '    <uses-permission android:name="android.permission.INTERNET" />\n</manifest>');
 // «Добавить в календарь» (@ebarooni/capacitor-calendar): запись событий в календарь устройства, запрос разрешения во время работы

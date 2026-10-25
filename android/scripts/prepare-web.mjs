@@ -30,12 +30,19 @@ for (const f of readdirSync(out).filter((n) => n.endsWith('.html'))) {
 mkdirSync(join(out, 'js'), { recursive: true });
 // APP_DEMO=1 — демо/офлайн-сборка: вместо shim сервера подключается локальный бэкенд (localStorage), сеть не нужна
 const DEMO = /^(1|true|yes)$/i.test(process.env.APP_DEMO || '');
+// Публичный канал (p, не демо): адрес сервера зашит при сборке (APP_SERVER_URL, по умолчанию production),
+// экрана «Сервер расписания» и смены сервера нет. Каналы l/i — как раньше (адрес вводит пользователь).
+const FIXED_SERVER = !DEMO && (process.env.ITC_CHANNEL || readVersion('android').channel) === 'p';
+const PROD_SERVER = 'http://lekora.ru:7443';
 if (DEMO) {
   // демо + инструменты подключения к тестовому серверу (app-shim), Excel-выгрузка без сервера (xlsx-lite)
   for (const f of ['demo-backend.js', 'app-shim.js', 'xlsx-lite.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));
 } else {
-  for (const f of ['app-shim.js', 'server-setup.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));
-  cpSync(join(root, 'shim', 'settings.html'), join(out, 'settings.html'));
+  cpSync(join(root, 'shim', 'app-shim.js'), join(out, 'js', 'app-shim.js'));
+  if (!FIXED_SERVER) { // экран выбора сервера — только l/i
+    cpSync(join(root, 'shim', 'server-setup.js'), join(out, 'js', 'server-setup.js'));
+    cpSync(join(root, 'shim', 'settings.html'), join(out, 'settings.html'));
+  }
 }
 cpSync(join(root, 'shim', 'app-shell.css'), join(out, 'css', 'app-shell.css'));
 // нативная оболочка (только APK): html.is-native, safe area, «Назад», календарь, выход/вход, бренд — см. shim/native-shell.*
@@ -76,9 +83,10 @@ const SCHEDULE_HEAD = '<link rel="preload" href="/fonts/GolosText-Variable.woff2
   '<link rel="stylesheet" href="/css/app-schedule.css">';
 
 // опционально: предзаданный адрес сервера (APP_DEFAULT_SERVER=http://IP:PORT) — тогда экран настроек при первом запуске не нужен
-const defServer = DEMO ? '' : (process.env.APP_DEFAULT_SERVER || '').trim();
+const defServer = DEMO ? '' : ((FIXED_SERVER ? (process.env.APP_SERVER_URL || process.env.APP_DEFAULT_SERVER || PROD_SERVER) : process.env.APP_DEFAULT_SERVER) || '').trim().replace(/\/+$/, '');
 const PRE = defServer ? '<script src="/js/default-server.js"></script>\n    ' : '';
-if (defServer) writeFileSync(join(out, 'js', 'default-server.js'), `window.APP_DEFAULT_SERVER=${JSON.stringify(defServer)};\n`);
+if (defServer) writeFileSync(join(out, 'js', 'default-server.js'), `window.APP_DEFAULT_SERVER=${JSON.stringify(defServer)};${FIXED_SERVER ? 'window.APP_FIXED_SERVER=true;' : ''}\n`);
+if (FIXED_SERVER) console.log(`[prepare-web] канал p: сервер зашит ${defServer}, экран выбора сервера отключён`);
 
 // вставляем shim первым скриптом в <head> каждой html-страницы (до модулей и api.js)
 const SHIM = DEMO ? 'demo-backend.js' : 'app-shim.js';
