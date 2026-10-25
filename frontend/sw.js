@@ -94,11 +94,11 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data ? event.data.text() : '' }; }
-  const title = String(data.title || 'Расписание кружков');
+  const title = String(data.title || 'KipClub');
   const options = {
     body: String(data.body || ''),
-    icon: '/icons/icon-192.png',
-    badge: '/icons/badge-96.png',
+    icon: '/icons/icon-192.png?v=kc3',
+    badge: '/icons/badge-96.png?v=kc3',
     tag: data.tag ? String(data.tag) : undefined,
     lang: 'ru',
     data: { url: typeof data.url === 'string' ? data.url : '/' },

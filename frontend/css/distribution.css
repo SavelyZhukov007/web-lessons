@@ -336,6 +336,11 @@
         grid-template-columns: 1fr 1fr;
     }
 
+    /* Нечётный последний шаг растягиваем на всю ширину, чтобы справа не было дыры. */
+    .dist-step:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+    }
+
     .dist-overlay {
         align-items: center;
     }
