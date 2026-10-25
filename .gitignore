@@ -25,3 +25,5 @@ test-results/
 releases/
 *.jks
 *.keystore
+test_vapid_keys.json
+*_vapid_keys.json

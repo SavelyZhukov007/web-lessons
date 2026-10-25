@@ -7,13 +7,19 @@ html.itc-splash-on #itc-splash {
 html.itc-splash-on body { overflow: hidden; }
 html.itc-splash-out #itc-splash { opacity: 0; pointer-events: none; }
 @media (prefers-color-scheme: dark) { html.itc-splash-on:not([data-theme]) #itc-splash { background: #111412; color: #eef1ee; } }
-/* иконка: скруглённый квадрат (радиус 22%, как у иконки лаунчера) — логотип с уголками целиком, с полем ~14% */
-.itc-splash-icon { position: absolute; left: 50%; top: 50%; width: 160px; height: 160px; margin: -80px 0 0 -80px; border-radius: 22%;
-  overflow: hidden; background: #0B1638; box-shadow: 0 6px 24px rgb(0 0 0 / .18); transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
-/* в слое 432px логотип занимает 104…328 (52%): масштаб 240px → логотип ≈125px (поле 17px — уголки не задевают скругление) в окне 160px */
-.itc-splash-icon img { position: absolute; left: -40px; top: -40px; width: 240px; height: 240px; }
-#itc-splash.lifted .itc-splash-icon { transform: translateY(-9vh) scale(.8); }
-.itc-splash-mid { position: absolute; top: calc(50% + 24px); left: 0; right: 0; display: grid; justify-items: center; gap: 14px; padding: 0 32px; }
+/* Иконка = системный сплэш Android 12+ (SplashScreen API): круг 160dp цвета ic_launcher_background (#B83B29),
+   внутри передний слой адаптивной иконки (240dp, inset 9% → 196.8dp) — один в один, поэтому передача без скачка.
+   Иконка всегда строго по центру; текст — отдельным блоком НИЖЕ круга с отступом, перекрытия нет ни на каком экране. */
+#itc-splash { --sp-icon: 160px; --sp-gap: 32px; }
+.itc-splash-icon { position: absolute; left: 50%; top: 50%; width: var(--sp-icon); height: var(--sp-icon); margin: calc(var(--sp-icon) / -2) 0 0 calc(var(--sp-icon) / -2);
+  border-radius: 50%; overflow: hidden; background: #B83B29; }
+.itc-splash-icon img { position: absolute; left: -11.5%; top: -11.5%; width: 123%; height: 123%; }
+#itc-splash.lifted .itc-splash-icon { transform: none; }
+.itc-splash-mid { position: absolute; top: calc(50% + var(--sp-icon) / 2 + var(--sp-gap)); left: 0; right: 0; display: grid; justify-items: center; gap: 14px;
+  padding: 0 max(24px, env(safe-area-inset-left, 0px)) 0 max(24px, env(safe-area-inset-right, 0px)); }
+/* низкие экраны (альбом телефона, сплит-скрин): иконка меньше, подпись «Продукт…» прячется, чтобы ничего не наезжало */
+@media (max-height: 560px) { #itc-splash { --sp-icon: 112px; --sp-gap: 20px; } .itc-splash-foot { display: none; } }
+@media (max-height: 380px) { .itc-splash-mid { gap: 8px; } }
 .itc-splash-phrase { min-height: 1.4em; font: 500 15px/1.4 system-ui, sans-serif; opacity: .78; text-align: center; transition: opacity .16s, transform .16s; }
 .itc-splash-phrase.swap { opacity: 0; transform: translateY(4px); }
 .itc-splash-bar { width: min(220px, 60vw); height: 4px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, currentColor 14%, transparent); }

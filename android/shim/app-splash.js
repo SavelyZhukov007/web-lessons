@@ -57,7 +57,7 @@
       setTimeout(function () { phrase.textContent = PHRASES[i]; phrase.classList.remove('swap'); }, 160);
     }, 1100);
     handover();
-    requestAnimationFrame(function () { el.classList.add('lifted'); });
+    /* 'lifted' убран: позиция логотипа фиксирована, без прыжка */
     api.progress(0.3);
     // страницы без своего сигнала (кружок, каталог, админка) — готовы по load
     if (!doc.getElementById('schedule-main')) window.addEventListener('load', function () { api.progress(0.9); api.done(); });

@@ -1,10 +1,13 @@
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-TEST_DB = Path(__file__).resolve().parents[2] / "test.sqlite3"
+# тестовые артефакты (БД, VAPID-ключи) — во временном каталоге, не в репозитории
+TEST_TMP = Path(tempfile.mkdtemp(prefix="clubs-tests-"))
+TEST_DB = TEST_TMP / "test.sqlite3"
 os.environ["CLUBS_SCHEDULE_DB_PATH"] = str(TEST_DB)
 os.environ["ENV"] = "test"
 os.environ["CLUBS_USE_CREATE_ALL"] = "1"  # быстрые тесты; миграции проверяет test_migrations.py
@@ -36,6 +39,10 @@ def cleanup_database_file():
     vapid = TEST_DB.with_name("test_vapid_keys.json")
     if vapid.exists():
         vapid.unlink()
+    try:
+        TEST_TMP.rmdir()
+    except OSError:
+        pass
 
 
 @pytest.fixture

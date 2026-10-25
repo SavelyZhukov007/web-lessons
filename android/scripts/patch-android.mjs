@@ -54,7 +54,7 @@ const values = join(app, 'res', 'values'); const valuesNight = join(app, 'res', 
 mkdirSync(valuesNight, { recursive: true });
 const colors = (bg) => `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="clubs_background">${bg}</color>\n</resources>\n`;
 writeFileSync(join(values, 'clubs_colors.xml'), colors('#FFFFFF'));
-writeFileSync(join(valuesNight, 'clubs_colors.xml'), colors('#111412'));
+writeFileSync(join(valuesNight, 'clubs_colors.xml'), colors('#FFFFFF') /* как HTML-сплэш: без вспышки тёмного фона */);
 const stylesPath = join(values, 'styles.xml');
 if (existsSync(stylesPath)) {
   let styles = readFileSync(stylesPath, 'utf8');
@@ -96,8 +96,8 @@ let icons = 0;
 if (existsSync(brand)) {
   const walk = (dir) => { for (const n of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, n.name);
-    if (n.isDirectory()) { if (/^(mipmap|drawable|values)[\w-]*$/.test(n.name) && readdirSync(p).some(f => /^ic_launcher/.test(f))) { mkdirSync(join(app, 'res', n.name), { recursive: true });
-      for (const f of readdirSync(p)) if (/^ic_launcher/.test(f)) { cpSync(join(p, f), join(app, 'res', n.name, f)); icons++; } } else walk(p); }
+    if (n.isDirectory()) { if (/^(mipmap|drawable|values)[\w-]*$/.test(n.name) && readdirSync(p).some(f => /^(ic_launcher|splash\.png$)/.test(f))) { mkdirSync(join(app, 'res', n.name), { recursive: true });
+      for (const f of readdirSync(p)) if (/^(ic_launcher|splash\.png$)/.test(f)) { cpSync(join(p, f), join(app, 'res', n.name, f)); icons++; } } else walk(p); }
   } };
   walk(brand);
 }

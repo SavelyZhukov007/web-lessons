@@ -465,3 +465,19 @@
     place-content: center;
     text-align: center;
 }
+/* 320–400 px: «Программирование» целиком не помещается при 8vw — уменьшаем и разрешаем перенос как крайнюю меру */
+@media (max-width: 400px) {
+    .public-title h1 {
+        font-size: calc(clamp(22px, 6.6vw, 30px) * var(--text-scale, 1));
+        overflow-wrap: anywhere;
+    }
+}
+
+
+/* Знак KipClub в шапке (единый бренд сайта, PWA, APK и админки) */
+.campus-brand .brand-mark {
+    width: calc(28px * var(--text-scale, 1));
+    height: calc(28px * var(--text-scale, 1));
+    flex: none;
+}
+.campus-brand .brand-mark + span + small { margin-left: 6px; }

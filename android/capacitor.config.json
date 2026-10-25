@@ -1,6 +1,6 @@
 {
   "appId": "ru.kipfin.clubs",
-  "appName": "Кружки КИПФИН",
+  "appName": "KipClub",
   "webDir": "www",
   "server": {
     "androidScheme": "http",
