@@ -20,7 +20,7 @@
     const box = document.createElement('aside');
     box.className = 'install-banner';
     box.setAttribute('aria-label', 'Установка приложения');
-    box.innerHTML = `<img src="/icons/apple-touch-icon.png?v=kc3" alt="">
+    box.innerHTML = `<span class="install-banner__icon kc-icon" aria-hidden="true"></span>
         <div class="install-banner__text"><strong>Установить приложение</strong><span>${ios ? 'На экран «Домой» — в два касания' : 'Расписание и уведомления на Android'}</span></div>
         <a class="btn btn--tonal btn--small install-banner__cta" href="${href}">Установить</a>
         <button class="install-banner__close" type="button" aria-label="Скрыть">×</button>`;

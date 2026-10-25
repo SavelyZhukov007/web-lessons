@@ -97,8 +97,8 @@ self.addEventListener('push', event => {
   const title = String(data.title || 'KipClub');
   const options = {
     body: String(data.body || ''),
-    icon: '/icons/icon-192.png?v=kc3',
-    badge: '/icons/badge-96.png?v=kc3',
+    icon: '/icons/icon-192.png?v=kc4',
+    badge: '/icons/badge-96.png?v=kc4',
     tag: data.tag ? String(data.tag) : undefined,
     lang: 'ru',
     data: { url: typeof data.url === 'string' ? data.url : '/' },

@@ -27,3 +27,4 @@ releases/
 *.keystore
 test_vapid_keys.json
 *_vapid_keys.json
+prod.ps1

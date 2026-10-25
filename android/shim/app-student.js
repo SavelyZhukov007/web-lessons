@@ -199,7 +199,7 @@
     var f = s.querySelector('input'); if (f) setTimeout(function () { f.focus({ preventScroll: true }); }, 300);
     return s;
   }
-  var ICON = '<img class="itc-ob-icon" src="/icons/splash-fg.png" alt="" width="96" height="96">';
+  var ICON = '<span class="itc-ob-icon kc-icon" aria-hidden="true"></span>';
   function dots(n, of) { var h = '<div class="itc-ob-dots" aria-label="Шаг ' + n + ' из ' + of + '">'; for (var i = 1; i <= of; i++) h += '<i' + (i === n ? ' class="on"' : '') + '></i>'; return h + '</div>'; }
 
   function roleScreen() {

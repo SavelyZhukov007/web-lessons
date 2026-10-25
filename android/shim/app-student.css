@@ -9,7 +9,7 @@ html.itc-ob-open body { overflow: hidden; }
 .itc-ob-wide { max-width: 560px; }
 .itc-ob h1 { margin: 0; font-size: calc(26px * min(var(--text-scale, 1), 1.4)); line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
 .itc-ob h2 { margin: 8px 0 0; font-size: calc(18px * var(--text-scale, 1)); }
-.itc-ob-icon { justify-self: center; width: 96px; height: 96px; border-radius: 22%; background: #0B1638; object-fit: cover; object-position: center; padding: 0;
+.itc-ob-icon { justify-self: center; width: 96px; height: 96px; border-radius: 22%; background: var(--logo-fill, #B83B29); object-fit: cover; object-position: center; padding: 0;
   box-shadow: 0 6px 20px rgb(0 0 0 / .16); }
 .itc-ob-lead { margin: 0; text-align: center; color: var(--muted, inherit); overflow-wrap: anywhere; }
 .itc-ob-dots { display: flex; gap: 6px; justify-content: center; } .itc-ob-dots i { width: 8px; height: 8px; border-radius: 4px; background: var(--outline, #8886); transition: transform .25s, opacity .25s; opacity: .7; }

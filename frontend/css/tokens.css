@@ -252,3 +252,20 @@ html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
 }
+
+/* Заливка знака KipClub на страницах следует акцентному цвету (одинаково в светлой и тёмной теме — белый K #FFF8F4
+   должен оставаться читаемым). Иконки ОС (favicon, manifest, apple-touch-icon, лаунчер Android) — статичный #B83B29. */
+:root { --logo-fill: #B83B29; --logo-mark: #FFF8F4; }
+:root[data-accent="blue"] { --logo-fill: #1a5fb4; }
+:root[data-accent="green"] { --logo-fill: #17683a; }
+:root[data-accent="violet"] { --logo-fill: #6a3fc4; }
+
+/* Знак K (маска из /icons/kipclub-mark.svg — тот же контур, что в icon.svg) */
+.brand-mark, .kc-icon::before {
+    -webkit-mask: url("/icons/kipclub-mark.svg?v=kc4") center / 100% 100% no-repeat;
+    mask: url("/icons/kipclub-mark.svg?v=kc4") center / 100% 100% no-repeat;
+}
+.brand-mark { display: inline-block; background: var(--logo-fill, #B83B29); }
+/* Полная иконка: квадрат цвета акцента + белый K; скругление задаёт контейнер, как раньше у <img> */
+.kc-icon { position: relative; display: inline-block; overflow: hidden; background: var(--logo-fill, #B83B29); }
+.kc-icon::before { content: ""; position: absolute; inset: 0; background: var(--logo-mark, #FFF8F4); }

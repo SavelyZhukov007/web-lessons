@@ -98,7 +98,8 @@
     background: none;
 }
 
-.dist-step__icon--app img {
+.dist-step__icon--app img,
+.dist-step__icon--app .kc-icon {
     width: 40px;
     height: 40px;
     border-radius: 10px;
@@ -186,7 +187,8 @@
     stroke-width: 1.8;
 }
 
-.dist-alert__icon img {
+.dist-alert__icon img,
+.dist-alert__icon .kc-icon {
     width: 40px;
     height: 40px;
     border-radius: 10px;
@@ -359,7 +361,8 @@
     color: var(--ink);
 }
 
-.install-banner img {
+.install-banner img,
+.install-banner .kc-icon {
     width: 36px;
     height: 36px;
     border-radius: 9px;

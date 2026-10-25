@@ -8,11 +8,11 @@
     <title>Кружки — KipClub</title>
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#ffffff">
-    <link rel="manifest" href="/manifest.webmanifest?v=kc3">
-    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg?v=kc3">
-    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=kc3">
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=kc3">
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=kc3">
+    <link rel="manifest" href="/manifest.webmanifest?v=kc4">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg?v=kc4">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=kc4">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=kc4">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=kc4">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="KipClub">
@@ -23,12 +23,12 @@
     <link rel="stylesheet" href="/css/components.css">
     <link rel="stylesheet" href="/css/pages.css">
     <link rel="stylesheet" href="/css/platform.css">
-    <link rel="stylesheet" href="/css/distribution.css?v=kc3">
+    <link rel="stylesheet" href="/css/distribution.css?v=kc4">
 </head>
 <body class="campus-page dist-page" data-dist-page="ios-pwa">
     <a class="skip-link" href="#public-main">К содержимому</a>
     <header class="campus-header">
-        <a class="campus-brand" href="/" aria-label="KipClub — главная"><img class="brand-mark" src="/icons/kipclub-mark.svg?v=kc3" alt="" width="28" height="28"><span>KipClub</span></a>
+        <a class="campus-brand" href="/" aria-label="KipClub — главная"><span class="brand-mark" aria-hidden="true"></span><span>KipClub</span></a>
         <nav aria-label="Основная навигация">
             <a href="/">Расписание</a>
             <a href="/clubs.html">Все кружки</a>
@@ -40,13 +40,13 @@
     </main>
     <div id="pwa-overlay" class="dist-overlay" role="dialog" aria-modal="true" aria-labelledby="pwa-overlay-title" hidden>
         <div class="dist-sheet">
-            <img class="dist-hero__icon" src="/icons/apple-touch-icon.png?v=kc3" alt="" width="64" height="64">
+            <span class="dist-hero__icon kc-icon" aria-hidden="true"></span>
             <h1 id="pwa-overlay-title">Установите «KipClub»</h1>
             <p class="dist-lead">Приложение для iPhone ставится прямо из Safari — без App Store. Это займёт десять секунд.</p>
             <ol class="dist-mini-steps">
                 <li><span class="dist-step__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10H6.5A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5H16"/></svg></span><span>Нажмите <strong>«Поделиться»</strong> внизу экрана</span></li>
                 <li><span class="dist-step__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M12 8.5v7M8.5 12h7"/></svg></span><span>Выберите <strong>«На экран “Домой”»</strong></span></li>
-                <li><span class="dist-step__icon dist-step__icon--app"><img src="/icons/apple-touch-icon.png?v=kc3" alt="" width="40" height="40"></span><span>Откройте «KipClub» с экрана «Домой»</span></li>
+                <li><span class="dist-step__icon dist-step__icon--app"><span class="kc-icon" aria-hidden="true"></span></span><span>Откройте «KipClub» с экрана «Домой»</span></li>
             </ol>
             <a class="btn btn--filled dist-btn-wide" href="/ios">Подробная инструкция</a>
             <a class="btn btn--text dist-btn-wide" href="/">Продолжить в браузере</a>
