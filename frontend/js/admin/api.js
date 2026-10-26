@@ -12,6 +12,7 @@ export async function logout() {
   try { await request('/api/admin/logout', { method: 'POST' }); } finally { clearAdminToken(); }
 }
 export const getAdminStatus = options => request('/api/admin/status', options);
+export const getStats = options => request('/api/admin/stats', options);
 export const changePassword = (current_password, new_password) => request('/api/admin/password', send('POST', { current_password, new_password }));
 
 function crud(path) {

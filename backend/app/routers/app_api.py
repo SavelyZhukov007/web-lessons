@@ -15,6 +15,7 @@ from .. import settings
 from ..database import get_db
 from ..services import broadcast as broadcast_service
 from ..services import client_logs
+from ..services import stats as stats_service
 from .admin import require_admin
 
 router = APIRouter(tags=["app"])
@@ -112,3 +113,24 @@ def admin_logs_txt(level: str | None = Query(None), version: str | None = Query(
     items = client_logs.query(limit=20000, **_filters(level, version, device, date_from, date_to))
     return PlainTextResponse(client_logs.as_text(items), headers={
         "Content-Disposition": 'attachment; filename="itc-logs.txt"', "Cache-Control": "no-store"})
+
+
+class PingIn(BaseModel):
+    install_id: str = Field(min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    kind: str = Field("web", pattern=r"^(web|ios-pwa|pwa)$")
+
+
+@router.post("/api/app/ping", status_code=204)
+def app_ping(body: PingIn, request: Request, db: Session = Depends(get_db)):
+    """Обезличенный «я пользуюсь»: сайт / PWA раз в день и при возврате. Хранится только хэш id, без IP/UA."""
+    if "kipclub-stress" in request.headers.get("user-agent", "").lower():
+        return  # нагрузочный тест не считаем
+    ip = request.client.host if request.client else "-"
+    if not client_logs.allow("ping-ip:" + ip) or not client_logs.allow("ping:" + body.install_id):
+        raise HTTPException(429, "Слишком часто")
+    stats_service.ping(db, body.install_id, body.kind)
+
+
+@router.get("/api/admin/stats")
+def admin_stats(db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    return stats_service.summary(db)

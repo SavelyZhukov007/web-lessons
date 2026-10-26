@@ -657,7 +657,7 @@ html.is-native .campus-header .app-menu-btn {
   }
 }
 
-/* ---------- kc8: верхняя панель APK/PWA — логотип, «Все кружки», ⚙ строго по одной центральной линии;
+/* ---------- kc9: верхняя панель APK/PWA — логотип, «Все кружки», ⚙ строго по одной центральной линии;
    на узких экранах надпись «KipClub» скрыта, знак крупнее ---------- */
 html.is-native .campus-header[data-app-header],
 html.is-native .campus-header[data-native-admin] {

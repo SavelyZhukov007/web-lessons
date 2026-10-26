@@ -43,11 +43,28 @@ async def lifespan(app):
             except Exception:  # noqa: BLE001 — фоновая уборка не должна ронять сервер
                 pass
     daily = asyncio.create_task(_daily())
+
+    def _release_check():
+        from .database import SessionLocal
+        from .services import release_notify
+        try:
+            with SessionLocal() as db:
+                release_notify.check(db)
+        except Exception:  # noqa: BLE001 — фоновая проверка не должна ронять сервер
+            logging.getLogger("clubs.release_notify").exception("проверка релиза")
+
+    async def _releases():
+        from .services import release_notify
+        while True:
+            await asyncio.to_thread(_release_check)
+            await asyncio.sleep(release_notify.CHECK_INTERVAL)
+    releases = asyncio.create_task(_releases())
     zc = mdns.start() if settings.mdns_enabled() else None
     try:
         yield
     finally:
         daily.cancel()
+        releases.cancel()
         mdns.stop(zc)
 
 

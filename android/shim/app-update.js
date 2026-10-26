@@ -101,6 +101,12 @@
   window.ItcAppUpdate = { check: check, endpoint: endpoint };
   // при запуске (после экрана загрузки, чтобы не мешать первому контенту) и раз в сутки
   function boot() {
+    // нажатие на push «Доступно обновление» открывает /?update=1 — сразу экран обновления
+    if (/[?&]update=1(&|$)/.test(location.search)) {
+      sessionStorage.setItem('itc.updateChecked', '1');
+      try { history.replaceState(null, '', location.pathname + location.search.replace(/([?&])update=1(&|$)/, '$1').replace(/[?&]$/, '') + location.hash); } catch (e) {}
+      setTimeout(function () { check({ manual: true }); }, 1200);
+    }
     setTimeout(function () { if (!sessionStorage.getItem('itc.updateChecked')) { sessionStorage.setItem('itc.updateChecked', '1'); check(); } else maybe(); }, 2500);
     setInterval(function () { if (!document.hidden) maybe(); }, 3600e3);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) maybe(); });

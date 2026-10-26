@@ -110,7 +110,7 @@ html .itc-set button.itc-sw { width: 36px !important; height: 36px !important; m
 html .itc-set .itc-group > button.itc-row, html .itc-set .itc-group > a.itc-row { border: 0 !important; border-radius: 0 !important; background: none; box-shadow: none !important; min-height: 52px; text-align: left; justify-content: flex-start; }
 html .itc-set .itc-group > .itc-row + .itc-row { border-top: 1px solid var(--line, #8883) !important; }
 
-/* ---------- kc8: «Настройки» — заголовок строго по центру (3 колонки), кнопка «Назад» с иконкой по центру ---------- */
+/* ---------- kc9: «Настройки» — заголовок строго по центру (3 колонки), кнопка «Назад» с иконкой по центру ---------- */
 html .itc-set-head { display: grid !important; grid-template-columns: 48px 1fr 48px; align-items: center; gap: 0; padding-left: 4px; padding-right: 4px; }
 html .itc-set-head::after { content: ""; } /* пустая 3-я колонка = ширина кнопки «Назад» → заголовок по центру экрана */
 html .itc-set-head h1 { text-align: center !important; margin: 0 !important; font-size: 18px; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

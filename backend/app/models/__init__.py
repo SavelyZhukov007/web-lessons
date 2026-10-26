@@ -3,6 +3,7 @@ from .admin import Admin, AdminSession
 from .broadcast import AppDevice, Broadcast
 from .category import Category
 from .club import Club
+from .install import Install
 from .leader import Leader
 from .login_attempt import LoginAttempt
 from .push_subscription import PushSubscription
@@ -17,6 +18,7 @@ __all__ = [
     "Broadcast",
     "Category",
     "Club",
+    "Install",
     "Leader",
     "LoginAttempt",
     "PushSubscription",

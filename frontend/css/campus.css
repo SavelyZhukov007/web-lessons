@@ -455,7 +455,7 @@
 }
 .campus-brand .brand-mark + span + small { margin-left: 6px; }
 
-/* ---------- Шапка (kc8): все элементы на одной центральной линии; на узких экранах — только знак, крупнее ---------- */
+/* ---------- Шапка (kc9): все элементы на одной центральной линии; на узких экранах — только знак, крупнее ---------- */
 .campus-header { align-items: center; }
 .campus-header > * { align-self: center; }
 .campus-header .settings-button { flex: none; }

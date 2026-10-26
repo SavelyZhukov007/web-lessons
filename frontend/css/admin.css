@@ -631,7 +631,7 @@
     overflow-wrap: anywhere;
 }
 
-/* ---------- Рассылки: выбор кружков (kc8) — чипы выбранных, поиск с подсказками, аккуратные чекбоксы ---------- */
+/* ---------- Рассылки: выбор кружков (kc9) — чипы выбранных, поиск с подсказками, аккуратные чекбоксы ---------- */
 .bc-picked { display: flex; flex-wrap: wrap; gap: 6px; }
 .bc-picked[hidden] { display: none; }
 .bc-pill {
@@ -671,3 +671,16 @@ html .bc-pill .bc-pill-x:hover { background: rgba(0, 0, 0, .08) !important; }
 .segmented.bc-audience { display: grid; grid-template-columns: 1fr 1fr; width: 100%; max-width: 100%; box-sizing: border-box; }
 .segmented.bc-audience label { display: flex; min-width: 0; }
 .segmented.bc-audience span { flex: 1 1 auto; width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; }
+/* «Пользователи» на «Обзоре» */
+.users-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.users-fig { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: var(--radius-m, 12px); background: var(--surface-2, var(--surface-1)); }
+.users-fig strong { font-size: calc(24px * var(--text-scale)); line-height: 1.1; }
+.users-fig span { color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+.users-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.users-table th, .users-table td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--outline-variant); }
+.users-table th:first-child { text-align: left; font-weight: 500; }
+.users-table thead th { color: var(--muted); font-weight: 500; font-size: calc(13px * var(--text-scale)); }
+@media (max-width: 520px) {
+  .users-table th, .users-table td { padding: 8px 4px; font-size: calc(13px * var(--text-scale)); }
+  .users-table th:first-child { white-space: nowrap; }
+}
