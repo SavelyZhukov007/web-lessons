@@ -7,9 +7,9 @@ const ROUTES = {
   '': { title: 'Обзор', icon: 'home', load: () => import('./views/dashboard.js') },
   clubs: { title: 'Кружки', icon: 'users', load: () => import('./views/clubs.js') },
   sessions: { title: 'Занятия', icon: 'calendar', load: () => import('./views/sessions.js') },
-  exceptions: { title: 'Изменения', icon: 'list', load: () => import('./views/exceptions.js') },
-  reference: { title: 'Справочники', icon: 'book', load: () => import('./views/reference.js') },
-  broadcasts: { title: 'Рассылки', icon: 'megaphone', load: () => import('./views/broadcasts.js') },
+  exceptions: { title: 'Изменения', mobileTitle: 'Правки', icon: 'list', load: () => import('./views/exceptions.js') },
+  reference: { title: 'Справочники', mobileTitle: 'Данные', icon: 'book', load: () => import('./views/reference.js') },
+  broadcasts: { title: 'Рассылки', mobileTitle: 'Анонсы', icon: 'megaphone', load: () => import('./views/broadcasts.js') },
   account: { title: 'Аккаунт', icon: 'key', hidden: true, load: () => import('./views/account.js') },
 };
 const LOGIN = '/admin/login.html';
@@ -30,7 +30,7 @@ function buildChrome() {
   const links = Object.entries(ROUTES).filter(([, r]) => !r.hidden);
   const nav = h('nav', { class: 'admin-nav', 'aria-label': 'Разделы админки' }, links.map(([key, r]) => h('a', { href: `#/${key}`, dataset: { route: key } }, r.title)));
   const bottom = h('nav', { class: 'bottom-nav', 'aria-label': 'Разделы админки (мобильная навигация)' },
-    links.map(([key, r]) => h('a', { href: `#/${key}`, dataset: { route: key } }, h('span', { class: 'bn-pill' }, icon(r.icon)), h('span', { class: 'bn-label' }, r.title))));
+    links.map(([key, r]) => h('a', { href: `#/${key}`, 'aria-label': r.title, dataset: { route: key } }, h('span', { class: 'bn-pill' }, icon(r.icon)), h('span', { class: 'bn-label' }, r.mobileTitle || r.title))));
   // «Сменить пароль» и «Выйти» — в «Настройках» (шестерёнка), см. js/settings.js → window.ClubsAdmin
   const slot = h('div', { class: 'admin-tools', dataset: { settingsSlot: '' } });
   window.ClubsAdmin = {
@@ -41,6 +41,10 @@ function buildChrome() {
   document.querySelector('#admin-header').replaceChildren(
     h('a', { class: 'campus-brand', href: '/', 'aria-label': 'На сайт' }, h('span', { class: 'brand-mark', 'aria-hidden': 'true' }), h('span', {}, 'KipClub'), h('small', {}, 'Администрирование')), nav, slot);
   document.body.append(bottom);
+  // Высота зависит от переноса подписей и размера шрифта, а не от фиксированных 72px.
+  if ('ResizeObserver' in window) new ResizeObserver(() => {
+    document.body.style.setProperty('--bottom-nav-h', `${bottom.getBoundingClientRect().height}px`);
+  }).observe(bottom);
 }
 
 function markCurrent(route) {

@@ -394,7 +394,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 56px;
+        width: min(56px, 100%);
         height: 30px;
         border-radius: 15px;
     }
@@ -403,6 +403,16 @@
         width: 22px;
         height: 22px;
     }
+
+    .bottom-nav .bn-label {
+        max-width: 100%;
+        font-size: calc(10px * var(--text-scale));
+        line-height: 1.15;
+        text-align: center;
+        overflow-wrap: anywhere;
+    }
+
+    .bottom-nav a { padding-inline: 2px; }
 
     .bottom-nav a[aria-current="page"] {
         color: var(--ink);

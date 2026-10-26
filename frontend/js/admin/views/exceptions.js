@@ -1,4 +1,5 @@
 import { h, icon } from '../../ui.js';
+import { roomLabel } from '../../public-display.js';
 import { exceptions, loadAll } from '../api.js';
 import { pageHeader, loading, dataTable, actionButton, formDialog, confirmDialog, guarded, formatDate, dayName, dayShort } from '../kit.js';
 import { moscowToday, dateKey, parseDate } from '../../schedule-dates.js';
@@ -29,7 +30,7 @@ export async function mount(root, { signal }) {
         { name: 'new_date', label: 'Перенести на дату', type: 'date', required: true },
         { name: 'new_start_time', label: 'Новое начало', type: 'time', required: true },
         { name: 'new_end_time', label: 'Новый конец', type: 'time', required: true },
-        { name: 'new_room_id', label: 'Аудитория', type: 'select', numeric: true, required: true, placeholder: 'Выбери…', options: data.rooms.map(r => [r.id, r.name]) },
+        { name: 'new_room_id', label: 'Аудитория', type: 'select', numeric: true, required: true, placeholder: 'Выбери…', options: data.rooms.map(r => [r.id, roomLabel(r)]) },
       ] : []),
       { name: 'comment', label: 'Комментарий для учеников', type: 'textarea', maxlength: 4000, hint: 'Увидят подписчики и все на странице кружка.' },
     ];

@@ -52,8 +52,9 @@ def test_broadcast_screen_sends_to_selected_club(admin):
     page.get_by_label('Заголовок', exact=False).first.fill('Проверка e2e')
     page.get_by_label('Текст', exact=False).first.fill('Занятие переносится на 15:00')
     page.get_by_role('radio', name='Кружкам').click()
-    page.get_by_label(club['name']).check()
+    page.locator('#bc-search').fill(club['name'])
+    page.get_by_role('checkbox', name=club['name'], exact=True).check()
     page.get_by_role('button', name='Отправить').first.click()
-    page.get_by_role('dialog').get_by_role('button', name='Отправить').click()
+    page.get_by_role('alertdialog').get_by_role('button', name='Отправить').click()
     expect(page.locator('#admin-main')).to_contain_text('Проверка e2e')
     assert not page.errors

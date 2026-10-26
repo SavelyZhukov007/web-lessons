@@ -38,12 +38,16 @@ export const exceptions = {
 export async function loadAll(options) {
   const [cats, lead, rms, cl, ss, ex] = await Promise.all([
     categories.list(options), leaders.list(options), rooms.list(options), clubs.list(options), sessions.list(options), exceptions.list(options)]);
+  if (options?.signal?.aborted) throw new DOMException('Запрос отменён', 'AbortError');
   const by = list => new Map(list.map(item => [item.id, item]));
   return { categories: cats, leaders: lead, rooms: rms, clubs: cl, sessions: ss, exceptions: ex,
     cat: by(cats), leader: by(lead), room: by(rms), club: by(cl), session: by(ss) };
 }
 export const broadcasts = {
-  list: options => request('/api/admin/broadcasts', options),
+  list: async options => {
+    const result = await request('/api/admin/broadcasts', { cache: 'no-store', ...options });
+    return Array.isArray(result) ? result : result.items;
+  },
   estimate: (body, options) => request('/api/admin/broadcasts/estimate', { ...send('POST', body), ...options }),
   send: body => request('/api/admin/broadcasts', send('POST', body)),
 };

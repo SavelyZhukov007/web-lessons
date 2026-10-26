@@ -27,11 +27,11 @@
 - `GET /api/leaders` — только руководители **активных** кружков, **без** поля `contact` (SEC-07).
 - `GET /api/clubs?search=&category_id=` — только активные; поиск регистронезависимый (в т. ч. кириллица), `%`/`_` — обычные символы.
 - `GET /api/clubs/{id}` — `category`, `leader` (с `contact`), `sessions`, `upcoming_exceptions`.
-- `GET /api/clubs/{id}/calendar.ics` — iCalendar кружка (повторяющиеся занятия + исключения).
+- `GET /api/clubs/{id}/calendar.ics?week=YYYY-MM-DD` — снимок недели кружка с исключениями, без бесконечного повторения; не подписной календарь. Правила — `PRODUCT_RULES.md`.
 - `GET /api/schedule?week=YYYY-MM-DD[&category_id&weekday&leader_id&room_id&search]` — `week` — **понедельник**, диапазон 2000-01-03…2100-12-27, иначе 422. Ответ — массив `ScheduleEvent` (`schemas/contracts.py`); `status`: `scheduled|cancelled|moved`; `event_id` = `session_id:original_date`.
 
 ## Web Push (публичные, без авторизации)
-- `GET /api/push/vapid-public-key` → `{public_key}`.
+- `GET /api/push/vapid-public-key` → `{publicKey}`.
 - `POST /api/push/subscribe` `{endpoint, keys:{p256dh,auth}, club_id?}` → 201 `subscribed` / 200 `already-subscribed` (идемпотентно). `endpoint` — только из списка push-сервисов (иначе 422); не более N подписок на устройство (429).
 - `POST /api/push/unsubscribe` `{endpoint, club_id?}`; `POST /api/push/status` `{endpoint, club_id?}`.
 - `POST /api/push/preferences` `{endpoint, announcements}` — получать ли объявления этим браузером (переносы/отмены не затрагивает).

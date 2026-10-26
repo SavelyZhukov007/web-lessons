@@ -13,7 +13,7 @@ self.addEventListener('install', event => {
     const cache = await caches.open(CACHE);
     // addAll атомарен: один недоступный файл ломает всё, поэтому добавляем по одному и не падаем.
     await Promise.all(PRECACHE.map(url => cache.add(new Request(url, { cache: 'reload' })).catch(() => null)));
-    await self.skipWaiting();
+    if (!self.registration?.active) await self.skipWaiting();
   })());
 });
 
@@ -25,6 +25,10 @@ self.addEventListener('activate', event => {
 });
 
 const PUBLIC_API = /^\/api\/(schedule|clubs|categories|leaders|rooms)(\/|$|\?)/;
+// Страница разрешает активацию новой версии после сохранения формы.
+self.addEventListener('message', event => {
+  if (event.data?.type === 'clubs:activate') event.waitUntil(self.skipWaiting());
+});
 const API_MAX_AGE = 48 * 3600 * 1000;
 const API_MAX_ENTRIES = 100;
 async function rememberApi(cache, request, response) {
@@ -35,17 +39,46 @@ async function rememberApi(cache, request, response) {
   for (const key of keys.slice(0, Math.max(0, keys.length - API_MAX_ENTRIES))) await cache.delete(key);
 }
 
+const PUSH_PREFS_CACHE = 'clubs-push-preferences';
+const PUSH_PREFS_KEY = '/__clubs/push-preferences';
+async function savePushPreferences(endpoint, status) {
+  const cache = await caches.open(PUSH_PREFS_CACHE);
+  await cache.put(new Request(new URL(PUSH_PREFS_KEY, self.location.origin)), Response.json({ endpoint, ...status }));
+}
+async function pushStatus(endpoint) {
+  const response = await fetch('/api/push/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint }) });
+  if (!response.ok) throw new Error('push status unavailable');
+  return response.json();
+}
+
 self.addEventListener('fetch', event => {
   const request = event.request;
-  if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (request.method === 'POST' && /^\/api\/push\/(subscribe|unsubscribe|preferences|status)$/.test(url.pathname)) {
+    event.respondWith((async () => {
+      const copy = request.clone();
+      const response = await fetch(request);
+      if (response.ok) {
+        try {
+          const { endpoint } = await copy.json();
+          // Успешная операция могла сузить согласие. Старая копия больше не основание для восстановления.
+          if (!url.pathname.endsWith('/status')) await (await caches.open(PUSH_PREFS_CACHE)).delete(new Request(new URL(PUSH_PREFS_KEY, self.location.origin)));
+          if (endpoint) await savePushPreferences(endpoint, url.pathname.endsWith('/status') ? await response.clone().json() : await pushStatus(endpoint));
+        } catch { /* API-операция выполнена; отсутствие копии не расширяет подписку при восстановлении. */ }
+      }
+      return response;
+    })());
+    return;
+  }
+  if (request.method !== 'GET') return;
+  if (['/build-info.json', '/version.json'].includes(url.pathname)) return;
   if (url.pathname.startsWith('/api/admin') || url.pathname.startsWith('/api/push') || url.pathname === '/sw.js') return; // никогда не кэшируем
 
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const fresh = await fetch(request);
+        const fresh = await fetch(new Request(request, { cache: 'reload' }));
         if (fresh.ok && !url.pathname.startsWith('/admin')) await (await caches.open(CACHE)).put(request, fresh.clone());
         return fresh;
       } catch {
@@ -82,7 +115,7 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE);
       try {
-        const response = await fetch(request);
+        const response = await fetch(new Request(request, { cache: 'reload' }));
         if (response.ok) await cache.put(request, response.clone());
         return response;
       } catch { return (await cache.match(request)) || Response.error(); }
@@ -128,14 +161,26 @@ self.addEventListener('notificationclick', event => {
 self.addEventListener('pushsubscriptionchange', event => {
   event.waitUntil((async () => {
     try {
+      const cache = await caches.open(PUSH_PREFS_CACHE);
+      const saved = await cache.match(new Request(new URL(PUSH_PREFS_KEY, self.location.origin)));
+      const previous = event.oldSubscription?.endpoint;
+      let prefs = saved ? await saved.json() : null;
+      if (!prefs || (previous && prefs.endpoint !== previous)) prefs = previous ? { endpoint: previous, ...await pushStatus(previous) } : null;
+      if (!prefs || (!prefs.all && !prefs.club_ids?.length)) return; // нет согласия — не подписываем на всё
       const { publicKey } = await (await fetch('/api/push/vapid-public-key')).json();
       const pad = '='.repeat((4 - (publicKey.length % 4)) % 4);
       const raw = atob((publicKey + pad).replace(/-/g, '+').replace(/_/g, '/'));
       const key = Uint8Array.from(raw, c => c.charCodeAt(0));
-      const sub = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      const sub = event.newSubscription || await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
       const json = sub.toJSON();
-      // Какие кружки были — неизвестно (старая подписка уже недействительна): подписываем «на все».
-      await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys, club_id: null }) });
+      const post = async (path, body) => {
+        const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!response.ok) throw new Error('push restore failed');
+      };
+      for (const club_id of prefs.all ? [null] : prefs.club_ids) await post('/api/push/subscribe', { endpoint: json.endpoint, keys: json.keys, club_id });
+      await post('/api/push/preferences', { endpoint: json.endpoint, announcements: prefs.announcements !== false });
+      await savePushPreferences(json.endpoint, { all: !!prefs.all, club_ids: prefs.club_ids || [], announcements: prefs.announcements !== false });
+      if (previous && previous !== json.endpoint) await post('/api/push/unsubscribe', { endpoint: previous });
     } catch { /* повторно предложим подписаться на странице кружка */ }
   })());
 });

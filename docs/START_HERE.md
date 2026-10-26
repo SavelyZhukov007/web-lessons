@@ -10,4 +10,6 @@ python3 -m venv .venv && ./.venv/bin/pip install -r backend/requirements.lock.tx
 ```
 
 Что где: `docs/api-contract.md` (API), `docs/security.md`, `docs/database.md`, `docs/conflicts.md`, `docs/deploy.md` + `docs/DEPLOY_COLLEGE.md`, `docs/runbook.md`, `docs/qa-checklist.md` (ручная проверка).
-Открытые вопросы: `docs/domain-term.md` (учебный период/каникулы).
+Правила выпуска и демонстрация: `docs/PRODUCT_RULES.md`. Решение для последующей реализации учебных периодов: `docs/domain-term.md`.
+
+Для проверки обновлений: `python server.py build web --out dist/web`, затем задайте `CLUBS_FRONTEND_DIR` абсолютным путём к `dist/web` перед запуском сервера. Сборка содержит метаданные версии; после изменения исходников её нужно пересобрать.

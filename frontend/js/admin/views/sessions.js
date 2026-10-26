@@ -1,4 +1,5 @@
 import { h, icon } from '../../ui.js';
+import { roomLabel } from '../../public-display.js';
 import { sessions, loadAll } from '../api.js';
 import { pageHeader, loading, dataTable, actionButton, formDialog, confirmDialog, guarded, dayName, dayShort, WEEKDAY_OPTIONS } from '../kit.js';
 
@@ -18,7 +19,7 @@ export async function mount(root, { signal }) {
       initial: session ?? { weekday: 1, start_time: '15:00', end_time: '16:00' },
       fields: [
         { name: 'club_id', label: 'Кружок', type: 'select', numeric: true, required: true, placeholder: 'Выбери…', options: data.clubs.map(c => [c.id, c.name]) },
-        { name: 'room_id', label: 'Аудитория', type: 'select', numeric: true, required: true, placeholder: 'Выбери…', options: data.rooms.map(r => [r.id, `${r.name}${r.building ? `, ${r.building}` : ''}`]) },
+        { name: 'room_id', label: 'Аудитория', type: 'select', numeric: true, required: true, placeholder: 'Выбери…', options: data.rooms.map(r => [r.id, roomLabel(r)]) },
         { name: 'weekday', label: 'День недели', type: 'select', numeric: true, required: true, options: WEEKDAY_OPTIONS },
         { name: 'start_time', label: 'Начало', type: 'time', required: true },
         { name: 'end_time', label: 'Конец', type: 'time', required: true },

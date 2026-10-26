@@ -8,7 +8,7 @@ pytest.importorskip("playwright")
 
 def go(page, route):
     page.evaluate("r => location.hash = r", f"#/{route}")
-    page.wait_for_function("r => document.querySelector('#view-title') && document.querySelector('[aria-current=page][data-route]')?.dataset.route === r", arg=route.split("/")[0])
+    page.wait_for_function("r => document.querySelector('#view-title') && (r === 'account' ? document.querySelector('#view-title').textContent === 'Аккаунт' : document.querySelector('[aria-current=page][data-route]')?.dataset.route === r)", arg=route.split("/")[0])
     page.wait_for_selector("#admin-main:not([aria-busy])")
 
 
@@ -134,7 +134,9 @@ def test_password_change_wrong_current_and_mismatch(admin):
 
 
 def test_logout_then_admin_is_closed(admin):
-    admin.click("button[aria-label=Выйти]")
+    admin.click("[data-settings-button]")
+    admin.once("dialog", lambda dialog: dialog.accept())
+    admin.get_by_role("button", name="Выйти", exact=True).click()
     admin.wait_for_url("**/admin/login.html")
     admin.goto("/admin/")
     admin.wait_for_url("**/admin/login.html")
@@ -232,7 +234,11 @@ def test_360px_no_horizontal_overflow_admin_and_public(new_page):
 
 def test_settings_dark_theme_on_admin_persists(admin):
     admin.click("[data-settings-button]")
-    admin.check("input[name=theme][value=dark]", force=True)
+    toggle = admin.locator('#settings-system-theme')
+    if toggle.get_attribute('aria-checked') == 'true':
+        toggle.click()
+    if admin.evaluate("document.documentElement.dataset.theme") != 'dark':
+        admin.locator('.theme-flip').click()
     assert admin.evaluate("() => document.documentElement.dataset.theme") == "dark"
     admin.reload()
     admin.wait_for_selector("#view-title")

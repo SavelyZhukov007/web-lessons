@@ -32,10 +32,10 @@ for (const t of targets) {
     writeFileSync(androidVersionPath, JSON.stringify(a, null, 2) + '\n');
     run(`node scripts/build-apk.mjs --no-bump ${has('--no-demo') ? '' : '--demo'} ${has('--release') ? '--release' : ''}`, root);
     const v = readVersion('android'); const { d, full } = outDir(t);
-    const apk = join(root, 'dist', `kipclub-${full}.apk`);
-    copyFileSync(apk, join(d, `kipclub-${full}.apk`));
-    writeFileSync(join(d, 'version.json'), JSON.stringify({ versionName: full, versionCode: v.versionCode, channel: id.channel, stage: id.stage }, null, 2) + '\n');
-    console.log(`✔ ${join(d, `kipclub-${full}.apk`)} (versionCode ${v.versionCode})`);
+    const apk = join(root, 'dist', `kipclub-${v.versionName}.apk`);
+    copyFileSync(apk, join(d, `kipclub-${v.versionName}.apk`));
+    writeFileSync(join(d, 'version.json'), JSON.stringify({ versionName: v.versionName, buildId: full, versionCode: v.versionCode, channel: id.channel, stage: id.stage }, null, 2) + '\n');
+    console.log(`✔ ${join(d, `kipclub-${v.versionName}.apk`)} (versionCode ${v.versionCode})`);
   } else {
     const py = process.env.PYTHON || (existsSync(join(repo, '..', 'venv310', 'bin', 'python')) ? join(repo, '..', 'venv310', 'bin', 'python') : 'python3');
     const { d, full } = outDir(t);

@@ -28,8 +28,8 @@
   function syncBars() {
     var dark = root.getAttribute('data-theme') === 'dark';
     var style = dark ? 'DARK' : 'LIGHT'; // DARK = светлые иконки на тёмном фоне
-    try { if (P.SystemBars && P.SystemBars.setStyle) P.SystemBars.setStyle({ style: style }).catch(function () {}); } catch (e) {}
-    try { if (P.StatusBar && P.StatusBar.setStyle) P.StatusBar.setStyle({ style: style }).catch(function () {}); } catch (e) {}
+    try { if (P.SystemBars && P.SystemBars.setStyle) P.SystemBars.setStyle({ style: style }).catch(function () { }); } catch (e) { }
+    try { if (P.StatusBar && P.StatusBar.setStyle) P.StatusBar.setStyle({ style: style }).catch(function () { }); } catch (e) { }
   }
   syncBars();
   new MutationObserver(syncBars).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
@@ -55,7 +55,7 @@
     });
     doc.querySelectorAll('a[href*="/calendar.ics"]:not([data-native-cal])').forEach(function (a) {
       a.setAttribute('data-native-cal', '');
-      for (var n = a.lastChild; n; n = n.previousSibling) if (n.nodeType === 3 && n.nodeValue.trim()) { n.nodeValue = 'Добавить в календарь'; break; }
+      for (var n = a.lastChild; n; n = n.previousSibling) if (n.nodeType === 3 && n.nodeValue.trim()) { n.nodeValue = /[?&]week=/.test(a.getAttribute('href')) ? 'Добавить в календарь — текущая неделя' : 'Добавить в календарь'; break; }
     });
     if (window.DemoBackend && /^\/admin\/login(\.html)?$/.test(location.pathname)) addDemoLogin();
     // без подсказок для разработчиков (reset-password в консоли сервера)
@@ -74,8 +74,11 @@
     btn.type = 'button'; btn.className = 'app-menu-btn app-gear'; btn.id = 'app-menu-btn';
     btn.setAttribute('aria-label', 'Настройки (удерживайте — к расписанию)'); btn.innerHTML = GEAR;
     var t = 0, longed = false;
-    btn.addEventListener('pointerdown', function () { longed = false; clearTimeout(t); t = setTimeout(function () {
-      longed = true; if (window.ItcHaptics) window.ItcHaptics.tap(); location.href = '/?from=gear'; }, 550); });
+    btn.addEventListener('pointerdown', function () {
+      longed = false; clearTimeout(t); t = setTimeout(function () {
+        longed = true; if (window.ItcHaptics) window.ItcHaptics.tap(); location.href = '/?from=gear';
+      }, 550);
+    });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { btn.addEventListener(ev, function () { clearTimeout(t); }); });
     btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     btn.addEventListener('click', function (e) { e.stopPropagation(); if (longed) return; if (window.ItcSettings) window.ItcSettings.open(); else if (window.ClubsSettings) window.ClubsSettings.open(); });
@@ -108,7 +111,7 @@
     header.querySelectorAll('[data-settings-button]').forEach(function (x) { x.remove(); });
     header.appendChild(gearButton());
   }
-  function closeMenu() {}
+  function closeMenu() { }
   // ---------- 13. Поиск в расписании на Android: Enter/«Найти» на клавиатуре, русская IME-композиция, клавиатура не закрывает результаты
   function wireSearch() {
     doc.querySelectorAll('input[type="search"]:not([data-native-search]), input#search:not([data-native-search])').forEach(function (inp) {
@@ -155,7 +158,7 @@
 
   // ---------- 12. Справочники внутри «Занятий»: вкладки нижней навигации без «Справочников»,
   // на экране «Занятия» — сегменты «Расписание · Направления · Руководители · Аудитории» (#/reference/* работают как раньше)
-  var REF_TABS = [['sessions', 'Расписание'], ['reference/categories', 'Направления'], ['reference/leaders', 'Руководители'], ['reference/rooms', 'Аудитории'], ['attendance', 'Посещаемость']];
+  var REF_TABS = [['sessions', 'Расписание'], ['reference/categories', 'Направления'], ['reference/leaders', 'Руководители'], ['reference/rooms', 'Аудитории']];
   function mergeReference() {
     var hash = location.hash.replace(/^#\/?/, '');
     var route = hash.split('/')[0];
@@ -205,7 +208,7 @@
   window.addEventListener('click', function (e) {
     var b = e.target && e.target.closest && e.target.closest('button');
     if (b && window.DemoBackend && /^Выйти$/.test((b.getAttribute('aria-label') || b.textContent || '').trim())) {
-      try { localStorage.setItem(DEMO_LOGGED_OUT, '1'); } catch (x) {}
+      try { localStorage.setItem(DEMO_LOGGED_OUT, '1'); } catch (x) { }
     }
   }, true);
 
@@ -228,8 +231,10 @@
       var start = mskEpoch(f.y, f.m, f.d, s.start_time), end = mskEpoch(f.y, f.m, f.d, s.end_time);
       var ex = cancelled.filter(function (x) { return x.session_id === s.id; }).map(function (x) { var p = x.original_date.split('-'); return mskEpoch(+p[0], +p[1] - 1, +p[2], s.start_time); });
       var room = s.room ? s.room.name + (s.room.building ? ', ' + s.room.building : '') : '';
-      return { session: s, start: start, end: end, until: until, exdates: ex, location: room,
-        title: club.name, description: [club.leader ? 'Руководитель: ' + club.leader.name : '', 'Расписание кружков ИТС'].filter(Boolean).join('\n') };
+      return {
+        session: s, start: start, end: end, until: until, exdates: ex, location: room,
+        title: club.name, description: [club.leader ? 'Руководитель: ' + club.leader.name : '', 'Расписание кружков ИТС'].filter(Boolean).join('\n')
+      };
     });
   }
   function buildIcs(club, items) {
@@ -253,8 +258,10 @@
       if (!r || r.result !== 'granted') throw new Error('denied');
       return items.reduce(function (p, it) {
         return p.then(function (n) {
-          return C.createEvent({ title: it.title, location: it.location, description: it.description, startDate: it.start, endDate: it.end,
-            alerts: [-30], recurrence: { frequency: 'weekly', interval: 1, byWeekDay: [it.session.weekday], end: it.until } }).then(function () { return n + 1; });
+          return C.createEvent({
+            title: it.title, location: it.location, description: it.description, startDate: it.start, endDate: it.end,
+            alerts: [-30], recurrence: { frequency: 'weekly', interval: 1, byWeekDay: [it.session.weekday], end: it.until }
+          }).then(function () { return n + 1; });
         });
       }, Promise.resolve(0));
     });
@@ -269,11 +276,13 @@
   }
   // PWA: .ics на весь семестр (еженедельные RRULE + EXDATE отмен) — системное «Поделиться» (iOS: «Календарь») или скачивание файла
   function webIcs(club, items) {
-    var name = 'club-' + club.id + '.ics', text = buildIcs(club, items);
+    return webCalendarFile(club.name, 'club-' + club.id + '.ics', buildIcs(club, items));
+  }
+  function webCalendarFile(title, name, text) {
     var file = null;
     try { file = new File([text], name, { type: 'text/calendar' }); } catch (e) { /* старый WebKit */ }
     if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-      return navigator.share({ files: [file], title: club.name }).then(function () { return 'shared'; }, function (e) {
+      return navigator.share({ files: [file], title: title }).then(function () { return 'shared'; }, function (e) {
         if (e && e.name === 'AbortError') return 'cancel';
         return download(text, name);
       });
@@ -294,6 +303,21 @@
     if (!a) return;
     e.preventDefault(); e.stopImmediatePropagation(); // раньше обработчиков shim/demo-backend (они на document)
     if (busy) return; busy = true; a.setAttribute('aria-busy', 'true');
+    var href = a.getAttribute('href');
+    if (/[?&]week=/.test(href)) {
+      // Общий контракт с сайтом: готовая выбранная неделя с реальными отменами и переносами.
+      fetch(href, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(function (text) {
+          if (!/^BEGIN:VCALENDAR/m.test(text)) throw new Error('Некорректный файл календаря');
+          var name = 'club-' + ((href.match(/\/clubs\/(\d+)\//) || [])[1] || 'schedule') + '-week.ics';
+          if (PWA) return webCalendarFile('Расписание на неделю', name, text);
+          if (P.Filesystem && P.Share) return P.Filesystem.writeFile({ path: name, data: text, directory: 'CACHE', encoding: 'utf8' })
+            .then(function (r) { return P.Share.share({ title: 'Расписание на неделю', files: [r.uri] }); });
+          return download(text, name);
+        }).catch(function (err) { if (err.name !== 'AbortError') toast('Не удалось сохранить календарь: ' + err.message); })
+        .finally(function () { busy = false; a.removeAttribute('aria-busy'); });
+      return;
+    }
     var id = (a.getAttribute('href').match(/\/clubs\/(\d+)\//) || [])[1];
     fetch('/api/clubs/' + id).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (club) {

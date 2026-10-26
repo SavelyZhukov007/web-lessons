@@ -36,8 +36,10 @@ def run_cli(env, *args, stdin=None):
 def server(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("e2e")
     env = {**os.environ, "CLUBS_SCHEDULE_DB_PATH": str(tmp / "e2e.sqlite3"), "ENV": "development", "JWT_SECRET": "e2e-" + "s" * 40,
-           "VAPID_KEYS_FILE": str(tmp / "vapid.json"), "SCRYPT_LOG_N": "12"}
+           "VAPID_KEYS_FILE": str(tmp / "vapid.json"), "APP_LOGS_DIR": str(tmp / "client-logs"), "SCRYPT_LOG_N": "12"}
     env.pop("CLUBS_USE_CREATE_ALL", None)
+    run_cli(env, "build", "web", "--out", str(tmp / "web"))
+    env["CLUBS_FRONTEND_DIR"] = str(tmp / "web")
     run_cli(env, "seed", "--file", "data/demo-data.json")
     run_cli(env, "admin", "create", ADMIN_LOGIN, "--password-stdin", stdin=ADMIN_PASSWORD + "\n")
     port = free_port()

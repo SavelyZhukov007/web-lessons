@@ -186,6 +186,8 @@ function build() {
     announcementsSection(), accountSection(), serverSection(), demoSection());
   const reset = h('button', { type: 'button', class: 'btn btn--text', onclick: () => { theme.set(theme.DEFAULTS); rebuild(); toast('Настройки сброшены'); } }, 'Сбросить');
   const done = h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово');
+  if (window.ClubsUpdates) body.append(h('section', { class: 'sheet-section' }, h('h3', {}, 'Версия приложения'),
+    h('button', { type: 'button', class: 'btn btn--tonal', onclick: () => { dialog.close(); window.ClubsUpdates.check({ manual: true }); } }, 'Проверить обновления')));
   const foot = h('div', { class: 'sheet-foot' }, reset, done);
   dialog.replaceChildren(h('div', { class: 'sheet-head sheet-head--center' }, h('span', { 'aria-hidden': 'true' }), title, close), body, foot);
 }

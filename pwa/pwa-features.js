@@ -57,20 +57,31 @@
     });
   }
   // приводим подписки сервера к списку «Моих кружков»
+  var syncFlight = null, syncAgain = false;
   function syncSubs() {
+    if (syncFlight) { syncAgain = true; return syncFlight; }
+    syncFlight = syncSubscriptions().finally(function () {
+      syncFlight = null;
+      if (syncAgain) { syncAgain = false; syncSubs().catch(function () {}); }
+    });
+    return syncFlight;
+  }
+  function syncSubscriptions() {
     if (!enabled()) return Promise.resolve(null);
     return subscription(true).then(function (s) {
-      var j = s.toJSON(), want = F.Follows.all(), have = jget(SUBS_KEY, []);
-      var add = want.filter(function (id) { return have.indexOf(id) < 0; }), del = have.filter(function (id) { return want.indexOf(id) < 0; });
-      return Promise.all(add.map(function (id) { return api('/api/push/subscribe', { endpoint: j.endpoint, keys: j.keys, club_id: id }).then(function () { return id; }, function () { return null; }); }))
-        .then(function (ok) {
-          return Promise.all(del.map(function (id) { return api('/api/push/unsubscribe', { endpoint: j.endpoint, club_id: id }).catch(function () { return null; }); }))
-            .then(function () {
-              var now = have.filter(function (id) { return del.indexOf(id) < 0; }).concat(ok.filter(Boolean));
-              jset(SUBS_KEY, now);
-              return (LS.getItem(ANN_KEY) === '0' ? applyAnnouncements() : Promise.resolve()).catch(function () {}).then(function () { return now; });
-            });
+      var j = s.toJSON(), want = F.Follows.all();
+      // Endpoint мог смениться: localStorage не доказывает наличие подписки на сервере.
+      return api('/api/push/status', { endpoint: j.endpoint }).then(function (status) {
+        var have = status.club_ids || [];
+        var reset = status.all ? api('/api/push/unsubscribe', { endpoint: j.endpoint }) : Promise.resolve();
+        return reset.then(function () {
+          if (status.all) have = [];
+          var add = want.filter(function (id) { return have.indexOf(id) < 0; }), del = have.filter(function (id) { return want.indexOf(id) < 0; });
+          return Promise.all(add.map(function (id) { return api('/api/push/subscribe', { endpoint: j.endpoint, keys: j.keys, club_id: id }); }))
+            .then(function () { return Promise.all(del.map(function (id) { return api('/api/push/unsubscribe', { endpoint: j.endpoint, club_id: id }); })); })
+            .then(function () { jset(SUBS_KEY, want); return applyAnnouncements().then(function () { return want; }); });
         });
+      });
     });
   }
   // «Объявления» (рассылки админа) — выбор хранится локально и отправляется серверу для всех подписок этого браузера
@@ -96,13 +107,15 @@
     return subscription(false).then(function (s) {
       if (!s) return;
       var j = s.toJSON();
-      return Promise.all(jget(SUBS_KEY, []).map(function (id) { return api('/api/push/unsubscribe', { endpoint: j.endpoint, club_id: id }).catch(function () {}); }));
-    }).catch(function () {}).then(function () { jset(SUBS_KEY, []); toast('Уведомления отключены'); });
+      return api('/api/push/unsubscribe', { endpoint: j.endpoint }).finally(function () { return s.unsubscribe(); });
+    }).then(function () { jset(SUBS_KEY, []); toast('Уведомления отключены'); }, function () {
+      jset(SUBS_KEY, []); toast('Не удалось подтвердить отключение на сервере. Повторите при подключении.');
+    });
   }
 
   // Звёздочка: подписки догоняют «Мои кружки»; разрешение не спрашиваем само — предлагаем кнопкой
   doc.addEventListener('itc:follows', function (e) {
-    if (enabled()) { syncSubs(); return; }
+    if (enabled()) { syncSubs().catch(function () { toast('Подписки пока не сохранены — повторим при подключении.'); }); return; }
     var a = availability();
     if (!a.ok || LS.getItem(PUSH_KEY) === '0' || !(e.detail || []).length || sessionStorage.getItem(ASKED_KEY)) return;
     sessionStorage.setItem(ASKED_KEY, '1');
@@ -150,7 +163,11 @@
       applyAnnouncements().then(function () { toast(ann.checked ? 'Объявления включены' : 'Объявления отключены'); }, function () { toast('Не удалось сохранить — повторим при следующем запуске'); });
     });
     wrap.querySelector('#itc-badge').addEventListener('change', function (e) { LS.setItem('itc.pwa.badge', e.target.checked ? '1' : '0'); refreshBadge(); });
-    function close() { wrap.remove(); }
+    var opener = doc.activeElement;
+    function escape(e) { if (e.key === 'Escape') close(); }
+    function close() { wrap.remove(); doc.removeEventListener('keydown', escape); if (opener && opener.isConnected) opener.focus(); }
+    doc.addEventListener('keydown', escape);
+    wrap.querySelector('.itc-close').focus();
     wrap.querySelector('.itc-close').addEventListener('click', close);
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
   }
@@ -192,7 +209,7 @@
     if (!F.isMyMode() || doc.hidden || !doc.getElementById('itc-my-toggle')) return;
     jset(SEEN_KEY, lastKeys.slice(-200)); setBadge(0);
   }
-  doc.addEventListener('visibilitychange', function () { if (!doc.hidden) { refreshBadge().then(function () { setTimeout(markSeen, 1500); }); syncSubs(); } });
+  doc.addEventListener('visibilitychange', function () { if (!doc.hidden) { refreshBadge().then(function () { setTimeout(markSeen, 1500); }); syncSubs().catch(function () {}); } });
   doc.addEventListener('itc:follows', function () { setTimeout(refreshBadge, 300); });
   doc.addEventListener('itc:mymode', function () { markSeen(); refreshBadge().then(markSeen); });
   doc.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('#itc-my-toggle')) setTimeout(function () { refreshBadge().then(markSeen); }, 400); });
@@ -203,7 +220,7 @@
   function boot() {
     dynamicType();
     refreshBadge().then(function () { setTimeout(markSeen, 1500); });
-    syncSubs();
+    syncSubs().catch(function () {});
   }
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
 })();

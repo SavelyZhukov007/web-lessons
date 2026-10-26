@@ -89,7 +89,7 @@ try:
             pg.evaluate("!!(window.NativeShell && window.ItcFeatures && window.ItcMotion && window.ItcPwaFeatures)"),
         )
         check("standalone: NativeShell.host = pwa", pg.evaluate("window.NativeShell.host") == "pwa")
-        check("бренд «KipClub» как в APK", "KipClub" in pg.locator(".campus-brand").first.inner_text())
+        check("доступное название бренда «KipClub»", "KipClub" in (pg.locator(".campus-brand").first.get_attribute('aria-label') or pg.locator(".campus-brand").first.inner_text()))
         check("разрешение на уведомления НЕ запрашивается при запуске", not calls(pg, "requestPermission"))
         pg.screenshot(path=str(SHOTS / "d-schedule-iphone15-light.png"))
         pg.goto("/club.html?id=1")
@@ -142,6 +142,7 @@ try:
         check("выключение в шторке -> отписка на сервере", status.get("club_ids") == [] and not status.get("all"), str(status))
         pg.click("#itc-push")
         pg.wait_for_timeout(1200)
+        ep = pg.evaluate("navigator.serviceWorker.getRegistration('/').then(r => r.pushManager.getSubscription()).then(s => s.endpoint)")
         status = pg.request.post("/api/push/status", data={"endpoint": ep}).json()
         check("повторное включение (по нажатию) -> подписка снова", status.get("club_ids") == [1], str(status))
         pg.click(".itc-close")
@@ -194,13 +195,15 @@ try:
         sh = calls(pg, "share")
         ok = (
             sh
-            and sh[0]["name"] == "club-1.ics"
+            and sh[0]["name"] == "club-1-week.ics"
             and sh[0]["type"] == "text/calendar"
-            and "RRULE:FREQ=WEEKLY" in sh[0]["text"]
+            and "RRULE:FREQ=WEEKLY" not in sh[0]["text"]
             and "BEGIN:VEVENT" in sh[0]["text"]
         )
-        check(".ics (iOS): share с файлом text/calendar, еженедельные RRULE", ok, str(sh)[:200])
-        check(".ics: отменённое занятие исключено (EXDATE)", sh and "EXDATE:" + day.replace("-", "") in sh[0]["text"], "")
+        check(".ics (iOS): share с файлом выбранной недели text/calendar", ok, str(sh)[:200])
+        def stable_ics(text):
+            return [line for line in text.splitlines() if not line.startswith('DTSTAMP:')]
+        check(".ics: события совпадают с backend за выбранную неделю", sh and stable_ics(sh[0]["text"]) == stable_ics(pg.request.get(pg.locator("a[href*='calendar.ics']").get_attribute('href')).text()))
         c.close()
         c = ctx("android", w=360, h=800)
         pg = c.new_page()
@@ -213,7 +216,7 @@ try:
         text = Path(path).read_text(encoding="utf-8")
         check(
             ".ics (Android PWA): файл скачан",
-            dl.value.suggested_filename == "club-1.ics" and "BEGIN:VCALENDAR" in text and "END:VCALENDAR" in text,
+            dl.value.suggested_filename == "club-1-week.ics" and "BEGIN:VCALENDAR" in text and "END:VCALENDAR" in text,
         )
 
         # 5. офлайн: SW + кэш данных; баннер «Нет сети»
@@ -254,7 +257,7 @@ try:
         pg.wait_for_selector(".bottom-nav", timeout=10000)
         pg.goto("/admin/#/sessions")
         pg.wait_for_timeout(1200)
-        check("админка в PWA: вкладки «Занятия» со справочниками", pg.locator("#native-sessions-tabs a").count() == 5)
+        check("админка в PWA: справочники без удалённой посещаемости", pg.locator("#native-sessions-tabs a").count() == 4 and pg.locator("a[href='#/attendance']").count() == 0)
         check("админка в PWA: «Справочники» нет в нижней навигации", not pg.locator(".bottom-nav [data-route=reference]").is_visible())
         pg.screenshot(path=str(SHOTS / "d-admin-sessions-android360-dark.png"))
         check("без ошибок JS (Android standalone)", not errs, "; ".join(errs))

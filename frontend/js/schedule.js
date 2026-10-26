@@ -1,6 +1,8 @@
 import { getSchedule, getCategories, getLeaders, getRooms } from './api.js';
 import { DAY_NAMES, DAY_SHORT, parseDate, dateKey, addDays, monday, moscowToday, formatDate, minutes, eventLanes } from './schedule-dates.js';
 import { icon } from './icons.js';
+import { eventRoom } from './public-display.js';
+import { latestRequest } from './latest-request.js';
 
 const $ = selector => document.querySelector(selector);
 const content = $('#content');
@@ -13,10 +15,10 @@ const WEEK_MAX = '2100-12-27';
 const state = { week: monday(today), day: Math.min((today.getDay() + 6) % 7, 5), view: 'grid', filtersOpen: false, events: [], phase: 'loading', error: '' };
 const fields = { search: $('#search'), category_id: $('#category'), weekday: $('#weekday'), leader_id: $('#leader'), room_id: $('#room') };
 const statusNames = { scheduled: 'По расписанию', moved: 'Перенос', cancelled: 'Отменено' };
-let requestId = 0;
-let controller;
+const scheduleRequest = latestRequest();
 let searchTimer;
 let referencesId = 0;
+const rooms = new Map();
 
 function node(tag, className, text) {
   const item = document.createElement(tag);
@@ -82,19 +84,17 @@ function safeEvents(data) {
 
 async function loadSchedule() {
   clearTimeout(searchTimer);
-  controller?.abort();
-  controller = new AbortController();
-  const id = ++requestId;
+  const request = scheduleRequest.begin();
   state.phase = 'loading';
   state.events = [];
   render();
   try {
-    const data = await getSchedule(dateKey(state.week), filters(), { signal: controller.signal });
-    if (id !== requestId) return;
+    const data = await getSchedule(dateKey(state.week), filters(), { signal: request.signal });
+    if (!request.isCurrent()) return;
     state.events = safeEvents(data);
     state.phase = 'ready';
   } catch (error) {
-    if (id !== requestId || error.name === 'AbortError') return;
+    if (!request.isCurrent() || error.name === 'AbortError') return;
     state.phase = 'error';
     state.error = error.message;
   }
@@ -103,8 +103,7 @@ async function loadSchedule() {
 
 function scheduleSearch() {
   // Отменяем старый запрос сразу, ещё до задержки поиска.
-  controller?.abort();
-  requestId += 1;
+  scheduleRequest.cancel();
   clearTimeout(searchTimer);
   state.phase = 'loading';
   state.events = [];
@@ -131,6 +130,7 @@ async function loadReferences() {
       failed.push(title);
       return;
     }
+    if (key === 'room_id') { rooms.clear(); for (const room of data) rooms.set(room.id, room); }
     const selected = select.value;
     select.replaceChildren(select.options[0]);
     for (const item of data) {
@@ -144,6 +144,7 @@ async function loadReferences() {
   $('#reference-error').hidden = failed.length === 0;
   $('#reference-error span').textContent = `Не удалось загрузить список ${failed.join(', ')}. Доступные фильтры продолжают работать.`;
   $('#retry-references').disabled = false;
+  if (state.phase === 'ready') render();
 }
 
 function showWeek(date) {
@@ -185,7 +186,7 @@ function details(event) {
   const info = node('dl', 'event-facts');
   const facts = [
     ['Когда', `${formatDate(parseDate(event.date), { year: 'numeric' })}, ${event.start_time}–${event.end_time}`],
-    ['Аудитория', event.room_name], ['Руководитель', event.leader_name], ['Направление', event.category_name],
+    ['Аудитория', eventRoom(event, rooms)], ['Руководитель', event.leader_name], ['Направление', event.category_name],
   ];
   if (event.status === 'moved' && parseDate(event.original_date)) facts.push(['Исходная дата', formatDate(parseDate(event.original_date), { year: 'numeric' })]);
   for (const [label, value] of facts) info.append(node('dt', '', label), node('dd', '', value));
@@ -204,11 +205,11 @@ function eventCard(event, compact = false) {
   button.dataset.eventId = event.event_id;
   const color = /^#[\da-f]{6}$/i.test(event.category_color) ? event.category_color : '#606963';
   button.style.setProperty('--event-color', color);
-  button.setAttribute('aria-label', `${event.club_name}. ${formatDate(parseDate(event.date))}, ${event.start_time}–${event.end_time}. ${event.room_name}. ${event.leader_name}. ${statusNames[event.status]}. Открыть подробности.`);
+  button.setAttribute('aria-label', `${event.club_name}. ${formatDate(parseDate(event.date))}, ${event.start_time}–${event.end_time}. ${eventRoom(event, rooms)}. ${event.leader_name}. ${statusNames[event.status]}. Открыть подробности.`);
   const time = node('span', 'event-time');
   time.append(node('span', 'event-start', event.start_time), node('span', 'time-divider', '–'), node('span', 'event-end', event.end_time));
   button.append(time);
-  button.append(node('strong', 'event-name', event.club_name), node('span', 'event-room', event.room_name), node('span', 'event-leader', event.leader_name));
+  button.append(node('strong', 'event-name', event.club_name), node('span', 'event-room', eventRoom(event, rooms)), node('span', 'event-leader', event.leader_name));
   if (event.status !== 'scheduled') button.append(node('span', 'event-badge', statusNames[event.status]));
   button.append(icon('right', 'event-affordance'));
   button.addEventListener('click', () => details(event));
@@ -243,6 +244,12 @@ function renderList(events, days) {
 }
 
 function renderGrid(events, days) {
+  const maxParallel = Math.max(1, ...days.flatMap(day => eventLanes(events.filter(event => event.date === dateKey(addDays(state.week, day)))).map(item => item.lanes)));
+  if (maxParallel > MAX_READABLE_LANES) {
+    state.view = 'list'; updateControls();
+    renderList(events, days); // не превращаем десятки занятий в нечитаемые узкие полоски
+    return;
+  }
   const earliest = Math.floor(Math.min(...events.map(event => minutes(event.start_time))) / 60);
   const latest = Math.ceil(Math.max(...events.map(event => minutes(event.end_time))) / 60);
   const start = Math.max(0, earliest);
@@ -270,7 +277,6 @@ function renderGrid(events, days) {
     scale.append(tick);
   }
   tracks.append(scale);
-  let maxLanes = 1;
   for (const day of days) {
     const date = addDays(state.week, day);
     const track = node('div', 'day-track');
@@ -282,7 +288,6 @@ function renderGrid(events, days) {
     if (daily.length === 0) track.append(node('span', 'track-empty', 'Нет занятий'));
     for (const { event, lane, lanes } of eventLanes(daily)) {
       const duration = (minutes(event.end_time) - minutes(event.start_time)) / 60 * hourHeight;
-      maxLanes = Math.max(maxLanes, lanes);
       const card = eventCard(event, duration < 110 || lanes > 1);
       card.style.top = `${(minutes(event.start_time) / 60 - start) * hourHeight + 2}px`;
       card.style.height = `${Math.max(4, duration - 4)}px`;
@@ -293,16 +298,6 @@ function renderGrid(events, days) {
     tracks.append(track);
   }
   grid.append(headings, tracks);
-  if (maxLanes > MAX_READABLE_LANES) {
-    // PUB-03: при большом числе параллельных занятий колонки слишком узкие — предлагаем список, не прячем занятия.
-    const notice = node('div', 'schedule-notice grid-crowded');
-    notice.setAttribute('role', 'status');
-    const toList = node('button', 'btn btn--small', 'Показать списком');
-    toList.type = 'button';
-    toList.addEventListener('click', () => { state.view = 'list'; render(); });
-    notice.append(node('span', '', `Параллельно идёт до ${maxLanes} занятий — в сетке они узкие. `), toList);
-    content.append(notice);
-  }
   content.append(grid);
 }
 

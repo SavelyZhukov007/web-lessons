@@ -4,10 +4,12 @@ import { h, toast } from '../../ui.js';
 import { loadAll, broadcasts } from '../api.js';
 import { pageHeader, loading, confirmDialog, dataTable, dayShort } from '../kit.js';
 import { TITLE_MAX, BODY_MAX, buildPayload, filterClubs, audienceLabel, formatMsk, reachText, deliveryText, newIdempotencyKey } from '../broadcast-logic.js';
+import { readDraft, writeDraft, clearDraft, markUnsaved } from '../../draft-state.js';
 
 export async function mount(root, { signal }) {
   root.replaceChildren(pageHeader('Рассылки'), loading());
   const [data, history] = await Promise.all([loadAll({ signal }), broadcasts.list({ signal })]);
+  if (signal?.aborted) return;
   const clubs = data.clubs.filter(c => c.is_active).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
   const sessionsOf = new Map();
   const sessionClub = new Map();
@@ -17,7 +19,10 @@ export async function mount(root, { signal }) {
     sessionClub.set(s.id, s.club_id);
   }
 
-  const state = { title: '', body: '', url: '', audience: 'all', clubIds: new Set(), sessionIds: new Set(), key: newIdempotencyKey(), query: '' };
+  const draft = readDraft('broadcast');
+  const state = { title: draft?.title || '', body: draft?.body || '', url: draft?.url || '', audience: draft?.audience === 'clubs' ? 'clubs' : 'all',
+    clubIds: new Set((Array.isArray(draft?.clubIds) ? draft.clubIds : []).filter(id => clubs.some(c => c.id === id))),
+    sessionIds: new Set((Array.isArray(draft?.sessionIds) ? draft.sessionIds : []).filter(id => sessionClub.has(id))), key: draft?.key || newIdempotencyKey(), query: '' };
   const fresh = () => { state.key = newIdempotencyKey(); }; // правка текста = новое объявление
 
   // --- поля текста со счётчиками ---
@@ -31,6 +36,7 @@ export async function mount(root, { signal }) {
     h('option', { value: '/clubs.html' }, 'Каталог кружков'),
     clubs.map(c => h('option', { value: `/club.html?id=${c.id}` }, `Кружок: ${c.name}`)));
   const errorBox = h('p', { class: 'field-error', role: 'alert', hidden: true });
+  titleInput.value = state.title; bodyInput.value = state.body; linkSelect.value = state.url;
 
   // --- аудитория ---
   const audienceRadio = (value, text) => {
@@ -103,18 +109,24 @@ export async function mount(root, { signal }) {
     h('img', { src: '/icons/icon-192.png', alt: '' }), h('small', {}, 'KipClub · сейчас'), pvTitle, pvBody);
   const send = h('button', { type: 'submit', class: 'btn btn--filled', form: 'bc-form' }, 'Отправить…');
 
-  let reachTimer, reachCtrl, lastReach = { web: 0, apk: 0 };
+  let reachTimer, reachCtrl, reachSeq = 0, lastReach = null;
   function scheduleReach() {
     clearTimeout(reachTimer);
+    reachCtrl?.abort();
+    lastReach = null;
+    const mine = ++reachSeq;
+    reach.textContent = 'Обновляем оценку получателей…';
     reachTimer = setTimeout(async () => {
-      reachCtrl?.abort();
+      if (signal?.aborted || mine !== reachSeq) return;
       reachCtrl = new AbortController();
       const { payload } = buildPayload({ ...state, sessionClub, title: 'x', body: 'x' });
       if (payload.audience === 'clubs' && !payload.club_ids.length) { lastReach = { web: 0, apk: 0 }; reach.textContent = 'Выберите кружки, чтобы увидеть охват.'; return; }
       try {
-        lastReach = await broadcasts.estimate({ audience: payload.audience, club_ids: payload.club_ids ?? [], session_ids: payload.session_ids ?? [] }, { signal: reachCtrl.signal });
+        const result = await broadcasts.estimate({ audience: payload.audience, club_ids: payload.club_ids ?? [], session_ids: payload.session_ids ?? [] }, { signal: reachCtrl.signal });
+        if (signal?.aborted || mine !== reachSeq) return;
+        lastReach = result;
         reach.textContent = reachText(lastReach);
-      } catch (e) { if (e.name !== 'AbortError') reach.textContent = 'Не удалось посчитать получателей.'; }
+      } catch (e) { if (e.name !== 'AbortError' && mine === reachSeq && !signal?.aborted) reach.textContent = 'Оценка получателей недоступна. Это не мешает отправке.'; }
     }, 250);
   }
   function update() {
@@ -126,6 +138,10 @@ export async function mount(root, { signal }) {
     pvTitle.toggleAttribute('data-empty', !state.title.trim());
     pvBody.toggleAttribute('data-empty', !state.body.trim());
     scheduleReach();
+    const dirty = !!(state.title || state.body || state.url || state.audience !== 'all' || state.clubIds.size);
+    markUnsaved(form, dirty);
+    if (dirty) writeDraft('broadcast', { ...state, clubIds: [...state.clubIds], sessionIds: [...state.sessionIds] });
+    else clearDraft('broadcast');
   }
   for (const el of [titleInput, bodyInput]) el.addEventListener('input', () => { fresh(); errorBox.hidden = true; update(); });
   linkSelect.addEventListener('change', () => { fresh(); update(); });
@@ -139,8 +155,10 @@ export async function mount(root, { signal }) {
     errorBox,
     h('div', { class: 'form-actions' }, send));
 
+  let submitting = false;
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    if (submitting || signal?.aborted) return;
     const { errors, payload } = buildPayload({ ...state, sessionClub });
     const first = Object.values(errors)[0];
     if (first) {
@@ -148,27 +166,39 @@ export async function mount(root, { signal }) {
       (errors.title ? titleInput : errors.body ? bodyInput : search).focus();
       return;
     }
-    const who = payload.audience === 'all' ? 'всем подписчикам' : `подписчикам: ${audienceLabel({ audience: 'clubs', club_names: payload.club_ids.map(id => data.club.get(id)?.name ?? `#${id}`) })}${payload.session_ids.length ? ` (занятий: ${payload.session_ids.length})` : ''}`;
-    const ok = await confirmDialog({ title: 'Отправить объявление?', message: `«${payload.title}» уйдёт ${who}. ${reachText(lastReach)}. Отменить отправку будет нельзя.`, confirmLabel: 'Отправить', danger: false });
-    if (!ok) return;
-    send.disabled = true; send.textContent = 'Отправляю…';
+    submitting = true; send.disabled = true; form.inert = true;
     try {
+      const who = payload.audience === 'all' ? 'всем, кто включил объявления' : `подписчикам: ${audienceLabel({ audience: 'clubs', club_names: payload.club_ids.map(id => data.club.get(id)?.name ?? `#${id}`) })}${payload.session_ids?.length ? ` (занятий: ${payload.session_ids.length})` : ''}`;
+      const ok = await confirmDialog({ title: 'Отправить объявление?', message: `«${payload.title}» уйдёт ${who}. ${lastReach ? reachText(lastReach) : 'Оценка охвата пока недоступна'}. Это оценка, а не число прочитавших. Отменить отправку будет нельзя.`, confirmLabel: 'Отправить', danger: false });
+      if (!ok || signal?.aborted) return;
+      send.textContent = 'Отправляю…';
       const result = await broadcasts.send(payload);
+      if (readDraft('broadcast')?.key === payload.idempotency_key) clearDraft('broadcast');
+      if (signal?.aborted) return;
       toast(result.duplicate ? 'Это объявление уже отправлено' : `Отправлено. ${deliveryText(result)}`);
       titleInput.value = ''; bodyInput.value = ''; linkSelect.value = '';
       state.audience = 'all'; state.clubIds.clear(); state.sessionIds.clear(); state.query = ''; search.value = ''; expanded = false;
       form.querySelector('input[value="all"]').checked = true;
       fresh(); renderAudience(); update();
-      renderHistory(await broadcasts.list());
+      try { const items = await broadcasts.list({ signal }); if (!signal?.aborted) renderHistory(items); }
+      catch (error) { if (!signal?.aborted) historyNote.textContent = 'Объявление отправлено. Журнал не обновился — нажмите «Обновить журнал». Повторно отправлять не нужно.'; }
     } catch (error) {
-      errorBox.textContent = error?.message || 'Не удалось отправить.'; errorBox.hidden = false;
-    } finally { send.disabled = false; send.textContent = 'Отправить…'; }
+      if (!signal?.aborted) { errorBox.textContent = error?.message || 'Не удалось подтвердить отправку. Повторите с тем же текстом — ключ запроса сохранён.'; errorBox.hidden = false; }
+    } finally { submitting = false; form.inert = false; send.disabled = false; send.textContent = 'Отправить…'; }
   });
 
   // --- журнал ---
   const historySlot = h('section', { class: 'bc-history', 'aria-labelledby': 'bc-history-title' });
+  const historyNote = h('p', { role: 'status', class: 'field-hint' });
+  const retryHistory = h('button', { type: 'button', class: 'btn btn--small', onclick: async () => {
+    retryHistory.disabled = true;
+    try { const items = await broadcasts.list({ signal }); if (!signal?.aborted) renderHistory(items); }
+    catch (e) { if (!signal?.aborted) historyNote.textContent = e.message || 'Не удалось обновить журнал.'; }
+    finally { retryHistory.disabled = false; }
+  } }, 'Обновить журнал');
   function renderHistory(items) {
-    historySlot.replaceChildren(h('h2', { id: 'bc-history-title' }, 'Отправленные'),
+    historyNote.textContent = '';
+    historySlot.replaceChildren(h('h2', { id: 'bc-history-title' }, 'Отправленные'), retryHistory, historyNote,
       dataTable({
         caption: 'Отправленные объявления, сначала новые',
         empty: 'Объявлений ещё не было.',
@@ -191,6 +221,7 @@ export async function mount(root, { signal }) {
     historySlot);
   renderAudience();
   renderHistory(history);
+  if (draft) historyNote.textContent = 'Восстановлен несохранённый черновик этой вкладки.';
   update();
   signal?.addEventListener('abort', () => { clearTimeout(reachTimer); reachCtrl?.abort(); });
   root.querySelector('#view-title').focus({ preventScroll: true });

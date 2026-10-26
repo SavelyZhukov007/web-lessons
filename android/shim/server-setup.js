@@ -17,7 +17,7 @@
     }).catch(function (e) { lastOk = null; show('err', e.message); throw e; })
       .finally(function () { setBusy(false); });
   }
-  $('test').addEventListener('click', function () { runTest().catch(function () {}); });
+  $('test').addEventListener('click', function () { runTest().catch(function () { }); });
   $('form').addEventListener('submit', function (ev) {
     ev.preventDefault();
     runTest().then(function (r) { S.set(r.base); location.href = '/'; })

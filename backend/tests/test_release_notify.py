@@ -73,5 +73,8 @@ def test_web_subscribers_not_notified(env, monkeypatch):
     publish, sent, _ = env
     called = []
     monkeypatch.setattr(delivery, "_send_web", lambda *a: called.append(1))
-    publish(15, "1"); run(); publish(16, "2"); run()
+    publish(15, "1")
+    run()
+    publish(16, "2")
+    run()
     assert called == []

@@ -2,14 +2,13 @@
 // Всё строится через h() (textContent) — разметка из данных сервера не интерпретируется.
 import { h, icon, toast } from '../ui.js';
 import { DAY_NAMES, DAY_SHORT } from '../schedule-dates.js';
+import { calendarDate as formatDate } from '../public-display.js';
+import { readDraft, writeDraft, clearDraft, markUnsaved } from '../draft-state.js';
+export { formatDate };
 
 export const dayName = n => DAY_NAMES[n - 1] ?? `день ${n}`;
 export const dayShort = n => DAY_SHORT[n - 1] ?? String(n);
 export const WEEKDAY_OPTIONS = DAY_NAMES.map((name, i) => [i + 1, name]);
-export const formatDate = key => {
-  const [y, m, d] = String(key).split('-');
-  return y && m && d ? `${d}.${m}.${y}` : String(key ?? '');
-};
 
 const REASONS = { room: 'аудитория занята', leader: 'руководитель занят' };
 
@@ -31,7 +30,7 @@ function errorNode(error) {
 
 function fieldControl(spec, value) {
   const id = `f-${spec.name}`;
-  const common = { id, name: spec.name, required: !!spec.required, 'aria-describedby': `${id}-hint` };
+  const common = { id, name: spec.name, required: !!spec.required, 'aria-describedby': spec.hint ? `${id}-hint` : undefined };
   if (spec.type === 'select') {
     const select = h('select', common, spec.placeholder !== undefined && h('option', { value: '' }, spec.placeholder),
       spec.options.map(([v, label]) => h('option', { value: String(v), selected: String(v) === String(value ?? '') }, label)));
@@ -61,10 +60,11 @@ function readForm(form, fields) {
 
 let openDialog = null;
 function showDialog(dialog) {
+  const opener = document.activeElement;
   openDialog?.close();
   document.body.append(dialog);
-  dialog.addEventListener('close', () => { dialog.remove(); if (openDialog === dialog) openDialog = null; }, { once: true });
-  dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener('close', () => { dialog.remove(); if (openDialog === dialog) openDialog = null; if (opener?.isConnected) opener.focus(); }, { once: true });
+  dialog.addEventListener('click', event => { if (event.target === dialog && dialog.dataset.busy !== 'true') dialog.close(); });
   openDialog = dialog;
   dialog.showModal();
 }
@@ -77,16 +77,31 @@ function showDialog(dialog) {
 export function formDialog({ title, fields, initial = {}, submitLabel = 'Сохранить', intro, onSubmit, danger = false }) {
   return new Promise(resolve => {
     let result = null;
+    let submitting = false;
+    let keepDraft = false;
     const feedback = h('div', { class: 'form-feedback', 'aria-live': 'polite' });
     const form = h('form', { class: 'form-grid', novalidate: true });
+    const canStore = !fields.some(spec => spec.type === 'password');
+    const draftKey = `form:${title}:${JSON.stringify(fields.map(spec => [spec.name, initial[spec.name] ?? null]))}`;
+    const draft = canStore ? readDraft(draftKey) : null;
     for (const spec of fields) {
-      const control = fieldControl(spec, initial[spec.name]);
+      const control = fieldControl(spec, draft && Object.hasOwn(draft, spec.name) ? draft[spec.name] : initial[spec.name]);
       const label = spec.type === 'checkbox'
         ? h('label', { class: 'checkbox', for: `f-${spec.name}` }, control, spec.label)
         : h('label', { class: 'field', for: `f-${spec.name}` }, h('span', { class: 'field-label' }, spec.label + (spec.required ? ' *' : '')), control);
       form.append(label);
       if (spec.hint) form.append(h('p', { class: 'field-hint', id: `f-${spec.name}-hint` }, spec.hint));
     }
+    const initialValues = Object.fromEntries(fields.map(spec => [spec.name, spec.type === 'checkbox' ? !!initial[spec.name] : spec.numeric || spec.type === 'number' ? (initial[spec.name] ?? null) : String(initial[spec.name] ?? '').trim()]));
+    const preserve = () => {
+      const values = readForm(form, fields);
+      const dirty = JSON.stringify(values) !== JSON.stringify(initialValues);
+      markUnsaved(form, dirty);
+      if (canStore) { if (dirty) writeDraft(draftKey, values); else clearDraft(draftKey); }
+    };
+    form.addEventListener('input', preserve);
+    form.addEventListener('change', preserve);
+    if (draft) { feedback.append(h('p', { class: 'field-hint', role: 'status' }, 'Восстановлен несохранённый черновик этой вкладки.')); markUnsaved(form, true); }
     const cancel = h('button', { type: 'button', class: 'btn btn--text' }, 'Отмена');
     const submit = h('button', { type: 'submit', class: `btn ${danger ? 'btn--danger' : 'btn--filled'}` }, submitLabel);
     const dialog = h('dialog', { class: 'sheet sheet--bottom', 'aria-labelledby': 'dlg-title' },
@@ -97,9 +112,11 @@ export function formDialog({ title, fields, initial = {}, submitLabel = 'Сох�
     submit.setAttribute('form', 'dlg-form');
     form.id = 'dlg-form';
     cancel.addEventListener('click', () => dialog.close());
-    dialog.addEventListener('close', () => resolve(result), { once: true });
+    dialog.addEventListener('cancel', event => { if (submitting) event.preventDefault(); });
+    dialog.addEventListener('close', () => { if (canStore && !keepDraft) clearDraft(draftKey); resolve(result); }, { once: true });
     form.addEventListener('submit', async event => {
       event.preventDefault();
+      if (submitting) return;
       feedback.replaceChildren();
       for (const el of form.elements) el.removeAttribute?.('aria-invalid');
       const bad = [...form.elements].find(el => el.willValidate && !el.checkValidity());
@@ -109,15 +126,24 @@ export function formDialog({ title, fields, initial = {}, submitLabel = 'Сох�
         bad.focus();
         return;
       }
+      submitting = true;
+      dialog.dataset.busy = 'true';
       submit.disabled = true;
+      cancel.disabled = true;
+      dialog.querySelector('[aria-label="Закрыть"]').disabled = true;
+      form.inert = true;
+      preserve();
       try {
         result = (await onSubmit(readForm(form, fields))) ?? true;
         dialog.close();
       } catch (error) {
         feedback.replaceChildren(errorNode(error));
         feedback.scrollIntoView({ block: 'nearest' });
-        if (error?.status === 401) dialog.close();
-      } finally { submit.disabled = false; }
+        if (error?.status === 401) { keepDraft = true; dialog.close(); }
+      } finally {
+        submitting = false; dialog.dataset.busy = 'false'; submit.disabled = false; cancel.disabled = false; form.inert = false;
+        dialog.querySelector('[aria-label="Закрыть"]').disabled = false;
+      }
     });
     showDialog(dialog);
     dialog.querySelector('input:not([type=checkbox]), select, textarea')?.focus();
