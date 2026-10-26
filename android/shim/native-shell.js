@@ -86,10 +86,10 @@
     if (ah && ah.querySelector('.admin-tools') && !ah.querySelector('.app-gear')) { // админка перерисовывает шапку целиком — проверяем по шестерёнке // админка: верхние ссылки разделов дублируют нижнюю навигацию — убираем
       ah.setAttribute('data-native-admin', '');
       var an = ah.querySelector('.admin-nav'); if (an) an.remove();
-      var sch = doc.createElement('a'); sch.className = 'app-nav-toggle'; sch.href = '/?from=admin'; sch.textContent = 'Расписание';
+      // «Расписание», «Сменить пароль» и «Выйти» — в Настройках (шестерёнка); в верхней панели только логотип и ⚙
       var tools = ah.querySelector('.admin-tools');
-      tools.querySelectorAll('button.settings-button').forEach(function (b) { if (/Выйти/.test(b.getAttribute('aria-label') || '')) b.remove(); }); // выход — в Настройках
-      ah.insertBefore(sch, tools); tools.appendChild(gearButton());
+      tools.querySelectorAll('.settings-button').forEach(function (b) { b.remove(); });
+      tools.appendChild(gearButton());
       return;
     }
     var header = doc.querySelector('body.campus-page:not(.admin-page) > .campus-header:not([data-app-header])');

@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
-import time
 from datetime import datetime
 
 import pytest
 
 from backend.app import settings
-from backend.app.database import SessionLocal
-from backend.app.models import Leader
 from backend.app.routers import public
 from backend.app.services import client_logs
 from backend.app.services.clock import MSK

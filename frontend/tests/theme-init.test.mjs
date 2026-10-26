@@ -73,7 +73,7 @@ test('set(): сохраняет в localStorage, обновляет атрибу
   assert.equal(attrs['data-theme'], 'dark');
   assert.equal(attrs['data-accent'], 'blue');
   assert.equal(attrs['data-text-size'], 'large');
-  assert.deepEqual(JSON.parse(store.get('clubs.prefs')), { theme: 'dark', accent: 'blue', textSize: 'large' });
+  assert.deepEqual(JSON.parse(store.get('clubs.prefs')), { theme: 'dark', accent: 'blue', textSize: 'large', customAccent: '#e0a800' });
   assert.equal(metas['theme-color'].content, theme.THEME_COLOR.dark);
   assert.equal(seen.length, 1);
   assert.equal(seen[0].resolved, 'dark');
@@ -116,4 +116,44 @@ test('нативные бары Capacitor синхронизируются (бе
   assert.equal(calls[1][0], 'bg');
   assert.doesNotThrow(() => theme.set({ theme: 'light' }));
   assert.doesNotThrow(() => makeWindow({ capacitor: { getPlatform: () => 'android' } }));
+});
+
+// --- Тумблер «Системная тема», ползунок размера текста, свой акцент, контраст аватара ---
+test('тумблер темы: старые значения читаются как есть (system = вкл, light/dark = выкл), выключение берёт текущую тему', () => {
+  const { theme } = makeWindow({ stored: { theme: 'light' } });
+  assert.equal(theme.get().theme, 'light');
+  assert.equal(theme.themeFromToggle(true, 'dark'), 'system');
+  assert.equal(theme.themeFromToggle(false, 'dark'), 'dark');
+  assert.equal(theme.themeFromToggle(false, 'light'), 'light');
+  assert.equal(theme.nextManualTheme('light'), 'dark');
+  assert.equal(theme.nextManualTheme('dark'), 'light');
+});
+
+test('ползунок размера текста: три точки в порядке normal → large → xlarge, неизвестное значение → normal', () => {
+  const { theme } = makeWindow({ stored: { textSize: 'huge' } });
+  assert.deepEqual(Array.from(theme.SIZES), ['normal', 'large', 'xlarge']);
+  assert.equal(theme.get().textSize, 'normal');
+  assert.equal(makeWindow({ stored: { textSize: 'xlarge' } }).theme.get().textSize, 'xlarge');
+});
+
+test('свой акцент: валидируется, сохраняется; кривой hex → значение по умолчанию', () => {
+  const { theme, attrs, store } = makeWindow();
+  theme.set({ accent: 'custom', customAccent: '#FFEB3B' });
+  assert.equal(attrs['data-accent'], 'custom');
+  assert.equal(JSON.parse(store.get('clubs.prefs')).customAccent, '#ffeb3b');
+  assert.equal(makeWindow({ stored: { accent: 'custom', customAccent: 'red' } }).theme.get().customAccent, theme.DEFAULTS.customAccent);
+});
+
+test('контраст: буква на аватаре — тёмная на жёлтом, белая на тёмно-синем; производные акцента читаемы в обеих темах', () => {
+  const { theme } = makeWindow();
+  assert.equal(theme.readableOn('#ffeb3b'), '#141414');
+  assert.equal(theme.readableOn('#000080'), '#ffffff');
+  for (const hex of ['#ffeb3b', '#000080', '#b83b29', '#00ffff']) {
+    for (const t of ['light', 'dark']) {
+      const d = theme.deriveAccent(hex, t);
+      assert.ok(theme.contrast(d.container, d.onContainer) >= 4.5, `${hex}/${t} container`);
+      assert.ok(theme.contrast(d.primary, d.onPrimary) >= 4.5, `${hex}/${t} primary`);
+      assert.ok(theme.contrast(d.logo, d.logoMark) >= 3, `${hex}/${t} logo`);
+    }
+  }
 });

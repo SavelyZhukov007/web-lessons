@@ -7,9 +7,10 @@
   'use strict';
   var KEY = 'clubs.prefs';
   var THEMES = ['system', 'light', 'dark'];
-  var ACCENTS = ['brick', 'blue', 'green', 'violet'];
+  var ACCENTS = ['brick', 'blue', 'green', 'violet', 'custom'];
   var SIZES = ['normal', 'large', 'xlarge'];
-  var DEFAULTS = { theme: 'system', accent: 'brick', textSize: 'normal' };
+  var DEFAULTS = { theme: 'system', accent: 'brick', textSize: 'normal', customAccent: '#e0a800' };
+  var HEX = /^#[0-9a-f]{6}$/i;
   var THEME_COLOR = { light: '#ffffff', dark: '#111412' };
   var doc = root.document;
   var listeners = [];
@@ -20,13 +21,39 @@
     return {
       theme: pick(raw.theme, THEMES, DEFAULTS.theme),
       accent: pick(raw.accent, ACCENTS, DEFAULTS.accent),
-      textSize: pick(raw.textSize, SIZES, DEFAULTS.textSize)
+      textSize: pick(raw.textSize, SIZES, DEFAULTS.textSize),
+      customAccent: HEX.test(raw.customAccent || '') ? String(raw.customAccent).toLowerCase() : DEFAULTS.customAccent
     };
   }
   function load() {
     try { return normalize(JSON.parse(root.localStorage.getItem(KEY))); } catch (e) { return normalize(null); }
   }
   function save(prefs) { try { root.localStorage.setItem(KEY, JSON.stringify(prefs)); return true; } catch (e) { return false; } }
+
+
+  // ---- Цветовые утилиты для своего акцента и контраста букв на аватаре (WCAG relative luminance) ----
+  function hexToRgb(hex) { var n = parseInt(String(hex).slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  function rgbToHex(c) { return '#' + c.map(function (v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? '0' : '') + v.toString(16); }).join(''); }
+  function luminance(hex) {
+    var c = hexToRgb(hex).map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function contrast(a, b) { var x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  // Белый или почти-чёрный — что контрастнее на фоне bg
+  function readableOn(bg) { return contrast(bg, '#ffffff') >= contrast(bg, '#141414') ? '#ffffff' : '#141414'; }
+  function mix(a, b, t) { var x = hexToRgb(a), y = hexToRgb(b); return rgbToHex(x.map(function (v, i) { return v + (y[i] - v) * t; })); }
+  // Производные цвета своего акцента для темы
+  function deriveAccent(hex, theme) {
+    var dark = theme === 'dark', primary = hex;
+    // в тёмной теме слишком тёмный акцент осветляем, в светлой слишком светлый — затемняем (для текста/ссылок)
+    if (dark) { for (var i = 0; i < 10 && contrast(primary, '#111412') < 4.5; i++) primary = mix(primary, '#ffffff', 0.18); }
+    else { for (var j = 0; j < 10 && contrast(primary, '#ffffff') < 3; j++) primary = mix(primary, '#000000', 0.15); }
+    var container = dark ? mix(hex, '#111412', 0.6) : mix(hex, '#ffffff', 0.8);
+    return { primary: primary, onPrimary: readableOn(primary), container: container, onContainer: readableOn(container), logo: hex, logoMark: readableOn(hex) };
+  }
+  // Тумблер «Системная тема»: при выключении стартуем с текущей фактической темы; кнопка-иконка переключает light ⇄ dark
+  function themeFromToggle(on, current) { return on ? 'system' : (current === 'dark' ? 'dark' : 'light'); }
+  function nextManualTheme(current) { return current === 'dark' ? 'light' : 'dark'; }
 
   function systemDark() {
     try { return !!(root.matchMedia && root.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { return false; }
@@ -78,6 +105,15 @@
     el.setAttribute('data-theme-pref', prefs.theme);
     el.setAttribute('data-accent', prefs.accent);
     el.setAttribute('data-text-size', prefs.textSize);
+    var st = el.style;
+    if (st && st.setProperty) {
+      var V = ['--primary', '--on-primary', '--primary-container', '--on-primary-container', '--logo-fill', '--logo-mark'];
+      if (prefs.accent === 'custom') {
+        var d = deriveAccent(prefs.customAccent, resolved);
+        [d.primary, d.onPrimary, d.container, d.onContainer, d.logo, d.logoMark].forEach(function (v, i) { st.setProperty(V[i], v); });
+        st.setProperty('--custom-accent', prefs.customAccent);
+      } else { V.concat('--custom-accent').forEach(function (k) { st.removeProperty(k); }); }
+    }
     var cls = (el.className || '').split(/\s+/).filter(function (c) { return c && c.indexOf('platform-') !== 0; });
     cls.push('platform-' + platform);
     el.className = cls.join(' ');
@@ -99,7 +135,7 @@
     listeners.slice().forEach(function (fn) { try { fn(snapshot); } catch (e) {} });
     try { root.dispatchEvent(new root.CustomEvent('clubs:themechange', { detail: snapshot })); } catch (e) {}
   }
-  function get() { return { theme: prefs.theme, accent: prefs.accent, textSize: prefs.textSize }; }
+  function get() { return { theme: prefs.theme, accent: prefs.accent, textSize: prefs.textSize, customAccent: prefs.customAccent }; }
   function set(partial) {
     prefs = normalize(Object.assign({}, prefs, partial));
     save(prefs); apply(); emit();
@@ -137,6 +173,7 @@
     resolved: function () { return resolved; },
     platform: platform,
     DEFAULTS: DEFAULTS, THEME_COLOR: THEME_COLOR, THEMES: THEMES, ACCENTS: ACCENTS, SIZES: SIZES,
-    _normalize: normalize, _resolve: resolve, _detectPlatform: detectPlatform
+    _normalize: normalize, luminance: luminance, contrast: contrast, readableOn: readableOn, deriveAccent: deriveAccent,
+    themeFromToggle: themeFromToggle, nextManualTheme: nextManualTheme, _resolve: resolve, _detectPlatform: detectPlatform
   };
 })(typeof window !== 'undefined' ? window : globalThis);

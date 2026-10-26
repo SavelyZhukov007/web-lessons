@@ -656,3 +656,38 @@ html.is-native .campus-header .app-menu-btn {
     padding-right: max(8px, var(--safe-right, 0px));
   }
 }
+
+/* ---------- kc7: верхняя панель APK/PWA — логотип, «Все кружки», ⚙ строго по одной центральной линии;
+   на узких экранах надпись «KipClub» скрыта, знак крупнее ---------- */
+html.is-native .campus-header[data-app-header],
+html.is-native .campus-header[data-native-admin] {
+  align-items: center !important;
+}
+html.is-native .campus-header[data-app-header] > *,
+html.is-native .campus-header[data-native-admin] > *,
+html.is-native .campus-header[data-app-header] nav,
+html.is-native .campus-header[data-app-header] .app-nav-toggle,
+html.is-native .campus-header[data-native-admin] .admin-tools {
+  align-self: center !important;
+  align-items: center !important;
+}
+html.is-native .campus-header[data-app-header] .app-nav-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  line-height: 1.2;
+}
+html.is-native .campus-header[data-native-admin] .admin-tools { display: flex; margin-left: auto; }
+html.is-native .campus-header .app-menu-btn { display: inline-grid !important; place-items: center; height: 44px; }
+html.is-native .campus-header .itc-home-chip { display: none !important; } /* «Админка» — теперь в Настройках */
+@media (max-width: 599px) {
+  html.is-native .campus-header[data-app-header] .campus-brand > span.native-brand,
+  html.is-native .campus-header[data-native-admin] .campus-brand > span:not(.brand-mark),
+  html.is-native .campus-header[data-native-admin] .campus-brand small { display: none !important; }
+  html.is-native .campus-header[data-app-header] .campus-brand .brand-mark,
+  html.is-native .campus-header[data-native-admin] .campus-brand .brand-mark { width: 40px; height: 40px; }
+  html.is-native .campus-header[data-app-header] .campus-brand,
+  html.is-native .campus-header[data-native-admin] .campus-brand { overflow: visible; display: inline-flex; align-items: center; }
+}

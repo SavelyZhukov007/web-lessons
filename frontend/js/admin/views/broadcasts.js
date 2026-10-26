@@ -38,30 +38,50 @@ export async function mount(root, { signal }) {
     input.addEventListener('change', () => { state.audience = value; fresh(); renderAudience(); update(); });
     return h('label', {}, input, h('span', {}, text));
   };
-  const search = h('input', { type: 'search', id: 'bc-search', placeholder: 'Найти кружок', autocomplete: 'off', 'aria-controls': 'bc-club-list' });
+  // Кружки: выбранные — чипы с ×; поиск с подсказками по мере ввода; отметка прямо в результатах
+  const search = h('input', { type: 'search', id: 'bc-search', placeholder: 'Начните вводить название кружка', autocomplete: 'off', 'aria-controls': 'bc-club-list' });
+  const chips = h('div', { class: 'bc-picked', 'aria-label': 'Выбранные кружки' });
   const list = h('div', { class: 'bc-club-list', id: 'bc-club-list', role: 'group', 'aria-label': 'Кружки' });
   const picked = h('p', { class: 'field-hint', role: 'status' });
+  const toggleAll = h('button', { type: 'button', class: 'btn btn--text btn--small bc-expand', 'aria-expanded': 'false', 'aria-controls': 'bc-club-list' });
+  let expanded = false;
+  toggleAll.addEventListener('click', () => { expanded = !expanded; renderClubs(); });
   const clubsBox = h('div', { class: 'bc-clubs' },
-    h('label', { class: 'field', for: 'bc-search' }, h('span', { class: 'field-label' }, 'Кружки'), search), list, picked);
+    chips,
+    h('label', { class: 'field', for: 'bc-search' }, h('span', { class: 'field-label' }, 'Найти кружок'), search), list, toggleAll, picked);
   search.addEventListener('input', () => { state.query = search.value; renderClubs(); });
 
+  function setClub(id, on) {
+    if (on) state.clubIds.add(id);
+    else { state.clubIds.delete(id); for (const s of sessionsOf.get(id) ?? []) state.sessionIds.delete(s.id); }
+    fresh(); renderClubs(); update();
+  }
   function renderClubs() {
-    const shown = filterClubs(clubs, state.query);
-    list.replaceChildren(...(shown.length ? shown.map(clubRow) : [h('p', { class: 'field-hint' }, clubs.length ? 'Ничего не нашлось.' : 'Активных кружков пока нет.')]));
+    const q = state.query.trim();
+    const shown = filterClubs(clubs, q);
+    const open = q || expanded;
+    list.hidden = !open;
+    toggleAll.hidden = !!q || !clubs.length;
+    toggleAll.textContent = expanded ? 'Свернуть список' : `Показать все кружки (${clubs.length})`;
+    toggleAll.setAttribute('aria-expanded', String(expanded));
+    if (open) list.replaceChildren(...(shown.length ? shown.map(clubRow) : [h('p', { class: 'field-hint' }, clubs.length ? 'Ничего не нашлось.' : 'Активных кружков пока нет.')]));
+    chips.replaceChildren(...[...state.clubIds].map(id => {
+      const name = data.club.get(id)?.name ?? `#${id}`;
+      const x = h('button', { type: 'button', class: 'bc-pill-x', 'aria-label': `Убрать «${name}»` }, '×');
+      x.addEventListener('click', () => setClub(id, false));
+      return h('span', { class: 'bc-pill' }, h('span', {}, name), x);
+    }));
+    chips.hidden = !state.clubIds.size;
     const n = state.clubIds.size;
-    picked.textContent = n ? `Выбрано кружков: ${n}${state.sessionIds.size ? `, занятий: ${state.sessionIds.size}` : ''}. Без отмеченных занятий получат все подписчики кружка.` : 'Отметьте один или несколько кружков.';
+    picked.textContent = n ? `Выбрано кружков: ${n}${state.sessionIds.size ? `, занятий: ${state.sessionIds.size}` : ''}. Без отмеченных занятий получат все подписчики кружка.` : 'Выберите один или несколько кружков.';
   }
   function clubRow(club) {
     const on = state.clubIds.has(club.id);
     const box = h('input', { type: 'checkbox', checked: on, id: `bc-club-${club.id}` });
-    box.addEventListener('change', () => {
-      if (box.checked) state.clubIds.add(club.id);
-      else { state.clubIds.delete(club.id); for (const s of sessionsOf.get(club.id) ?? []) state.sessionIds.delete(s.id); }
-      fresh(); renderClubs(); update();
-    });
+    box.addEventListener('change', () => setClub(club.id, box.checked));
     const sessions = on ? sessionsOf.get(club.id) ?? [] : [];
     return h('div', { class: 'bc-club', dataset: on ? { on: '' } : {} },
-      h('label', { class: 'checkbox', for: `bc-club-${club.id}` }, box, club.name),
+      h('label', { class: 'bc-check', for: `bc-club-${club.id}` }, box, h('span', {}, club.name)),
       sessions.length > 0 && h('div', { class: 'bc-sessions', role: 'group', 'aria-label': `Занятия кружка ${club.name} (необязательно)` },
         sessions.map(s => {
           const chip = h('input', { type: 'checkbox', checked: state.sessionIds.has(s.id) });
@@ -71,7 +91,7 @@ export async function mount(root, { signal }) {
   }
   const audienceSlot = h('div', {});
   function renderAudience() {
-    audienceSlot.replaceChildren(...(state.audience === 'clubs' ? [clubsBox] : [h('p', { class: 'field-hint' }, 'Получат все, кто включил уведомления в браузере или в приложении Android.')]));
+    audienceSlot.replaceChildren(...(state.audience === 'clubs' ? [clubsBox] : [h('p', { class: 'field-hint' }, 'Получат все, кто включил уведомления.')]));
     if (state.audience === 'clubs') renderClubs();
   }
 
@@ -115,7 +135,7 @@ export async function mount(root, { signal }) {
     h('label', { class: 'field', for: 'bc-body' }, h('span', { class: 'field-label' }, 'Текст *'), bodyInput), bodyCount,
     h('label', { class: 'field', for: 'bc-url' }, h('span', { class: 'field-label' }, 'По нажатию открыть'), linkSelect),
     h('fieldset', { class: 'field' }, h('legend', { class: 'field-label' }, 'Кому'),
-      h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Кому отправить' }, audienceRadio('all', 'Всем'), audienceRadio('clubs', 'Кружкам')), audienceSlot),
+      h('div', { class: 'segmented bc-audience', role: 'radiogroup', 'aria-label': 'Кому отправить' }, audienceRadio('all', 'Всем'), audienceRadio('clubs', 'Кружкам')), audienceSlot),
     errorBox,
     h('div', { class: 'form-actions' }, send));
 
@@ -136,7 +156,7 @@ export async function mount(root, { signal }) {
       const result = await broadcasts.send(payload);
       toast(result.duplicate ? 'Это объявление уже отправлено' : `Отправлено. ${deliveryText(result)}`);
       titleInput.value = ''; bodyInput.value = ''; linkSelect.value = '';
-      state.audience = 'all'; state.clubIds.clear(); state.sessionIds.clear(); state.query = ''; search.value = '';
+      state.audience = 'all'; state.clubIds.clear(); state.sessionIds.clear(); state.query = ''; search.value = ''; expanded = false;
       form.querySelector('input[value="all"]').checked = true;
       fresh(); renderAudience(); update();
       renderHistory(await broadcasts.list());
@@ -167,8 +187,7 @@ export async function mount(root, { signal }) {
     pageHeader('Рассылки'),
     h('div', { class: 'bc-layout' },
       h('section', { class: 'card', 'aria-labelledby': 'bc-new' }, h('h2', { id: 'bc-new' }, 'Новое объявление'), form),
-      h('aside', { class: 'card bc-side', 'aria-labelledby': 'bc-pv' }, h('h2', { id: 'bc-pv' }, 'Предпросмотр'), preview, h('h3', {}, 'Охват'), reach,
-        h('p', { class: 'field-hint' }, 'Браузеры получат объявление сразу. Приложение Android проверяет новые объявления при запуске и в фоне — обычно в течение получаса.'))),
+      h('aside', { class: 'card bc-side', 'aria-labelledby': 'bc-pv' }, h('h2', { id: 'bc-pv' }, 'Предпросмотр'), preview, h('h3', {}, 'Охват'), reach)),
     historySlot);
   renderAudience();
   renderHistory(history);

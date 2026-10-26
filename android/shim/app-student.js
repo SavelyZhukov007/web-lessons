@@ -52,7 +52,7 @@
   // ---------- единая сессия {role: guest|admin, name, exp} ----------
   // Админ: токены выдаёт и хранит админка сайта (clubs.adminToken / clubs.adminRefresh); роль ставится по успешному
   // POST /api/admin/login и снимается по /api/admin/logout или 401 при обновлении. Срок — по refresh_expires_in.
-  var SES_KEY = 'itc.session', ROLES = { guest: 'Гость', admin: 'Сотрудник' };
+  var SES_KEY = 'itc.session', ROLES = { guest: 'Гость', admin: 'Администратор' };
   // Наследие удалённой посещаемости: профиль студента, очередь отметок, ключ шифрования в IndexedDB.
   function wipeAttendanceLeftovers() {
     ['itc.vault.v1', 'itc.checkinQueue', 'itc.studentName', 'itc.teacher.session'].forEach(function (k) { LS.removeItem(k); });
@@ -152,21 +152,35 @@
   function settingsScreen() {
     var T = window.ClubsTheme, pr = T ? T.get() : { theme: 'system', accent: 'brick', textSize: 'normal' };
     var ses = Session.get() || { role: 'guest' }, r = ses.role, DEV = window.ITC_CHANNEL && window.ITC_CHANNEL !== 'p';
+    var isAdmin = r === 'admin', inAdmin = /^\/admin\//.test(location.pathname);
     var acc;
-    if (r === 'guest' || !r) acc = '<div class="itc-acc"><div class="itc-acc-ava" aria-hidden="true">?</div><div class="itc-acc-tx"><b>Гость</b><small>' +
+    if (!isAdmin) acc = '<div class="itc-acc"><div class="itc-acc-ava" aria-hidden="true">Г</div><div class="itc-acc-tx"><b>Гость</b><small>' +
       (ses.expired ? 'Срок входа истёк — войдите снова' : 'Расписание и уведомления доступны без входа') + '</small></div></div>' +
       '<button type="button" class="itc-ob-secondary itc-acc-btn" data-act="admin-login">Войти как сотрудник</button>';
-    else acc = '<div class="itc-acc"><div class="itc-acc-ava" aria-hidden="true">' + esc((ses.name || ROLES[r]).trim().charAt(0).toUpperCase()) + '</div><div class="itc-acc-tx"><b>' + esc(ses.name || ROLES[r]) + '</b><small>' + ROLES[r] + '</small></div></div>' +
-      row('Админка', { act: 'admin' }) + row('Выйти', { act: 'logout', danger: true });
+    else acc = '<div class="itc-acc"><div class="itc-acc-ava" aria-hidden="true">' + esc((ses.name || ROLES.admin).trim().charAt(0).toUpperCase()) + '</div><div class="itc-acc-tx"><b>' + esc(ses.name || ROLES.admin) + '</b><small>' + ROLES.admin + '</small></div></div>' +
+      (inAdmin ? row('Расписание', { act: 'schedule' }) : row('Админка', { act: 'admin' }));
+    var adminAcc = isAdmin ? '<h2>Аккаунт администратора</h2><div class="itc-group itc-acc-actions">' + row('Сменить пароль', { act: 'password' }) + row('Выйти', { act: 'logout', danger: true }) + '</div>' : '';
+    var SUN = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2 12h2.2M19.8 12H22M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"/></svg>';
+    var MOON = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1z"/></svg>';
+    var SIZE_N = [['normal', 'Обычный'], ['large', 'Крупный'], ['xlarge', 'Очень крупный']];
+    var sIdx = Math.max(0, SIZE_N.map(function (x) { return x[0]; }).indexOf(pr.textSize));
+    var themeRow = '<div class="itc-row itc-row-sw itc-theme-row"><span class="itc-row-tx"><span id="itc-sys-theme-l">Системная тема</span><small data-theme-hint></small></span>' +
+      '<button type="button" class="itc-theme-flip" data-theme-flip></button>' +
+      '<button type="button" class="itc-toggle" role="switch" aria-labelledby="itc-sys-theme-l" data-sys-theme><span></span></button></div>';
+    var sizeRow = '<div class="itc-field itc-size"><span>Размер текста <b data-size-name>' + SIZE_N[sIdx][1] + '</b></span>' +
+      '<div class="itc-size-row"><span class="itc-a-s" aria-hidden="true">А</span><input type="range" min="0" max="2" step="1" value="' + sIdx + '" data-size aria-label="Размер текста" aria-valuetext="' + SIZE_N[sIdx][1] + '" style="--fill:' + sIdx * 50 + '%"><span class="itc-a-l" aria-hidden="true">А</span></div>' +
+      '<div class="itc-size-ticks" aria-hidden="true">' + SIZE_N.map(function (x) { return '<span>' + x[1] + '</span>'; }).join('') + '</div></div>';
+    var custom = pr.accent === 'custom';
     var s = screen('<div class="itc-set">' +
       '<header class="itc-set-head"><button type="button" class="itc-set-back" data-act="close" aria-label="Назад"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Настройки</h1></header>' +
       '<div class="itc-set-body">' +
       '<h2>Аккаунт</h2><div class="itc-group">' + acc + '</div>' +
-      '<h2>Оформление</h2><div class="itc-group"><div class="itc-field"><span>Тема</span>' + seg('theme', [['system', 'Системная'], ['light', 'Светлая'], ['dark', 'Тёмная']], pr.theme) + '</div>' +
-      '<div class="itc-field"><span>Размер текста</span>' + seg('textSize', [['normal', 'Обычный'], ['large', 'Крупный'], ['xlarge', 'Очень крупный']], pr.textSize) + '</div>' +
+      '<h2>Оформление</h2><div class="itc-group">' + themeRow + sizeRow +
       '<div class="itc-field"><span>Акцентный цвет</span><div class="itc-swatches" role="radiogroup" data-seg="accent">' + ACC.map(function (a) {
-        return '<button type="button" role="radio" class="itc-sw" data-accent="' + a[0] + '" data-v="' + a[0] + '" aria-label="' + a[1] + '" aria-checked="' + (a[0] === pr.accent) + '"></button>'; }).join('') + '</div></div></div>' +
-      '<h2>Уведомления</h2><div class="itc-group"><label class="itc-row itc-row-sw"><span class="itc-row-tx"><span>Вибрация</span><small>Короткий отклик на нажатия</small></span><input type="checkbox" role="switch" class="itc-switch" data-haptics' + (Haptics.on() ? ' checked' : '') + '></label><div data-ext="notify"></div></div>' +
+        return '<button type="button" role="radio" class="itc-sw" data-accent="' + a[0] + '" data-v="' + a[0] + '" aria-label="' + a[1] + '" aria-checked="' + (a[0] === pr.accent) + '"></button>'; }).join('') +
+        '<label class="itc-sw itc-sw-custom" role="radio" aria-label="Свой цвет" aria-checked="' + custom + '"><input type="color" data-custom-accent value="' + esc(pr.customAccent || '#e0a800') + '" aria-label="Свой цвет акцента"><i></i></label>' +
+        '</div></div></div>' +
+      '<h2>Уведомления</h2><div class="itc-group"><label class="itc-row itc-row-sw"><span class="itc-row-tx"><span>Вибрация</span><small>Короткий отклик на нажатия</small></span><input type="checkbox" role="switch" class="itc-switch" data-haptics' + (Haptics.on() ? ' checked' : '') + '></label><div data-ext="notify"></div></div>' + adminAcc +
       '<h2>О приложении</h2><div class="itc-group">' + row('Проверить обновления', { act: 'update' }) +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Версия</span></span><span class="itc-row-val">' + esc(window.ITC_VERSION || '—') + '</span></div>' +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Разработчик</span></span><span class="itc-row-val">ИТС КИПФИН</span></div></div>' +
@@ -174,11 +188,40 @@
       '</div></div>', 'itc-ob-scroll itc-settings');
     exts.forEach(function (fn) { try { fn(s.querySelector('[data-ext="dev"]'), { row: row, close: s.close, section: 'dev', screen: s }); } catch (e) { console.warn(e); } });
     s.querySelector('[data-haptics]').addEventListener('change', function () { Haptics.set(this.checked); if (this.checked) Haptics.tap(); });
+    // Тема: тумблер «Системная тема» + кнопка-иконка (светлая ⇄ тёмная), видна при выключенном тумблере
+    var sw = s.querySelector('[data-sys-theme]'), flip = s.querySelector('[data-theme-flip]'), th = s.querySelector('[data-theme-hint]'), ava = s.querySelector('.itc-acc-ava');
+    function syncTheme() {
+      if (!T) return;
+      var pref = T.get().theme, cur = T.resolved();
+      sw.setAttribute('aria-checked', String(pref === 'system'));
+      flip.hidden = pref === 'system'; flip.innerHTML = cur === 'dark' ? MOON : SUN; flip.setAttribute('data-mode', cur);
+      flip.setAttribute('aria-label', cur === 'dark' ? 'Тёмная тема. Нажмите — светлая' : 'Светлая тема. Нажмите — тёмная');
+      th.textContent = pref === 'system' ? 'Как на телефоне · сейчас ' + (cur === 'dark' ? 'тёмная' : 'светлая') : 'Нажмите на значок, чтобы сменить';
+      // буква на аватаре: белая или почти-чёрная — что контрастнее на фоне аватара (в т.ч. для своего акцента)
+      if (ava && T.readableOn) {
+        var m = getComputedStyle(ava).backgroundColor.match(/\d+(\.\d+)?/g);
+        if (m) ava.style.color = T.readableOn('#' + m.slice(0, 3).map(function (v) { v = Math.round(+v); return (v < 16 ? '0' : '') + v.toString(16); }).join(''));
+      }
+    }
+    if (T) {
+      sw.addEventListener('click', function () { T.set({ theme: T.themeFromToggle(T.get().theme !== 'system', T.resolved()) }); Haptics.tap(); });
+      flip.addEventListener('click', function () { T.set({ theme: T.nextManualTheme(T.resolved()) }); Haptics.tap(); });
+      var off = T.onChange(syncTheme); var oc = s.close; s.close = function () { off(); return oc.apply(this, arguments); };
+      syncTheme();
+      // Размер текста: ползунок с тремя точками, живой предпросмотр
+      var rg = s.querySelector('[data-size]'), nm = s.querySelector('[data-size-name]');
+      rg.addEventListener('input', function () { var v = SIZE_N[+rg.value]; nm.textContent = v[1]; rg.setAttribute('aria-valuetext', v[1]); rg.style.setProperty('--fill', rg.value * 50 + '%'); T.set({ textSize: v[0] }); });
+      rg.addEventListener('change', function () { Haptics.tap(); });
+      // Свой цвет акцента (5-й образец — радуга)
+      var ci = s.querySelector('[data-custom-accent]'), cl = ci.parentNode;
+      var pickC = function () { T.set({ accent: 'custom', customAccent: ci.value }); cl.parentNode.querySelectorAll('[role="radio"]').forEach(function (x) { x.setAttribute('aria-checked', String(x === cl)); }); };
+      ci.addEventListener('input', pickC); ci.addEventListener('change', pickC);
+    }
     s.addEventListener('click', async function (e) {
       var sg = e.target.closest('[data-seg] [data-v]');
       if (sg) {
         var k = sg.closest('[data-seg]').getAttribute('data-seg'), o = {}; o[k] = sg.getAttribute('data-v');
-        if (T) T.set(o); sg.parentNode.querySelectorAll('[data-v]').forEach(function (x) { x.setAttribute('aria-checked', String(x === sg)); }); Haptics.tap(); return;
+        if (T) T.set(o); sg.parentNode.querySelectorAll('[role="radio"]').forEach(function (x) { x.setAttribute('aria-checked', String(x === sg)); }); Haptics.tap(); return;
       }
       var b = e.target.closest('[data-act]'); if (!b) return;
       var a = b.getAttribute('data-act'); Haptics.tap();
@@ -189,6 +232,8 @@
       }
       s.close();
       if (a === 'admin-login') location.href = '/admin/login.html';
+      else if (a === 'schedule') location.href = '/?from=admin';
+      else if (a === 'password') { if (window.ClubsAdmin) window.ClubsAdmin.changePassword(); else location.href = '/admin/index.html#/account/password'; }
       else if (a === 'admin') location.href = '/admin/index.html';
       else if (a === 'update') { if (window.ItcAppUpdate) window.ItcAppUpdate.check({ manual: true }); else toast('Обновления проверяются только в приложении'); }
     });
@@ -212,7 +257,7 @@
     if (home && !r) { setTimeout(roleScreen, window.ItcSplash ? 700 : 0); return; }
     var cold = home && !sessionStorage.getItem('itc.launched') && !q.get('from'); sessionStorage.setItem('itc.launched', '1');
     if (cold && r === 'admin') { location.replace('/admin/index.html'); return; }
-    roleHomeChip(); setTimeout(roleHomeChip, 400);
+    // «Админка» в верхней панели расписания убрана — кнопка теперь в «Настройках» (roleHomeChip не вызываем)
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

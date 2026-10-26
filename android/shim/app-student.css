@@ -109,3 +109,66 @@ html input[type="checkbox"].itc-switch:checked { background: var(--primary); }
 html .itc-set button.itc-sw { width: 36px !important; height: 36px !important; min-height: 0 !important; min-width: 0 !important; border-radius: 50% !important; flex: none; }
 html .itc-set .itc-group > button.itc-row, html .itc-set .itc-group > a.itc-row { border: 0 !important; border-radius: 0 !important; background: none; box-shadow: none !important; min-height: 52px; text-align: left; justify-content: flex-start; }
 html .itc-set .itc-group > .itc-row + .itc-row { border-top: 1px solid var(--line, #8883) !important; }
+
+/* ---------- kc7: «Настройки» — заголовок строго по центру (3 колонки), кнопка «Назад» с иконкой по центру ---------- */
+html .itc-set-head { display: grid !important; grid-template-columns: 48px 1fr 48px; align-items: center; gap: 0; padding-left: 4px; padding-right: 4px; }
+html .itc-set-head::after { content: ""; } /* пустая 3-я колонка = ширина кнопки «Назад» → заголовок по центру экрана */
+html .itc-set-head h1 { text-align: center !important; margin: 0 !important; font-size: 18px; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .itc-set .itc-set-back {
+  width: 44px !important; height: 44px !important; min-width: 0 !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important;
+  display: grid !important; place-items: center !important; border: 0 !important; border-radius: 50% !important; background: none !important;
+  box-shadow: none !important; color: var(--ink) !important; line-height: 0; justify-self: center;
+}
+html .itc-set .itc-set-back svg { display: block; width: 24px; height: 24px; margin: 0; position: static; transform: translateX(-1px); }
+html .itc-set .itc-set-back:active { background: var(--surface-2, #8882) !important; }
+
+/* Тумблер «Системная тема» + кнопка-иконка */
+html .itc-set .itc-theme-row { display: flex !important; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px; }
+html .itc-set .itc-theme-row .itc-row-tx { flex: 1; }
+html .itc-set .itc-toggle {
+  all: unset; box-sizing: border-box; flex: none; position: relative; width: 52px; height: 32px; border-radius: 16px;
+  background: var(--outline, #8889); cursor: pointer; transition: background-color .2s ease;
+}
+html .itc-set .itc-toggle::before { content: ""; position: absolute; inset: -6px; }
+html .itc-set .itc-toggle > span { position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0005; transition: transform .2s ease; }
+html .itc-set .itc-toggle[aria-checked="true"] { background: var(--primary); }
+html .itc-set .itc-toggle[aria-checked="true"] > span { transform: translateX(20px); background: var(--on-primary, #fff); }
+html .itc-set .itc-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+html .itc-set .itc-theme-flip {
+  all: unset; box-sizing: border-box; flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid var(--outline, #8886); cursor: pointer; transition: background-color .25s, color .25s, transform .25s;
+}
+html .itc-set .itc-theme-flip[hidden] { display: none; }
+html .itc-set .itc-theme-flip svg { width: 22px; height: 22px; }
+html .itc-set .itc-theme-flip[data-mode="light"] { background: #fff; color: #c77700; }
+html .itc-set .itc-theme-flip[data-mode="dark"] { background: #1d2230; color: #e8ecff; }
+html .itc-set .itc-theme-flip:active { transform: scale(.9) rotate(-20deg); }
+
+/* Ползунок размера текста */
+.itc-size > span b { font-weight: 600; color: var(--primary); margin-left: 6px; }
+.itc-size-row { display: flex; align-items: center; gap: 12px; }
+.itc-a-s, .itc-a-l { flex: none; font-weight: 600; opacity: .7; line-height: 1; } .itc-a-s { font-size: 14px; } .itc-a-l { font-size: 24px; }
+html .itc-set input[type="range"][data-size] {
+  --fill: 0%; flex: 1; min-width: 0; height: 44px !important; min-height: 0 !important; margin: 0; padding: 0 !important; border: 0 !important;
+  background: transparent !important; -webkit-appearance: none; appearance: none; accent-color: var(--primary);
+}
+html .itc-set input[data-size]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--primary) var(--fill), var(--outline, #8886) var(--fill)); }
+html .itc-set input[data-size]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; margin-top: -10px; border-radius: 50%; background: var(--primary); border: 3px solid var(--bg, #fff); box-shadow: 0 1px 4px #0006; }
+.itc-size-ticks { display: flex; justify-content: space-between; padding: 0 20px; font-size: 12px; opacity: .7; }
+
+/* Радужный образец «Свой цвет» */
+html .itc-set .itc-sw-custom { flex: none; display: block; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; cursor: pointer;
+  background: conic-gradient(#ff6b6b, #ffd93d, #6bcb77, #4d96ff, #b06bff, #ff6b6b); }
+html .itc-set .itc-sw-custom::before { content: ""; position: absolute; inset: 0; background: inherit; filter: blur(4px); transform: scale(1.4); }
+html .itc-set .itc-sw-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; padding: 0; border: 0; cursor: pointer; }
+html .itc-set .itc-sw-custom i { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--custom-accent, transparent); border: 2px solid #fff; opacity: 0; pointer-events: none; }
+html .itc-set .itc-sw-custom[aria-checked="true"] { box-shadow: 0 0 0 3px var(--bg, #fff), 0 0 0 5px var(--ink, #222); }
+html .itc-set .itc-sw-custom[aria-checked="true"] i { opacity: 1; }
+.itc-swatches { flex-wrap: wrap; align-items: center; }
+
+/* Аватар: фон — акцентный контейнер; цвет буквы подбирает JS по контрасту */
+.itc-acc-ava { background: var(--primary-container, #fde4df); color: var(--on-primary-container, #5a1a10); }
+/* Аккаунт администратора: «Сменить пароль» / «Выйти» */
+html .itc-set .itc-acc-actions .itc-row-danger .itc-row-tx > span { color: var(--danger, #c62828); font-weight: 500; }
+html .itc-set input[type="range"][data-size] { box-shadow: none !important; outline: none; border-radius: 0 !important; }
+html .itc-set input[type="range"][data-size]:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 8px !important; }

@@ -31,9 +31,13 @@ function buildChrome() {
   const nav = h('nav', { class: 'admin-nav', 'aria-label': 'Разделы админки' }, links.map(([key, r]) => h('a', { href: `#/${key}`, dataset: { route: key } }, r.title)));
   const bottom = h('nav', { class: 'bottom-nav', 'aria-label': 'Разделы админки (мобильная навигация)' },
     links.map(([key, r]) => h('a', { href: `#/${key}`, dataset: { route: key } }, h('span', { class: 'bn-pill' }, icon(r.icon)), h('span', { class: 'bn-label' }, r.title))));
-  const slot = h('div', { class: 'admin-tools', dataset: { settingsSlot: '' } },
-    h('a', { class: 'settings-button', href: '#/account', 'aria-label': `Аккаунт: ${admin.login}`, title: `Аккаунт: ${admin.login}`, dataset: { route: 'account' } }, icon('key')),
-    h('button', { type: 'button', class: 'settings-button', 'aria-label': 'Выйти', title: 'Выйти', onclick: async () => { if (await guarded(logout)) toLogin(); } }, icon('logout')));
+  // «Сменить пароль» и «Выйти» — в «Настройках» (шестерёнка), см. js/settings.js → window.ClubsAdmin
+  const slot = h('div', { class: 'admin-tools', dataset: { settingsSlot: '' } });
+  window.ClubsAdmin = {
+    login: admin.login,
+    changePassword: async () => (await import('./views/account.js')).openChangePassword(),
+    logout: async () => { if (await guarded(logout)) toLogin(); },
+  };
   document.querySelector('#admin-header').replaceChildren(
     h('a', { class: 'campus-brand', href: '/', 'aria-label': 'На сайт' }, h('span', { class: 'brand-mark', 'aria-hidden': 'true' }), h('span', {}, 'KipClub'), h('small', {}, 'Администрирование')), nav, slot);
   document.body.append(bottom);

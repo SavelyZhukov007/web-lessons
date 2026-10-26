@@ -630,3 +630,44 @@
 .bc-history td {
     overflow-wrap: anywhere;
 }
+
+/* ---------- Рассылки: выбор кружков (kc7) — чипы выбранных, поиск с подсказками, аккуратные чекбоксы ---------- */
+.bc-picked { display: flex; flex-wrap: wrap; gap: 6px; }
+.bc-picked[hidden] { display: none; }
+.bc-pill {
+    display: inline-flex; align-items: center; gap: 2px; max-width: 100%; min-height: 34px; padding: 0 2px 0 12px;
+    border-radius: 999px; background: var(--primary-container); color: var(--on-primary-container); font-size: calc(14px * var(--text-scale));
+}
+.bc-pill > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-pill-x {
+    flex: none; width: 32px; height: 32px; min-height: 0; padding: 0; border: 0; border-radius: 50%;
+    background: none; color: inherit; font-size: 20px; line-height: 1; cursor: pointer;
+}
+.bc-pill-x:hover { background: rgba(0, 0, 0, .08); }
+.bc-club-list[hidden] { display: none; }
+.bc-club { padding: 0; }
+html .bc-club .bc-check {
+    display: flex !important; flex-direction: row !important; align-items: center; gap: 12px;
+    min-height: 48px; padding: 4px 10px; margin: 0; cursor: pointer;
+    font-size: calc(15px * var(--text-scale)); font-weight: 400; line-height: 1.3; overflow-wrap: anywhere;
+}
+html .bc-club .bc-check input[type="checkbox"] {
+    flex: none; width: 22px !important; height: 22px !important; min-width: 0 !important; min-height: 0 !important;
+    margin: 0 !important; padding: 0 !important; border-radius: 4px; accent-color: var(--primary); box-shadow: none !important;
+}
+.bc-expand { justify-self: start; }
+.bc-expand[hidden] { display: none; }
+.bc-sessions { padding: 0 10px 10px 44px; }
+/* верхняя панель админки: ⚙ справа, на одной линии с логотипом */
+.admin-header { align-items: center; }
+.admin-header .admin-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+@media (max-width: 719px) {
+    .admin-header .admin-nav + .admin-tools { margin-left: auto; }
+}
+html .bc-pill .bc-pill-x { width: 32px !important; height: 32px !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 50% !important; background: none !important; box-shadow: none !important; display: inline-grid; place-items: center; color: inherit !important; }
+html .bc-pill .bc-pill-x:hover { background: rgba(0, 0, 0, .08) !important; }
+
+/* Аудитория рассылки: две равные половины на всю ширину */
+.segmented.bc-audience { display: grid; grid-template-columns: 1fr 1fr; width: 100%; max-width: 100%; box-sizing: border-box; }
+.segmented.bc-audience label { display: flex; min-width: 0; }
+.segmented.bc-audience span { flex: 1 1 auto; width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; }
