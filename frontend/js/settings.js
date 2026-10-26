@@ -143,13 +143,23 @@ function demoSection() {
     h('div', { class: 'form-actions' }, reset, admin));
 }
 
-// «Админка» ⇄ «Расписание» (только для администратора) — вместо кнопок в верхней панели
+// Карточка «Аккаунт» (как в APK): аватар «Г»/буква логина, «Гость» или «Администратор»;
+// гостю — «Войти как сотрудник», администратору — «Админка» ⇄ «Расписание»
 function placeSection() {
   const inAdmin = /^\/admin\//.test(location.pathname);
+  const ava = h('div', { class: 'acc-ava', 'aria-hidden': 'true' }, 'Г');
+  const name = h('b', {}, 'Гость');
+  const sub = h('small', {}, 'Расписание и уведомления доступны без входа');
   const link = h('a', { class: 'btn btn--tonal settings-place', href: inAdmin ? '/' : '/admin/login.html' }, inAdmin ? 'Расписание' : 'Вход для сотрудников');
-  const section = h('section', { class: 'sheet-section', dataset: { placeSection: '' } }, link);
-  if (!inAdmin) request('/api/admin/status').then(st => { if (st && st.admin) { link.href = '/admin/index.html'; link.textContent = 'Админка'; } }).catch(() => { /* не админ — ссылка на вход */ });
-  return section;
+  const setAdmin = login => {
+    const n = (login || 'Администратор').trim();
+    ava.textContent = n.charAt(0).toUpperCase(); name.textContent = n; sub.textContent = 'Администратор';
+    if (!inAdmin) { link.href = '/admin/index.html'; link.textContent = 'Админка'; }
+  };
+  if (inAdmin && window.ClubsAdmin) setAdmin(window.ClubsAdmin.login);
+  else if (!inAdmin) request('/api/admin/status').then(st => { if (st && st.admin) setAdmin(typeof st.admin === 'object' ? st.admin.login : st.login); }).catch(() => { /* не админ — ссылка на вход */ });
+  return h('section', { class: 'sheet-section', dataset: { placeSection: '' } }, h('h3', {}, 'Аккаунт'),
+    h('div', { class: 'acc-card' }, ava, h('div', { class: 'acc-tx' }, name, sub)), link);
 }
 
 // Аккаунт администратора: «Сменить пароль» и «Выйти» (в админке; window.ClubsAdmin ставит js/admin/index.js)
@@ -160,20 +170,20 @@ function accountSection() {
   const out = h('button', { type: 'button', class: 'list-row list-row--danger' }, h('span', {}, 'Выйти'));
   pw.addEventListener('click', () => { dialog.close(); A.changePassword(); });
   out.addEventListener('click', () => { if (confirm('Выйти из аккаунта администратора?')) { dialog.close(); A.logout(); } });
-  return h('section', { class: 'sheet-section' }, h('h3', {}, 'Аккаунт'), h('div', { class: 'list-group' }, pw, out));
+  return h('section', { class: 'sheet-section' }, h('h3', {}, 'Аккаунт администратора'), h('div', { class: 'list-group' }, pw, out));
 }
 
 function build() {
   const prefs = theme.get();
   const title = h('h2', { id: 'settings-title' }, 'Настройки');
   const close = h('button', { type: 'button', class: 'btn btn--text btn--small', 'aria-label': 'Закрыть настройки', onclick: () => dialog.close() }, icon('close'));
-  const body = h('div', { class: 'sheet-body' },
+  const body = h('div', { class: 'sheet-body' }, placeSection(),
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Тема'),
       themeControl()),
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Акцентный цвет'), swatches(prefs.accent, v => theme.set({ accent: v }))),
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Размер текста'),
       sizeSlider(prefs.textSize)),
-    announcementsSection(), accountSection(), placeSection(), serverSection(), demoSection());
+    announcementsSection(), accountSection(), serverSection(), demoSection());
   const reset = h('button', { type: 'button', class: 'btn btn--text', onclick: () => { theme.set(theme.DEFAULTS); rebuild(); toast('Настройки сброшены'); } }, 'Сбросить');
   const done = h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово');
   const foot = h('div', { class: 'sheet-foot' }, reset, done);

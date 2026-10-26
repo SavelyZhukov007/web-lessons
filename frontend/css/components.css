@@ -728,7 +728,7 @@ table.data td.actions {
         padding-left: 36px;
     }
 }
-/* ---------- Настройки (kc7) ---------- */
+/* ---------- Настройки (kc8) ---------- */
 /* Заголовок диалога строго по центру: 3 колонки (пусто | заголовок | ×) */
 .sheet-head--center {
     display: grid;
@@ -827,3 +827,11 @@ dialog input.size-range:focus:not(:focus-visible) { outline: none; }
 dialog .list-row { border: 0; border-radius: 0 !important; min-height: 52px !important; background: none; box-shadow: none !important; justify-content: space-between; }
 dialog .list-row + .list-row { border-top: 1px solid var(--outline-variant, var(--outline)) !important; }
 dialog .list-row--danger, dialog .list-row--danger span { color: var(--danger, #b3261e) !important; }
+
+/* Карточка «Аккаунт» в Настройках (как в APK): аватар «Г» / буква логина */
+.acc-card { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.acc-ava { flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--primary, #b83b29); color: var(--on-primary, #fff); font-weight: 700; font-size: calc(18px * var(--text-scale, 1)); }
+.acc-tx { display: flex; flex-direction: column; min-width: 0; }
+.acc-tx small { color: var(--on-surface-variant, #5f5f5f); }
+.settings-place { width: 100%; justify-content: center; }

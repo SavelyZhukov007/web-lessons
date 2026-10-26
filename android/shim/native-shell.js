@@ -63,7 +63,7 @@
       if (/reset-password|server\.py/.test(p.textContent)) { p.setAttribute('data-native-hidden', ''); p.hidden = true; }
     });
     if (doc.getElementById('admin-main')) mergeReference();
-    if (NATIVE) appHeader();
+    if (NATIVE || PWA) appHeader(); // PWA (iPhone/Android standalone): та же шапка с ⚙ — иначе native-shell.css прячет кнопку сайта, а замены нет
     wireSearch();
   }
   // ---------- F2 / t99. Шапка APK: ссылка-переключатель («Все кружки» ⇄ «Расписание») + шестерёнка «Настройки».
