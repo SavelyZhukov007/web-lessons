@@ -17,7 +17,7 @@ function sessionsBlock(club) {
   const items = [...club.sessions].sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time));
   return h('section', { 'aria-labelledby': 'sessions-title' }, h('h2', { id: 'sessions-title' }, 'Расписание'),
     items.length
-      ? h('ul', { class: 'slot-list' }, items.map(s => h('li', {}, h('span', { class: 'slot-day' }, DAYS[s.weekday] || `День ${s.weekday}`),
+      ? h('ul', { class: 'slot-list' }, items.map(s => h('li', {}, h('span', { class: 'slot-day' }, s.one_off_date ? `Разово: ${formatDate(s.one_off_date)}` : DAYS[s.weekday] || `День ${s.weekday}`),
         h('span', { class: 'slot-time' }, `${s.start_time}–${s.end_time}`), h('span', {}, roomLabel(s.room || rooms.get(s.room_id))))))
       : h('div', { class: 'empty-state' }, 'Занятий в расписании пока нет.'));
 }

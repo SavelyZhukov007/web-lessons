@@ -160,6 +160,7 @@ class ScheduleConflictService:
                 "weekday": session.weekday,
                 "start_time": session.start_time,
                 "end_time": session.end_time,
+                "one_off_date": session.one_off_date,
             }
             for session in self.db.execute(
                 select(ClubSession)
@@ -208,6 +209,7 @@ class ScheduleConflictService:
                     "weekday": change.payload["weekday"],
                     "start_time": change.payload["start_time"],
                     "end_time": change.payload["end_time"],
+                    "one_off_date": change.payload.get("one_off_date"),
                 }
             )
 
@@ -315,6 +317,20 @@ class ScheduleConflictService:
 
         affected_weeks: set[date] = set()
 
+        if change.operation in {"create_session", "update_session"}:
+            original = next((s for s in data["sessions"] if s["id"] == change.entity_id), None)
+            one_off = change.payload.get("one_off_date") or (original or {}).get("one_off_date")
+            if one_off:
+                affected_weeks.add(get_week_start(normalize_date(one_off)))
+                if original and original.get("one_off_date"):
+                    affected_weeks.add(get_week_start(normalize_date(original["one_off_date"])))
+                for exception in data["session_exceptions"]:
+                    if exception["session_id"] == change.entity_id:
+                        affected_weeks.add(get_week_start(normalize_date(exception["original_date"])))
+                        if exception["new_date"]:
+                            affected_weeks.add(get_week_start(normalize_date(exception["new_date"])))
+                return affected_weeks
+
         if change.operation in {
             "create_cancel",
             "create_move",
@@ -401,6 +417,10 @@ class ScheduleConflictService:
 
         if change.operation in regular_operations:
             exception_dates: set[date] = set()
+
+            for session in data["sessions"]:
+                if session.get("one_off_date"):
+                    affected_weeks.add(get_week_start(normalize_date(session["one_off_date"])))
 
             for exception in data["session_exceptions"]:
                 exception_dates.add(

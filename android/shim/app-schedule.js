@@ -166,7 +166,8 @@ function updateControls() {
   todayBtn.setAttribute('aria-pressed', String(isToday));
   [...dayButtons.children].forEach((b, i) => {
     const d = addDays(state.week, i);
-    const s = b.firstChild, strong = b.lastChild;
+    // Ripple добавляет временный span последним ребёнком кнопки.
+    const s = b.querySelector('span'), strong = b.querySelector('strong');
     if (s.textContent !== DAY_SHORT[i]) s.textContent = DAY_SHORT[i];
     if (strong.textContent !== String(d.getDate())) strong.textContent = String(d.getDate());
     b.setAttribute('aria-label', `${DAY_NAMES[i]}, ${formatDate(d)}`);

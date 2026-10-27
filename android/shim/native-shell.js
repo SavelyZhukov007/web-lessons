@@ -24,6 +24,15 @@
 
   function toast(msg) { import('/js/ui.js').then(function (m) { m.toast(msg); }).catch(function () { alert(msg); }); }
 
+  // На главной логотип не перезагружает WebView при каждом нажатии.
+  doc.addEventListener('click', function (event) {
+    var brand = event.target.closest && event.target.closest('a.campus-brand');
+    if (brand && (location.pathname === '/' || location.pathname === '/index.html') && new URL(brand.href, location.href).pathname === '/') {
+      event.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, true);
+
   // ---------- 8. Системные бары: иконки статус-бара/навигации по теме приложения (а не только системы)
   function syncBars() {
     var dark = root.getAttribute('data-theme') === 'dark';

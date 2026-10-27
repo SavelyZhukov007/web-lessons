@@ -241,12 +241,27 @@ def _session_exists(db: Session, session_id: int) -> None:
 
 def _validate_original_date(session: ClubSession, original_date: date) -> None:
     """API-04: дата отменяемого/переносимого занятия должна выпадать на день недели занятия."""
+    if session.one_off_date and original_date.isoformat() != session.one_off_date:
+        raise HTTPException(422, f"Разовое занятие назначено только на {session.one_off_date}")
     if original_date.isoweekday() != session.weekday:
         raise HTTPException(
             422,
             f"original_date {original_date.isoformat()} — это {WEEKDAYS[original_date.isoweekday() - 1]}, "
             f"а занятие проходит по дням: {WEEKDAYS[session.weekday - 1]}",
         )
+
+
+def _reject_existing_exception(db: Session, session_id: int, original_date: date, exclude_id: int | None = None) -> None:
+    query = select(SessionException).where(
+        SessionException.session_id == session_id,
+        SessionException.original_date == original_date.isoformat(),
+    )
+    if exclude_id is not None:
+        query = query.where(SessionException.id != exclude_id)
+    existing = db.scalar(query)
+    if existing:
+        state = "уже отменено" if existing.type == "cancelled" else "уже перенесено"
+        raise HTTPException(409, f"Занятие на {original_date.strftime('%d.%m.%Y')} {state}. Откройте раздел «Изменения», чтобы изменить существующую запись.")
 
 
 def _validate_new_date(new_date: date) -> None:
@@ -744,11 +759,11 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
         ProposedChange(
             operation="create_session",
             entity_id=None,
-            payload=payload.model_dump(),
+            payload=payload.model_dump(mode="json"),
         ),
     )
 
-    session = ClubSession(**payload.model_dump())
+    session = ClubSession(**payload.model_dump(mode="json"))
     db.add(session)
     db.commit()
     db.refresh(session)
@@ -768,7 +783,15 @@ def update_session(
     session = _get_or_404(
         db, ClubSession, session_id, "Регулярное занятие не найдено"
     )
-    updates = payload.model_dump(exclude_unset=True)
+    updates = payload.model_dump(exclude_unset=True, mode="json")
+
+    final_date = updates.get("one_off_date", session.one_off_date)
+    final_weekday = updates.get("weekday", session.weekday)
+    if final_date and date.fromisoformat(final_date).isoweekday() != final_weekday:
+        raise HTTPException(422, "День недели должен совпадать с датой разового занятия")
+    if "one_off_date" in updates and updates["one_off_date"] != session.one_off_date:
+        if db.scalar(select(func.count()).select_from(SessionException).where(SessionException.session_id == session.id)):
+            raise HTTPException(409, "Сначала удалите отмены и переносы этого занятия, затем измените дату")
 
     if "club_id" in updates:
         _club_exists(db, updates["club_id"])
@@ -813,11 +836,8 @@ def update_session(
         ),
     )
 
-    if has_single_time_boundary:
-        for field, value in updates.items():
-            setattr(session, field, value)
-    else:
-        _apply_model_updates(session, payload)
+    for field, value in updates.items():
+        setattr(session, field, value)
 
     db.commit()
     db.refresh(session)
@@ -864,6 +884,7 @@ def create_cancellation(
 ):
     session = _get_or_404(db, ClubSession, payload.session_id, "Регулярное занятие не найдено")
     _validate_original_date(session, payload.original_date)
+    _reject_existing_exception(db, payload.session_id, payload.original_date)
     exception = SessionException(**_prepare_exception_payload(payload))
     db.add(exception)
     _commit_or_raise_conflict(db, "Не удалось сохранить отмену занятия")
@@ -886,6 +907,7 @@ def create_move(
     session = _get_or_404(db, ClubSession, payload.session_id, "Регулярное занятие не найдено")
     _room_exists(db, payload.new_room_id)
     _validate_original_date(session, payload.original_date)
+    _reject_existing_exception(db, payload.session_id, payload.original_date)
     _validate_new_date(payload.new_date)
 
     exception_payload = _prepare_exception_payload(payload)
@@ -931,6 +953,7 @@ def update_exception(
         _validate_original_date(
             final_session, date.fromisoformat(updates.get("original_date", exception.original_date))
         )
+        _reject_existing_exception(db, final_session.id, date.fromisoformat(updates.get("original_date", exception.original_date)), exception.id)
     if "new_date" in user_fields and updates.get("new_date"):
         _validate_new_date(date.fromisoformat(updates["new_date"]))
     if "new_room_id" in updates and updates["new_room_id"] is not None:

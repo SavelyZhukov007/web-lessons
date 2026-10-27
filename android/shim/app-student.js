@@ -92,16 +92,22 @@
   if (LS.getItem('itc.vault.v1') || LS.getItem('itc.checkinQueue')) wipeAttendanceLeftovers(); // гость/админ со старыми данными
 
   // перехват входа/выхода админки сайта → роль admin/guest
-  // перехват входа/выхода админки сайта → роль admin/guest
   if (window.fetch) {
     var _f = window.fetch;
     window.fetch = function (u, o) {
       var url = typeof u === 'string' ? u : (u && u.url) || '';
       var pr = _f.apply(this, arguments);
-      if (/\/api\/admin\/(login|logout)(\?|$)/.test(url)) pr.then(function (r) {
-        if (/logout/.test(url)) { Session.set('guest'); return; }
-        if (r.ok) r.clone().json().then(function (j) { if (j && j.access_token) Session.set('admin', (j.admin && j.admin.login) || 'Администратор', ((j.refresh_expires_in || 2592000) * 1000)); }, function () {});
-      }, function () {});
+      if (/\/api\/admin\/(login|logout)(\?|$)/.test(url)) return pr.then(async function (r) {
+        if (/logout/.test(url)) Session.set('guest');
+        else if (r.ok) {
+          try {
+            var j = await r.clone().json();
+            if (j && j.access_token) Session.set('admin', (j.admin && j.admin.login) || 'Администратор', ((j.refresh_expires_in || 2592000) * 1000));
+          } catch (e) { /* ответ обработает сам вызывающий код */ }
+        }
+        // Роль должна сохраниться до того, как форма входа перейдёт в админку.
+        return r;
+      });
       return pr;
     };
   }
@@ -250,8 +256,8 @@
   }
   function boot() {
     var p = location.pathname, q = new URLSearchParams(location.search), r = Session.role();
-    var NATIVE = window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
-    if (/^\/admin\//.test(p) && !/login/.test(p)) { if (NATIVE && r !== 'admin') location.replace('/admin/login.html'); return; }
+    // Доступ к админке проверяет сервер; локальная роль может отставать от действующей сессии.
+    if (/^\/admin\//.test(p) && !/login/.test(p)) return;
     if (/^\/admin\//.test(p) || /settings\.html$/.test(p)) return;
     var home = p === '/' || /\/index\.html$/.test(p);
     if (home && !r) { setTimeout(roleScreen, window.ItcSplash ? 700 : 0); return; }

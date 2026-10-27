@@ -29,6 +29,8 @@ def build_week(week_start: date, data: dict) -> list[dict]:
 
         original_date = week_start + timedelta(days=session["weekday"] - 1)
         original_date_text = original_date.isoformat()
+        if session.get("one_off_date") and session["one_off_date"] != original_date_text:
+            continue
         exception = exceptions.get((session["id"], original_date_text))
         payload = _base_event_payload(session, club, categories, leaders)
 

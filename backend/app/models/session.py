@@ -25,6 +25,8 @@ class ClubSession(Base):
         ForeignKey("rooms.id", ondelete="RESTRICT"), index=True
     )
     weekday: Mapped[int] = mapped_column()
+    # NULL — каждую неделю; дата — единственное занятие на этот день.
+    one_off_date: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
     start_time: Mapped[str] = mapped_column(String(5))
     end_time: Mapped[str] = mapped_column(String(5))
     club: Mapped[Club] = relationship(back_populates="sessions")

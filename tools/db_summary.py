@@ -1,16 +1,16 @@
-from pathlib import Path
-from argparse import ArgumentParser
 import sqlite3
+from argparse import ArgumentParser
+from pathlib import Path
 
 
 def get_db_summary(path_to_db: str) -> None | dict[str, int]:
-    """Считает количество направлений, руководителей, аудиторий, 
+    """Считает количество направлений, руководителей, аудиторий,
     активных и неактивных кружков, регулярных занятий и исключений"""
     db_path = Path(path_to_db).resolve()
     if not db_path.is_file():
         print(f"База данных не найдена по пути: {db_path}")
         return None
-    
+
     conn = None
     try:
         conn = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
@@ -53,7 +53,7 @@ def get_db_summary(path_to_db: str) -> None | dict[str, int]:
         print(f"  Кол-во неактивных кружков: {non_active_clubs_num}")
         print(f"  Кол-во регулярных занятий: {sessions_num}")
         print(f"  Кол-во исключений:         {session_exceptions_num}")
-        return res  
+        return res
     except sqlite3.Error as error:
         print(f"Ошибка при работе с бд: {error}")
     finally:

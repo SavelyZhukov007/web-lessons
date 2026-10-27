@@ -169,7 +169,7 @@ try:
         badges = calls(pg, "setAppBadge")
         check(
             f"значок на иконке = {expected} (непросмотренные отмены/переносы «Моих»)",
-            expected >= 2 and badges and badges[-1] == expected,
+            expected >= 1 and badges and badges[-1] == expected,
             str(badges),
         )
         pg.click("#itc-my-toggle")

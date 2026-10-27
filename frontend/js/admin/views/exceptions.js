@@ -9,7 +9,7 @@ export async function mount(root, { signal }) {
   let data;
   async function refresh() { data = await loadAll({ signal }); draw(); }
 
-  const sessionLabel = s => `${data.club.get(s.club_id)?.name ?? '?'} — ${dayShort(s.weekday)} ${s.start_time}–${s.end_time}, ${data.room.get(s.room_id)?.name ?? '?'}`;
+  const sessionLabel = s => `${data.club.get(s.club_id)?.name ?? '?'} — ${s.one_off_date ? formatDate(s.one_off_date) : dayShort(s.weekday)} ${s.start_time}–${s.end_time}, ${roomLabel(data.room.get(s.room_id), '?')}`;
   const sessionOptions = () => [...data.sessions].sort((a, b) => sessionLabel(a).localeCompare(sessionLabel(b), 'ru')).map(s => [s.id, sessionLabel(s)]);
 
   // Дата переносимого/отменяемого занятия должна приходиться на день недели занятия — иначе сервер ответит ошибкой; ловим заранее.
@@ -70,7 +70,7 @@ export async function mount(root, { signal }) {
           { label: 'Дата', cell: e => h('span', { class: 'slot-time' }, formatDate(e.original_date)) },
           { label: 'Занятие', cell: e => { const s = data.session.get(e.session_id); return s ? h('strong', {}, sessionLabel(s)) : '—'; } },
           { label: 'Что', cell: e => h('span', { class: `badge badge--${e.type === 'moved' ? 'moved' : 'cancelled'}` }, e.type === 'moved' ? 'Перенос' : 'Отмена') },
-          { label: 'Куда', cell: e => e.type === 'moved' ? `${formatDate(e.new_date)} ${e.new_start_time}–${e.new_end_time}, ${data.room.get(e.new_room_id)?.name ?? '?'}` : '—' },
+          { label: 'Куда', cell: e => e.type === 'moved' ? `${formatDate(e.new_date)} ${e.new_start_time}–${e.new_end_time}, ${roomLabel(data.room.get(e.new_room_id), '?')}` : '—' },
           { label: 'Комментарий', cell: e => e.comment || '—' },
         ],
         actions: e => [actionButton('Изменить', 'edit', () => open(e.type, e)), actionButton('Удалить', 'trash', () => remove(e), 'btn--danger-text')],

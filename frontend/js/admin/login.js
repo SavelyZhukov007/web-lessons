@@ -5,10 +5,13 @@ const message = document.querySelector('#message');
 const submit = form.querySelector('button[type=submit]');
 // ADM-06: ?next=#/раздел — вернуть на страницу, с которой выбросило по истёкшей сессии (только внутренние хэш-маршруты)
 const rawNext = new URLSearchParams(location.search).get('next') || '';
-const ADMIN_PAGE = '/admin/' + (/^#\/[\w\-/]*$/.test(rawNext) ? rawNext : '');
+const ADMIN_PAGE = '/admin/index.html' + (/^#\/[\w\-/]*$/.test(rawNext) ? rawNext : '');
 
 // Уже вошёл — сразу в админку.
-getAdminStatus().then(() => location.replace(ADMIN_PAGE), () => {});
+getAdminStatus().then(status => {
+  if (window.ItcSession && window.ItcSession.role() !== 'admin') window.ItcSession.set('admin', status.admin?.login || 'Администратор');
+  location.replace(ADMIN_PAGE);
+}, () => {});
 
 function show(text, isError) {
   message.textContent = text;
