@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -33,10 +34,11 @@ DEFAULT_COLOR = "#64748b"
 
 
 class ImportError_(ValueError):
-    def __init__(self, message: str, *, errors: list[str] | None = None, conflicts: list[dict] | None = None):
+    def __init__(self, message: str, *, errors: list[str] | None = None, conflicts: list[dict] | None = None, confirmation_token: str | None = None):
         super().__init__(message)
         self.errors = errors or []
         self.conflicts = conflicts or []
+        self.confirmation_token = confirmation_token
 
 
 def norm(value: Any) -> str:
@@ -302,7 +304,7 @@ def _set_links(db: Session, table: str, owner_col: str, owner_id: int, value_col
 # --------------------------------------------------------------------------- публикация / откат
 
 
-def publish(db: Session, dataset: dict, *, dry_run: bool = False, prune: bool = True, author: str = "", make_backup: bool = True) -> dict:
+def publish(db: Session, dataset: dict, *, dry_run: bool = False, prune: bool = True, author: str = "", make_backup: bool = True, confirmed: frozenset[str] = frozenset()) -> dict:
     errors = validate(dataset)
     if errors:
         raise ImportError_("Набор не прошёл проверку", errors=errors)
@@ -323,7 +325,11 @@ def publish(db: Session, dataset: dict, *, dry_run: bool = False, prune: bool = 
         ]
         if fresh:
             described = engine.merge_described([engine.describe(after, c, touched=touched) for c in fresh])
-            raise ImportError_("Импорт создаёт пересечения в расписании", conflicts=described)
+            token = hashlib.sha256(json.dumps({"dataset": dataset, "prune": prune,
+                "conflicts": sorted(str(c.key) for c in fresh)},
+                sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+            if token not in confirmed:
+                raise ImportError_("Импорт создаёт пересечения в расписании", conflicts=described, confirmation_token=token)
         if dry_run:
             db.rollback()
             return {"dry_run": True, "stats": stats}

@@ -12,7 +12,7 @@ from ..database import get_db
 from ..models.admin import Admin
 from ..services import audit, import_publish
 from ..services import conflicts as engine
-from .admin import require_admin, schedule_write_lock
+from .admin import _confirmed_conflicts, require_admin, schedule_write_lock
 
 router = APIRouter(prefix="/api/admin", tags=["admin-schedule"])
 
@@ -84,10 +84,10 @@ def publish_import(
     admin: Admin = Depends(require_admin),
 ):
     try:
-        result = import_publish.publish(db, dataset, dry_run=dry_run, prune=prune, author=admin.login)
+        result = import_publish.publish(db, dataset, dry_run=dry_run, prune=prune, author=admin.login, confirmed=_confirmed_conflicts.get())
     except import_publish.ImportError_ as exc:
         status = 409 if exc.conflicts else 422
-        raise HTTPException(status, {"code": "IMPORT_REJECTED", "message": str(exc), "errors": exc.errors, "conflicts": exc.conflicts}) from exc
+        raise HTTPException(status, {"code": "IMPORT_REJECTED", "message": str(exc), "errors": exc.errors, "conflicts": exc.conflicts, "confirmation_token": exc.confirmation_token}) from exc
     if not dry_run:
         audit.log("import_published", admin_id=admin.id, publish=result.get("publish"))
     return result

@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import base64
 import binascii
+import hashlib
 import hmac
 import json
 import re
 import weakref
+from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import (
@@ -67,10 +69,7 @@ from ..services import conflicts as conflict_engine
 from ..services.importer.parser import read_rows
 from ..services.occurrences import original_occurs
 from ..services.push import notify_exception
-from ..services.schedule_conflicts import (
-    ProposedChange,
-    ScheduleConflictService,
-)
+from ..services.schedule_conflicts import ProposedChange
 from ..services.tokens import decode_token, issue_token
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -139,9 +138,10 @@ def require_admin(
 
 
 _write_locks: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+_confirmed_conflicts: ContextVar[frozenset[str]] = ContextVar("confirmed_conflicts", default=frozenset())
 
 
-async def schedule_write_lock():
+async def schedule_write_lock(request: Request):
     """API-02: проверка конфликтов и commit — одна критическая секция на процесс.
     asyncio.Lock (а не threading): ожидающие запросы не занимают потоки пула, дедлока при N одновременных записей нет.
     ВАЖНО: защищает только в пределах одного процесса — запускать ровно один воркер (SQLite; см. docs/deploy.md)."""
@@ -150,7 +150,12 @@ async def schedule_write_lock():
     if lock is None:
         lock = _write_locks[loop] = asyncio.Lock()
     async with lock:
-        yield
+        confirmations = frozenset(request.headers.get("X-Confirmed-Conflicts", "").split(","))
+        token = _confirmed_conflicts.set(confirmations)
+        try:
+            yield
+        finally:
+            _confirmed_conflicts.reset(token)
 
 
 def _set_session_cookie(response: Response, token: str, refresh_token: str | None = None) -> None:
@@ -207,6 +212,17 @@ def _raise_if_schedule_conflicts(
     )
     if not found:
         return
+    # Confirmation applies only to the exact proposed change and conflict set.
+    # A subsequent request always recalculates both under schedule_write_lock.
+    fingerprint = hashlib.sha256(json.dumps({
+        "operation": change.operation, "entity_id": change.entity_id,
+        "payload": change.payload,
+        "conflicts": sorted(str(c.key) for c in found),
+    }, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+    if fingerprint in _confirmed_conflicts.get():
+        audit.log("schedule_conflicts_confirmed", operation=change.operation,
+                  entity_id=change.entity_id, conflicts=len(found))
+        return
     after, touched = conflict_engine.apply_change(
         snapshot, change.operation, change.entity_id, change.payload
     )
@@ -219,8 +235,34 @@ def _raise_if_schedule_conflicts(
             "code": "CONFLICT",
             "message": "Занятие пересекается с существующим расписанием",
             "conflicts": conflicts,
+            "confirmation_token": fingerprint,
         },
     )
+
+
+def _confirm_calendar_conflicts(operation: str, payload: dict, conflicts: list[dict]) -> None:
+    if not conflicts:
+        return
+    fingerprint = hashlib.sha256(json.dumps({"operation": operation, "payload": payload,
+        "conflicts": conflicts}, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+    if fingerprint in _confirmed_conflicts.get():
+        audit.log("schedule_conflicts_confirmed", operation=operation, conflicts=len(conflicts))
+        return
+    raise HTTPException(409, detail={"code": "CONFLICT", "message": "Изменение создаёт пересечения в расписании",
+        "conflicts": conflicts, "confirmation_token": fingerprint})
+
+
+def _calendar_overlap_details(event: dict, events: list[dict]) -> list[dict]:
+    from ..services.conflicts import find_conflicts
+    by_id = {item["event_id"]: item for item in events}
+    result = []
+    for conflict in find_conflicts(event, events, exclude_event_id=event["event_id"]):
+        other = by_id[conflict["event_id"]]
+        result.append({"event_id": other["event_id"], "club_name": other.get("club_name", ""),
+            "date": other["date"], "start_time": other["start_time"], "end_time": other["end_time"],
+            "room_name": other.get("room_name", ""), "leader_name": other.get("leader_name", ""),
+            "reasons": conflict["reasons"], "changed_event_id": event["event_id"]})
+    return result
 
 
 def _normalize_login_or_422(login: str) -> str:
@@ -1160,7 +1202,6 @@ def create_period(payload: PeriodInput, db: Session = Depends(get_db)):
 @router.put("/periods/{period_id}", response_model=PeriodRead, dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
 def update_period(period_id: int, payload: PeriodInput, db: Session = Depends(get_db)):
     period = _get_or_404(db, AcademicPeriod, period_id, "Учебный период не найден")
-    from ..services.conflicts import find_conflicts
     from ..services.schedule import build_week
     from .public import _dump_schedule_data
 
@@ -1180,12 +1221,14 @@ def update_period(period_id: int, payload: PeriodInput, db: Session = Depends(ge
             current.update(proposed)
     start, end = date.fromisoformat(proposed["start_date"]), date.fromisoformat(proposed["end_date"])
     week = start - timedelta(days=start.weekday())
+    conflicts = []
     while week <= end:
         events = build_week(week, data)
         for event in events:
-            if event["session_id"] in sessions and event["status"] != "cancelled" and find_conflicts(event, events, exclude_event_id=event["event_id"]):
-                raise HTTPException(409, "Изменение периода создаёт конфликт расписания")
+            if event["session_id"] in sessions and event["status"] != "cancelled":
+                conflicts.extend(_calendar_overlap_details(event, events))
         week += timedelta(days=7)
+    _confirm_calendar_conflicts("update_period", {"id": period_id, **proposed}, conflicts)
     for key, value in proposed.items():
         setattr(period, key, value)
     db.commit()
@@ -1252,7 +1295,6 @@ def delete_day_off(period_id: int, day_id: int, db: Session = Depends(get_db)):
     item = _get_or_404(db, NoClassDay, day_id, "День не найден")
     if item.period_id != period_id:
         raise HTTPException(404, "День не найден")
-    from ..services.conflicts import find_conflicts
     from ..services.schedule import build_week
     from .public import _dump_schedule_data
 
@@ -1262,10 +1304,11 @@ def delete_day_off(period_id: int, day_id: int, db: Session = Depends(get_db)):
     day = date.fromisoformat(item.date)
     events = build_week(day - timedelta(days=day.weekday()), data)
     period_sessions = {s["id"] for s in data["sessions"] if s.get("period_id") == period_id}
+    conflicts = []
     for event in events:
         if event["session_id"] in period_sessions and event["date"] == item.date and event["status"] != "cancelled":
-            if find_conflicts(event, events, exclude_event_id=event["event_id"]):
-                raise HTTPException(409, "Возвращение занятий создаёт конфликт в расписании")
+            conflicts.extend(_calendar_overlap_details(event, events))
+    _confirm_calendar_conflicts("restore_day", {"period_id": period_id, "day_id": day_id, "date": item.date}, conflicts)
     db.delete(item)
     db.commit()
 

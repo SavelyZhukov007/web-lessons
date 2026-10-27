@@ -1,5 +1,31 @@
 // Клиент админ-API. Ошибки — ApiError из ../api.js (status, detail). 401 → событие admin:unauthorized (ловит index.js).
-import { request, setAdminToken, clearAdminToken } from '../api.js';
+import { request as baseRequest, setAdminToken, clearAdminToken } from '../api.js';
+
+// A 409 without a confirmation token remains a blocking validation error.
+// Each retry rechecks the schedule; a changed conflict set needs a new decision.
+async function request(path, options = {}) {
+  const confirmed = [];
+  for (;;) {
+    try {
+      return await baseRequest(path, confirmed.length
+        ? { ...options, headers: { ...(options.headers || {}), 'X-Confirmed-Conflicts': confirmed.join(',') } }
+        : options);
+    } catch (error) {
+      const detail = error?.detail;
+      const token = detail?.confirmation_token;
+      if (error?.status !== 409 || !token || !Array.isArray(detail.conflicts) || confirmed.includes(token) || confirmed.length >= 30) throw error;
+      const reasons = { room: 'общая аудитория', leader: 'общий руководитель', group: 'общая группа' };
+      const lines = detail.conflicts.map(c => {
+        const date = c.date ? c.date.split('-').reverse().join('.') : '';
+        const reason = (c.reasons || []).map(r => reasons[r] || r).join(', ');
+        const more = c.dates_total > 1 ? ` (дат пересечения: ${c.dates_total})` : '';
+        return `• ${c.club_name || 'Занятие'}: ${date} ${c.start_time || ''}–${c.end_time || ''}; ${reason}${more}`;
+      });
+      if (!window.confirm(`${detail.message || 'Есть пересечения в расписании.'}\n\n${lines.join('\n')}\n\nСохранить несмотря на пересечения?\n«Отмена» — вернуться и исправить.`)) throw error;
+      confirmed.push(token);
+    }
+  }
+}
 
 const send = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 

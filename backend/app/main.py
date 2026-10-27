@@ -85,7 +85,7 @@ if settings.cors_origins():
         CORSMiddleware,
         allow_origins=settings.cors_origins(),
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-Confirmed-Conflicts"],
         allow_credentials=False,
         max_age=600,
     )
