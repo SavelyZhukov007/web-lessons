@@ -2,6 +2,7 @@ import { getClubs, getCategories, getLeaders } from './api.js';
 import { h, icon } from './ui.js';
 import { readClubFilters, buildClubUrl } from './club-filters.js';
 import { latestRequest } from './latest-request.js';
+import { clubColor } from './event-colors.js';
 
 const list = document.querySelector('#content');
 const count = document.querySelector('#clubs-count');
@@ -17,13 +18,12 @@ const plural = n => {
   const m10 = n % 10, m100 = n % 100;
   return m10 === 1 && m100 !== 11 ? 'кружок' : [2, 3, 4].includes(m10) && ![12, 13, 14].includes(m100) ? 'кружка' : 'кружков';
 };
-const safeColor = c => (/^#[\da-f]{6}$/i.test(c) ? c : '');
 
 function card(club) {
   const cat = lookup.categories.get(club.category_id);
   const leader = lookup.leaders.get(club.leader_id);
   const dot = h('span', { class: 'dot', 'aria-hidden': 'true' });
-  const color = safeColor(cat?.color);
+  const color = clubColor(club.id, cat?.color, cat?.name);
   if (color) dot.style.setProperty('--dot', color);
   return h('a', { class: 'club-card', href: `/club.html?id=${club.id}` },
     h('h2', {}, club.name),

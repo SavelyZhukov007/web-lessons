@@ -1,20 +1,18 @@
 import { getSchedule, getCategories, getLeaders, getRooms } from './api.js';
-import { DAY_NAMES, DAY_SHORT, parseDate, dateKey, addDays, monday, moscowToday, formatDate, minutes, eventLanes } from './schedule-dates.js';
-import { createPeriodDisplay } from './period-display.js';
+import { DAY_NAMES, DAY_SHORT, parseDate, dateKey, addDays, monday, moscowToday, formatDate, minutes, eventGroups } from './schedule-dates.js';
+import { clubColor } from './event-colors.js';
 import { icon } from './icons.js';
 import { eventRoom } from './public-display.js';
 import { latestRequest } from './latest-request.js';
 
 const $ = selector => document.querySelector(selector);
 const content = $('#content');
-const MAX_READABLE_LANES = 3;
 const mobile = window.matchMedia('(max-width: 999px)');
 const today = moscowToday();
 // Те же границы, что у API (понедельники недель): иначе сервер ответит 422
 const WEEK_MIN = '2000-01-03';
 const WEEK_MAX = '2100-12-27';
 const state = { week: monday(today), day: Math.min((today.getDay() + 6) % 7, 5), view: 'grid', filtersOpen: false, events: [], phase: 'loading', error: '' };
-const showPeriod = createPeriodDisplay(document.querySelector('#week-year'), () => dateKey(state.week));
 const fields = { search: $('#search'), category_id: $('#category'), weekday: $('#weekday'), leader_id: $('#leader'), room_id: $('#room') };
 const statusNames = { scheduled: 'По расписанию', moved: 'Перенос', cancelled: 'Отменено' };
 const scheduleRequest = latestRequest();
@@ -85,7 +83,6 @@ function safeEvents(data) {
 }
 
 async function loadSchedule() {
-  showPeriod(dateKey(state.week));
   clearTimeout(searchTimer);
   const request = scheduleRequest.begin();
   state.phase = 'loading';
@@ -206,7 +203,7 @@ function eventCard(event, compact = false) {
   const button = node('button', `calendar-event ${event.status}${event.status !== 'scheduled' ? ' has-status' : ''}${compact ? ' compact' : ''}`);
   button.type = 'button';
   button.dataset.eventId = event.event_id;
-  const color = /^#[\da-f]{6}$/i.test(event.category_color) ? event.category_color : '#606963';
+  const color = clubColor(event.club_id, event.category_color, event.category_name);
   button.style.setProperty('--event-color', color);
   button.setAttribute('aria-label', `${event.club_name}. ${formatDate(parseDate(event.date))}, ${event.start_time}–${event.end_time}. ${eventRoom(event, rooms)}. ${(event.leader_names || [event.leader_name]).join(', ')}. ${statusNames[event.status]}. Открыть подробности.`);
   const time = node('span', 'event-time');
@@ -216,6 +213,48 @@ function eventCard(event, compact = false) {
   if (event.status !== 'scheduled') button.append(node('span', 'event-badge', statusNames[event.status]));
   button.append(icon('right', 'event-affordance'));
   button.addEventListener('click', () => details(event));
+  return button;
+}
+
+function openEventGroup(events) {
+  const target = $('#event-details');
+  target.replaceChildren();
+  const heading = node('h2', '', 'Занятия в это время');
+  heading.id = 'event-title';
+  target.append(heading, node('p', 'parallel-dialog-date', formatDate(parseDate(events[0].date), { year: 'numeric' })));
+  const list = node('div', 'parallel-dialog-list');
+  for (const event of events) {
+    const button = node('button', 'parallel-dialog-item');
+    button.type = 'button';
+    button.style.setProperty('--event-color', clubColor(event.club_id, event.category_color, event.category_name));
+    button.append(node('span', 'parallel-dialog-time', `${event.start_time}–${event.end_time}`),
+      node('strong', '', event.club_name), node('span', 'parallel-dialog-room', eventRoom(event, rooms)));
+    if (event.status !== 'scheduled') button.append(node('span', 'event-badge', statusNames[event.status]));
+    button.addEventListener('click', () => { $('#event-dialog').close(); details(event); });
+    list.append(button);
+  }
+  target.append(list);
+  $('#event-dialog').showModal();
+}
+
+function groupCard(group) {
+  const count = group.events.length;
+  const forms = { one: 'занятие', few: 'занятия', many: 'занятий', other: 'занятия' };
+  const label = `${count} ${forms[new Intl.PluralRules('ru').select(count)]}`;
+  const button = node('button', 'calendar-event parallel-group');
+  button.type = 'button';
+  button.setAttribute('aria-label', `${label} в этот период. Открыть список.`);
+  button.append(node('strong', 'parallel-group-count', label));
+  const preview = node('span', 'parallel-group-preview');
+  for (const event of group.events.slice(0, 3)) {
+    const line = node('span', 'parallel-group-line');
+    const dot = node('span', 'parallel-group-dot');
+    dot.style.backgroundColor = clubColor(event.club_id, event.category_color, event.category_name);
+    line.append(dot, node('span', '', event.club_name));
+    preview.append(line);
+  }
+  button.append(preview);
+  button.addEventListener('click', () => openEventGroup(group.events));
   return button;
 }
 
@@ -247,12 +286,7 @@ function renderList(events, days) {
 }
 
 function renderGrid(events, days) {
-  const maxParallel = Math.max(1, ...days.flatMap(day => eventLanes(events.filter(event => event.date === dateKey(addDays(state.week, day)))).map(item => item.lanes)));
-  if (maxParallel > MAX_READABLE_LANES) {
-    state.view = 'list'; updateControls();
-    renderList(events, days); // не превращаем десятки занятий в нечитаемые узкие полоски
-    return;
-  }
+  const dayWidths = days.map(() => 155);
   const earliest = Math.floor(Math.min(...events.map(event => minutes(event.start_time))) / 60);
   const latest = Math.ceil(Math.max(...events.map(event => minutes(event.end_time))) / 60);
   const start = Math.max(0, earliest);
@@ -260,7 +294,11 @@ function renderGrid(events, days) {
   const hourHeight = 80;
   const height = (end - start) * hourHeight;
   const grid = node('div', 'week-grid');
-  grid.style.setProperty('--days', days.length);
+  grid.setAttribute('role', 'region');
+  grid.setAttribute('aria-label', 'Недельная сетка расписания. Прокрутите горизонтально, чтобы увидеть все дни.');
+  grid.tabIndex = 0;
+  grid.style.setProperty('--grid-columns', `66px ${dayWidths.map(width => `minmax(${width}px, 1fr)`).join(' ')}`);
+  grid.style.setProperty('--grid-width', `${66 + dayWidths.reduce((sum, width) => sum + width, 0)}px`);
   grid.style.setProperty('--hour-height', `${hourHeight}px`);
   const headings = node('div', 'grid-headings');
   headings.append(node('span', 'time-zone', 'МСК'));
@@ -289,13 +327,13 @@ function renderGrid(events, days) {
     track.classList.toggle('is-today', dateKey(date) === dateKey(today));
     const daily = events.filter(event => event.date === dateKey(date));
     if (daily.length === 0) track.append(node('span', 'track-empty', 'Нет занятий'));
-    for (const { event, lane, lanes } of eventLanes(daily)) {
-      const duration = (minutes(event.end_time) - minutes(event.start_time)) / 60 * hourHeight;
-      const card = eventCard(event, duration < 110 || lanes > 1);
-      card.style.top = `${(minutes(event.start_time) / 60 - start) * hourHeight + 2}px`;
+    for (const group of eventGroups(daily)) {
+      const duration = (group.end - group.start) / 60 * hourHeight;
+      const card = group.events.length === 1 ? eventCard(group.events[0], duration < 110) : groupCard(group);
+      card.style.top = `${(group.start / 60 - start) * hourHeight + 2}px`;
       card.style.height = `${Math.max(4, duration - 4)}px`;
-      card.style.left = `calc(${lane / lanes * 100}% + 3px)`;
-      card.style.width = `calc(${100 / lanes}% - 6px)`;
+      card.style.left = '3px';
+      card.style.width = 'calc(100% - 6px)';
       track.append(card);
     }
     tracks.append(track);

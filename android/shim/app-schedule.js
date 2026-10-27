@@ -13,7 +13,7 @@
 import { getSchedule } from './api.js';
 import { DAY_NAMES, DAY_SHORT, parseDate, dateKey, addDays, monday, moscowToday, formatDate, minutes } from './schedule-dates.js';
 import { icon } from './icons.js';
-import { createPeriodDisplay } from './period-display.js';
+import { clubColor } from './event-colors.js';
 
 const $ = s => document.querySelector(s);
 const WEEK_MIN = '2000-01-03', WEEK_MAX = '2100-12-27';
@@ -27,7 +27,6 @@ let today = moscowToday();
 function todayTarget() { today = moscowToday(); return today.getDay() === 0 ? addDays(today, 1) : today; }
 const start = todayTarget();
 const state = { week: monday(start), day: (start.getDay() + 6) % 7, events: [], phase: 'loading', error: '', filtersOpen: false, key: '' };
-let showPeriod = () => {};
 window.ItcEvent = id => state.events.find(x => x.event_id === id); // для быстрой отмены/переноса (app-extras)
 const mem = new Map(); // ключ запроса → { t, e }
 const cards = new Map(); // event_id → { sig, node }
@@ -67,7 +66,6 @@ function buildLayout() {
   const days = node('div', 'app-days'); days.id = 'app-days';
   days.append(dayButtons); // подпись диапазона недели убрана: даты видны в полосе дней
   form.closest('.schedule-controls').after(days);
-  showPeriod = createPeriodDisplay(days, () => dateKey(state.week));
   status.classList.add('visually-hidden');
   days.after(status);
   for (const sel of ['.page-command', '.mobile-days', '.schedule-caption']) $(sel)?.remove();
@@ -109,7 +107,6 @@ function safeEvents(data, week) {
 
 // ---------- загрузка: кэш сразу, сеть потом ----------
 async function load({ dir = 0, quiet = false } = {}) {
-  showPeriod(dateKey(state.week));
   clearTimeout(searchTimer);
   controller?.abort();
   controller = new AbortController();
@@ -212,7 +209,7 @@ function card(e) {
   if (c && c.sig === s) { c.event = e; return c.node; }
   const b = node('button', `calendar-event ${e.status}${e.status !== 'scheduled' ? ' has-status' : ''}`);
   b.type = 'button'; b.dataset.eventId = e.event_id;
-  b.style.setProperty('--event-color', /^#[\da-f]{6}$/i.test(e.category_color) ? e.category_color : '#606963');
+  b.style.setProperty('--event-color', clubColor(e.club_id, e.category_color, e.category_name));
   b.setAttribute('aria-label', `${e.club_name}. ${formatDate(parseDate(e.date))}, ${e.start_time}–${e.end_time}. ${(e.room_names || [e.room_name]).join(', ')}. ${(e.leader_names || [e.leader_name]).join(', ')}. ${statusNames[e.status]}. Открыть подробности.`);
   const time = node('span', 'event-time');
   time.append(node('span', 'event-start', e.start_time), node('span', 'time-divider', '–'), node('span', 'event-end', e.end_time));

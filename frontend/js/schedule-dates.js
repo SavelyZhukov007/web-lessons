@@ -64,3 +64,18 @@ export function eventLanes(events) {
   flush();
   return result;
 }
+
+// Пересекающиеся интервалы складываем в одну группу. Интервалы встык
+// остаются раздельными; цепочки частичных пересечений сохраняют все события.
+export function eventGroups(events) {
+  const sorted = [...events].sort((a, b) => minutes(a.start_time) - minutes(b.start_time)
+    || minutes(a.end_time) - minutes(b.end_time) || a.event_id.localeCompare(b.event_id));
+  const groups = [];
+  for (const event of sorted) {
+    const start = minutes(event.start_time), end = minutes(event.end_time);
+    const group = groups.at(-1);
+    if (!group || start >= group.end) groups.push({ start, end, events: [event] });
+    else { group.events.push(event); group.end = Math.max(group.end, end); }
+  }
+  return groups;
+}

@@ -154,16 +154,24 @@
     min-height: 280px;
 }
 
+.grid-scroll-hint {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: calc(12px * var(--text-scale, 1));
+}
+
 .week-grid {
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
     background: var(--paper);
+    overflow-x: auto;
 }
 
 .grid-headings,
 .grid-tracks {
     display: grid;
-    grid-template-columns: 66px repeat(var(--days), minmax(0, 1fr));
+    grid-template-columns: var(--grid-columns);
+    min-width: var(--grid-width);
 }
 
 .grid-headings {
@@ -290,6 +298,58 @@
 .calendar-event:focus-visible {
     z-index: 2;
 }
+
+.campus-page .calendar-event.parallel-group {
+    border-left-color: var(--accent);
+    gap: 4px;
+}
+
+.parallel-group-count {
+    font-size: calc(13px * var(--text-scale, 1));
+}
+
+.parallel-group-preview {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    width: 100%;
+}
+
+.parallel-group-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    font-size: calc(10px * var(--text-scale, 1));
+}
+
+.parallel-group-line > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.parallel-group-dot {
+    width: 7px;
+    height: 7px;
+    flex: 0 0 7px;
+    border-radius: 50%;
+}
+
+.parallel-dialog-date { color: var(--muted); }
+.parallel-dialog-list { display: grid; gap: 8px; margin: 16px 0; }
+.campus-page .parallel-dialog-item {
+    display: grid;
+    gap: 3px;
+    width: 100%;
+    min-height: 44px;
+    padding: 12px;
+    text-align: left;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--event-color);
+    background: var(--paper);
+}
+.parallel-dialog-time, .parallel-dialog-room { color: var(--muted); font-size: 12px; }
 
 .calendar-event>* {
     flex-shrink: 0;
