@@ -190,6 +190,12 @@ def notify_exception(exception_id: int) -> int:
             exception = db.get(SessionException, exception_id)
             if exception is None:
                 return 0
+            from . import occurrence_source
+
+            snap = occurrence_source.load_snapshot(db)
+            if not occurrence_source.exception_is_notifiable(snap, exception):
+                log.info("push: исключение %s не затрагивает реальное будущее занятие — без рассылки", exception_id)
+                return 0
             return deliver(db, exception_event(exception)).web_sent
     except Exception:  # noqa: BLE001
         log.exception("push: сбой рассылки для исключения %s", exception_id)

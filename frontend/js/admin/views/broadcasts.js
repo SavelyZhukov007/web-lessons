@@ -221,7 +221,6 @@ export async function mount(root, { signal }) {
     historySlot);
   renderAudience();
   renderHistory(history);
-  if (draft) historyNote.textContent = 'Восстановлен несохранённый черновик этой вкладки.';
   update();
   signal?.addEventListener('abort', () => { clearTimeout(reachTimer); reachCtrl?.abort(); });
   root.querySelector('#view-title').focus({ preventScroll: true });

@@ -5,7 +5,7 @@
   python server.py build web|pwa|android|back|all [--out DIR] [--server-url http://IP:PORT] [--install] [--demo]   # результат в builds/
   python server.py admin create LOGIN [--password-stdin] | reset-password LOGIN [--password-stdin] | list
   python server.py seed [--file data/sample-data.json] [--dry-run]
-  python server.py backup [--dir backups] [--keep 14] [--no-compress]  |  verify-backup FILE
+  python server.py backup [--dir backups] [--keep 14] [--no-compress]  |  verify-backup FILE  |  restore FILE --yes
   python server.py check-config
 
 Совместимо с Python 3.10+ (Windows PowerShell и Linux)."""
@@ -103,7 +103,20 @@ def _seed(args: argparse.Namespace) -> int:
 def _backup(args: argparse.Namespace) -> int:
     from backend.app import cli
     try:
-        print(cli.backup(Path(args.dir), keep=args.keep, compress=not args.no_compress))
+        print(cli.backup(Path(args.dir), keep=args.keep, compress=not args.no_compress, prefix=args.prefix))
+    except cli.CliError as exc:
+        print(f"Ошибка: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _restore(args: argparse.Namespace) -> int:
+    from backend.app import cli
+    if not args.yes:
+        print("Перезапишет текущую БД. Повторите с --yes (сначала остановите сервер).", file=sys.stderr)
+        return 2
+    try:
+        print(cli.restore(Path(args.file)))
     except cli.CliError as exc:
         print(f"Ошибка: {exc}", file=sys.stderr)
         return 1
@@ -171,7 +184,13 @@ def make_parser() -> argparse.ArgumentParser:
     backup.add_argument("--dir", default="backups")
     backup.add_argument("--keep", type=int, default=14)
     backup.add_argument("--no-compress", action="store_true")
+    backup.add_argument("--prefix", default="clubs", help="clubs (ночные) | pre-migrate | pre-import — ротация по префиксу")
     backup.set_defaults(func=_backup)
+
+    restore = sub.add_parser("restore", help="восстановить БД из бэкапа (сервер должен быть остановлен)")
+    restore.add_argument("file")
+    restore.add_argument("--yes", action="store_true", help="подтвердить перезапись текущей БД")
+    restore.set_defaults(func=_restore)
 
     verify = sub.add_parser("verify-backup", help="проверить, что бэкап открывается, цел и на актуальной ревизии схемы")
     verify.add_argument("file")

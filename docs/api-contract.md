@@ -2,6 +2,8 @@
 
 Источник истины — OpenAPI (`/docs` в dev; в production отключён, `ENABLE_DOCS=true` включает). Этот файл — человекочитаемая сводка.
 
+Учебные периоды, повторения, несколько руководителей и аудиторий, импорт и экспорт: [academic-schedule.md](academic-schedule.md).
+
 ## Общие правила
 - ID — `integer`; дата `YYYY-MM-DD`; время `HH:MM` (24 ч, занятия 08:00–21:00, начало раньше конца); `weekday` — `1..6` (1 = понедельник … 6 = суббота, воскресных занятий нет).
 - Все ошибки — JSON с ключом `detail`, но **тип `detail` зависит от кода**:
@@ -27,7 +29,8 @@
 - `GET /api/leaders` — только руководители **активных** кружков, **без** поля `contact` (SEC-07).
 - `GET /api/clubs?search=&category_id=` — только активные; поиск регистронезависимый (в т. ч. кириллица), `%`/`_` — обычные символы.
 - `GET /api/clubs/{id}` — `category`, `leader` (с `contact`), `sessions`, `upcoming_exceptions`.
-- `GET /api/clubs/{id}/calendar.ics?week=YYYY-MM-DD` — снимок недели кружка с исключениями, без бесконечного повторения; не подписной календарь. Правила — `PRODUCT_RULES.md`.
+- `GET /api/clubs/{id}/calendar.ics?week=YYYY-MM-DD` — снимок недели кружка с исключениями, без бесконечного повторения; не подписной календарь. `?start=&end=` — диапазон до 93 дней; `?from=&to=` (или без параметров — от сегодня до конца периода, ≥ 26 недель, ≤ 400 дней). Отменённые даты не попадают, переносы — по новой дате. Правила — `PRODUCT_RULES.md`.
+- Schedule v2 (подробно — `docs/schedule-v2-contract.md`): `GET /api/week?week=` (неделя + период, чётность, неучебные дни), `GET /api/sessions/{id}/occurrences`, `GET /api/clubs/{id}/occurrences`, `GET /api/calendar.ics`, `GET /api/sessions/{id}/calendar.ics`. В `GET /api/clubs/{id}` у занятий есть `repeat`, `repeat_label`, `next_dates`.
 - `GET /api/schedule?week=YYYY-MM-DD[&category_id&weekday&leader_id&room_id&search]` — `week` — **понедельник**, диапазон 2000-01-03…2100-12-27, иначе 422. Ответ — массив `ScheduleEvent` (`schemas/contracts.py`); `status`: `scheduled|cancelled|moved`; `event_id` = `session_id:original_date`.
 
 ## Web Push (публичные, без авторизации)
@@ -48,6 +51,7 @@
 
 - `POST /login` `{login, password}` → `{admin, access_token, refresh_token, token_type:"bearer", expires_in, refresh_expires_in}` + cookies `admin_session` и `admin_refresh` (path `/api/admin/refresh`). `POST /refresh` (refresh из cookie или `{refresh_token}`) → новая пара в том же формате; старый refresh отзывается; повтор старого: 409 в пределах `REFRESH_GRACE_SECONDS`, позже 401 + отзыв сессии; невалидный → 401. Access живёт `ACCESS_MINUTES` (15). `POST /logout` → 204. `GET /status` → 200 с данными админа или 401, если не авторизован (используется фронтом как проверка сессии). `POST /password` `{current_password, new_password}` → 204; текущая сессия сохраняется, остальные отзываются.
 - CRUD: `categories` (цвет `#RRGGBB` обязателен), `leaders`, `rooms`, `clubs`, `sessions` — `GET|POST /…`, `PATCH|DELETE /…/{id}`. Удаление записи, на которую есть ссылки → 409.
+- Schedule v2: `GET /conflicts` (отчёт), `GET|POST /conflicts/overrides`, `DELETE /conflicts/overrides/{id}`; `POST /import/publish?dry_run&prune` (пакетный JSON), `GET /import/publishes`, `POST /import/publishes/{id}/rollback`. Публикация черновика `POST /imports/{id}/publish` делает бэкап и возвращает `publish_id` для отката.
 - Исключения: `GET /exceptions`, `POST /exceptions/cancellations`, `POST /exceptions/moves`, `PATCH|DELETE /exceptions/{id}`.
 
 Формы исключений:

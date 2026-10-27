@@ -5,7 +5,7 @@
 ## Деплой и откат
 **Docker:** `git pull && docker compose up -d --build`. Миграции БД применяются при старте приложения. Проверка: `curl -fsS https://<домен>/readyz`.
 **Откат:** `git checkout <прошлый-тег> && docker compose up -d --build`. Если новая версия применила миграцию — **сначала** восстанови БД из бэкапа, сделанного перед обновлением (миграции «вниз» не гарантируются).
-**Перед каждым обновлением:** `server.py backup` (см. ниже).
+**Перед каждым обновлением:** `tools/ops/backup.sh pre-migrate` (бэкап + verify, префикс `pre-migrate-`, своя ротация). Откат БД: `tools/ops/restore.sh /backups/<файл> --yes` (страховочный бэкап → stop → restore → start → /readyz).
 **systemd:** `git pull && .venv/bin/pip install -r backend/requirements.lock.txt && .venv/bin/python server.py build web && sudo systemctl restart clubs`.
 
 ## Первый запуск
@@ -63,3 +63,9 @@ python tools/stress/stress_test.py --url http://lekora.ru:7443 --host-header lek
 - Общего лимитера частоты на публичные GET в backend нет (429 бывает только на входе админа, push-подписках, `/api/logs`, `/api/app/devices` — тест их не трогает). Если 429 всё же появятся (например, лимит на прокси), тест покажет их отдельно: вся нагрузка идёт с одного IP, так что это предел лимитера, а не сервера. Прод-конфиг ради теста не меняем.
 - Клиент — одна машина: на сотнях пользователей узким местом может стать он сам (CPU, Wi-Fi). Для прода лучше запускать с машины с хорошим каналом.
 - Прод работает с `uvicorn --workers 1` + SQLite: потолок — один процесс Python и пул потоков (40) / соединений SQLAlchemy (5+10).
+
+## Schedule v2: конфликты, импорт, календарь
+- Отчёт о пересечениях: `GET /api/admin/conflicts` (по реальным датам; `include_allowed=true` — с разрешёнными). Разрешения «совместное занятие» хранятся в `/data/conflict-overrides.json` (входит в том `clubs-data`, но **не** в SQLite-бэкап — копировать вместе с ним).
+- Публикация импорта: `POST /api/admin/import/publish?dry_run=true` → проверить → без `dry_run`. Перед записью создаётся `/backups/pre-import-*.sqlite3.gz`, журнал — `/backups/import-publish.json`. Откат: `POST /api/admin/import/publishes/{id}/rollback` (восстанавливает снимок целиком: правки после публикации тоже откатятся).
+- Проверка, что бэкап восстанавливается, не трогая прод: `tools/ops/verify-restore.sh /backups/<файл>`.
+- Календарь: `/api/calendar.ics`, `/api/clubs/{id}/calendar.ics`, `/api/sessions/{id}/calendar.ics` — по одной записи на дату, отменённые не попадают. Источник дат один — `occurrence_source` (контракт: `docs/schedule-v2-contract.md`).

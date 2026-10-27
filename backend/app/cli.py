@@ -207,15 +207,15 @@ def seed(path: Path | None = None, *, dry_run: bool = False) -> dict:
 
 
 # ---------------------------------------------------------------- бэкап (DB-05)
-def backup(dest: Path, *, keep: int = 14, compress: bool = True) -> Path:
+def backup(dest: Path, *, keep: int = 14, compress: bool = True, prefix: str = "clubs") -> Path:
     """Консистентная копия SQLite через Online Backup API (безопасно при работающем сервере и WAL), проверка integrity_check, ротация."""
     prepare_database()
     dest.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    raw = dest / f"clubs-{stamp}.sqlite3"
+    raw = dest / f"{prefix}-{stamp}.sqlite3"
     counter = 1
     while raw.exists() or raw.with_suffix(".sqlite3.gz").exists():  # две копии в одну секунду не затирают друг друга
-        raw = dest / f"clubs-{stamp}-{counter}.sqlite3"
+        raw = dest / f"{prefix}-{stamp}-{counter}.sqlite3"
         counter += 1
     src = sqlite3.connect(str(DB_PATH))
     try:
@@ -236,10 +236,56 @@ def backup(dest: Path, *, keep: int = 14, compress: bool = True) -> Path:
         with raw.open("rb") as f_in, gzip.open(final, "wb", compresslevel=6) as f_out:
             shutil.copyfileobj(f_in, f_out)
         raw.unlink()
-    for old in sorted(dest.glob("clubs-*.sqlite3*"), reverse=True)[keep:]:
+    # ротация только своего префикса: ночные clubs-*, pre-migrate-*, pre-import-* живут отдельно
+    for old in sorted(dest.glob(f"{prefix}-[0-9]*.sqlite3*"), key=lambda p: (p.stat().st_mtime_ns, p.name), reverse=True)[keep:]:
         old.unlink()
     audit.log("backup_created", file=str(final))
     return final
+
+
+def restore(path: Path, *, target: Path | None = None) -> dict:
+    """Вернуть БД из бэкапа (.sqlite3 или .gz) через Online Backup API, проверив его до и после.
+
+    Пишет в живую БД поверх (WAL-безопасно); перед этим проверяет integrity_check копии.
+    Вызывать при остановленной записи (сервер остановлен или под schedule_write_lock).
+    """
+    if not path.exists():
+        raise CliError(f"Файл не найден: {path}")
+    import tempfile
+
+    target = Path(target or DB_PATH)
+    tmpdir = Path(tempfile.mkdtemp(prefix="clubs-restore-"))
+    try:
+        plain = tmpdir / "restore.sqlite3"
+        if path.suffix == ".gz":
+            with gzip.open(path, "rb") as f_in, plain.open("wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        else:
+            shutil.copy2(path, plain)
+        src = sqlite3.connect(str(plain))
+        try:
+            if src.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                raise CliError("Бэкап повреждён: integrity_check не ok")
+            dst = sqlite3.connect(str(target))
+            try:
+                src.backup(dst)
+                result = dst.execute("PRAGMA integrity_check").fetchone()[0]
+            finally:
+                dst.close()
+        finally:
+            src.close()
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    if result != "ok":
+        raise CliError(f"После восстановления integrity_check = {result}")
+    try:
+        from .database import engine
+
+        engine.dispose()  # соединения пула видели старую БД
+    except Exception:  # noqa: BLE001
+        pass
+    audit.log("backup_restored", file=str(path))
+    return {"restored_from": str(path), "integrity": result}
 
 
 def verify_backup(path: Path) -> dict:

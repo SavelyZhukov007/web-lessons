@@ -28,6 +28,17 @@ export const leaders = crud('leaders');
 export const rooms = crud('rooms');
 export const clubs = crud('clubs');
 export const sessions = crud('sessions');
+export const periods = { ...crud('periods'), update: (id, body) => request(`/api/admin/periods/${id}`, send('PUT', body)),
+  days: id => request(`/api/admin/periods/${id}/days-off`),
+  addDay: (id, body) => request(`/api/admin/periods/${id}/days-off`, send('POST', body)),
+  addDays: (id, body) => request(`/api/admin/periods/${id}/days-off/range`, send('POST', body)),
+  removeDay: (id, day) => request(`/api/admin/periods/${id}/days-off/${day}`, { method: 'DELETE' }) };
+export const imports = {
+  list: options => request('/api/admin/imports', options),
+  create: body => request('/api/admin/imports', send('POST', body)),
+  decisions: (id, decisions) => request(`/api/admin/imports/${id}/decisions`, send('PUT', { decisions })),
+  publish: id => request(`/api/admin/imports/${id}/publish`, { method: 'POST' }),
+};
 export const exceptions = {
   ...crud('exceptions'),
   cancel: body => request('/api/admin/exceptions/cancellations', send('POST', { type: 'cancelled', ...body })),

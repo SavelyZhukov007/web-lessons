@@ -9,7 +9,7 @@ const ADMIN_PAGE = '/admin/index.html' + (/^#\/[\w\-/]*$/.test(rawNext) ? rawNex
 
 // Уже вошёл — сразу в админку.
 getAdminStatus().then(status => {
-  if (window.ItcSession && window.ItcSession.role() !== 'admin') window.ItcSession.set('admin', status.admin?.login || 'Администратор');
+  if (window.ItcSession && window.ItcSession.role() !== 'admin') window.ItcSession.set('admin', status.admin?.login || 'Администратор', (status.refresh_expires_in || 2592000) * 1000);
   location.replace(ADMIN_PAGE);
 }, () => {});
 

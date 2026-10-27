@@ -40,6 +40,11 @@ def _check_audience(db: Session, a: AudienceIn) -> list[str]:
         bad = [s for s in a.session_ids if owners.get(s) not in clubs]
         if bad:
             raise HTTPException(422, "Занятие не относится к выбранным кружкам: " + ", ".join(map(str, bad)))
+        from ..services import occurrence_source
+
+        idle = occurrence_source.sessions_without_upcoming(occurrence_source.load_snapshot(db), a.session_ids)
+        if idle:
+            raise HTTPException(422, "У занятия нет ближайших дат: " + ", ".join(map(str, idle)))
     return [clubs[i] for i in a.club_ids]
 
 

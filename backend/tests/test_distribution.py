@@ -162,3 +162,31 @@ def test_publish_release_writes_update_fields(tmp_path, monkeypatch):
     meta = json.loads((out / "latest.json").read_text(encoding="utf-8"))
     ver = json.loads((root / "android" / "version.json").read_text(encoding="utf-8"))
     assert meta["versionCode"] == ver["versionCode"] and isinstance(meta["changelog"], list) and meta["minSupported"] >= 1
+
+
+def test_latest_json_version_normalized(client, tmp_path, monkeypatch):
+    releases = tmp_path / "rel"
+    releases.mkdir()
+    (releases / "a.apk").write_bytes(b"PK")
+    (releases / "latest.json").write_text(json.dumps({"file": "a.apk", "version": "v1.2.890", "versionCode": 18}), encoding="utf-8")
+    monkeypatch.setenv("APP_RELEASES_DIR", str(releases))
+    info = client.get("/api/app/android").json()
+    assert info["version"] == "1.2.890" and info["versionName"] == "v1.2.890"
+
+
+def test_github_fallback_prefers_newest_including_prerelease(monkeypatch):
+    from backend.app.routers import distribution as d
+
+    d._GH_CACHE.update(at=0.0, url=None)
+    monkeypatch.delenv("GITHUB_APK_URL", raising=False)
+    beta = "https://github.com/x/y/releases/download/v1.2.890pb/kipclub.apk"
+    releases = [{"draft": True, "assets": [{"name": "kipclub.apk", "browser_download_url": "https://draft"}]},
+                {"prerelease": True, "assets": [{"name": "kipclub.apk", "browser_download_url": beta}]}]
+    assert d.github_apk_url(fetch=lambda: releases) == beta
+    d._GH_CACHE.update(at=0.0, url=None)
+
+    def boom():
+        raise OSError("нет сети")
+
+    assert d.github_apk_url(fetch=boom) == d.GITHUB_APK_URL
+    d._GH_CACHE.update(at=0.0, url=None)

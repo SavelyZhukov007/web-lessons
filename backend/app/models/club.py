@@ -21,7 +21,12 @@ class Club(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     category: Mapped[Category] = relationship(back_populates="clubs")
     leader: Mapped[Leader] = relationship(back_populates="clubs")
+    leaders: Mapped[list[Leader]] = relationship(secondary="club_leaders", lazy="selectin")
     sessions: Mapped[list[ClubSession]] = relationship(
         back_populates="club",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def leader_ids(self):
+        return [self.leader_id, *sorted({item.id for item in self.leaders} - {self.leader_id})]

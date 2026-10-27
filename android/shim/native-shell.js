@@ -64,7 +64,7 @@
     });
     doc.querySelectorAll('a[href*="/calendar.ics"]:not([data-native-cal])').forEach(function (a) {
       a.setAttribute('data-native-cal', '');
-      for (var n = a.lastChild; n; n = n.previousSibling) if (n.nodeType === 3 && n.nodeValue.trim()) { n.nodeValue = /[?&]week=/.test(a.getAttribute('href')) ? 'Добавить в календарь — текущая неделя' : 'Добавить в календарь'; break; }
+      for (var n = a.lastChild; n; n = n.previousSibling) if (n.nodeType === 3 && n.nodeValue.trim()) { n.nodeValue = /[?&]week=/.test(a.getAttribute('href')) ? 'Добавить в календарь — текущая неделя' : /[?&]start=/.test(a.getAttribute('href')) ? 'Добавить в календарь — 4 недели' : 'Добавить в календарь'; break; }
     });
     if (window.DemoBackend && /^\/admin\/login(\.html)?$/.test(location.pathname)) addDemoLogin();
     // без подсказок для разработчиков (reset-password в консоли сервера)
@@ -313,15 +313,20 @@
     e.preventDefault(); e.stopImmediatePropagation(); // раньше обработчиков shim/demo-backend (они на document)
     if (busy) return; busy = true; a.setAttribute('aria-busy', 'true');
     var href = a.getAttribute('href');
-    if (/[?&]week=/.test(href)) {
+    if (!/[?&](week|start)=/.test(href)) {
+      var now = new Date(Date.now() + 3 * 3600000);
+      now.setUTCDate(now.getUTCDate() - ((now.getUTCDay() + 6) % 7));
+      href += (href.includes('?') ? '&' : '?') + 'week=' + now.toISOString().slice(0, 10);
+    }
+    if (/[?&](week|start)=/.test(href)) {
       // Общий контракт с сайтом: готовая выбранная неделя с реальными отменами и переносами.
       fetch(href, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
         .then(function (text) {
           if (!/^BEGIN:VCALENDAR/m.test(text)) throw new Error('Некорректный файл календаря');
-          var name = 'club-' + ((href.match(/\/clubs\/(\d+)\//) || [])[1] || 'schedule') + '-week.ics';
-          if (PWA) return webCalendarFile('Расписание на неделю', name, text);
+          var name = 'club-' + ((href.match(/\/clubs\/(\d+)\//) || [])[1] || 'schedule') + (/[?&]start=/.test(href) ? '-range.ics' : '-week.ics');
+          if (PWA) return webCalendarFile('Расписание занятий', name, text);
           if (P.Filesystem && P.Share) return P.Filesystem.writeFile({ path: name, data: text, directory: 'CACHE', encoding: 'utf8' })
-            .then(function (r) { return P.Share.share({ title: 'Расписание на неделю', files: [r.uri] }); });
+            .then(function (r) { return P.Share.share({ title: 'Расписание занятий', files: [r.uri] }); });
           return download(text, name);
         }).catch(function (err) { if (err.name !== 'AbortError') toast('Не удалось сохранить календарь: ' + err.message); })
         .finally(function () { busy = false; a.removeAttribute('aria-busy'); });

@@ -1,7 +1,7 @@
 import { getClub, getRooms } from './api.js';
 import { h, icon } from './ui.js';
 import { mountClubPush } from './push.js';
-import { monday, moscowToday, dateKey } from './schedule-dates.js';
+import { monday, moscowToday, dateKey, addDays } from './schedule-dates.js';
 import { calendarDate as formatDate, roomLabel } from './public-display.js';
 
 const content = document.querySelector('#content');
@@ -13,12 +13,21 @@ const DAYS = { 1: 'Понедельник', 2: 'Вторник', 3: 'Среда'
 let rooms = new Map();
 let loadId = 0;
 
+function remoteDetails(session) {
+  const ids = session.room_ids?.length ? session.room_ids : [session.room_id];
+  return ids.map(id => rooms.get(id)).filter(room => room?.is_remote).map(room => {
+    const text = [room.remote_instructions || ''];
+    const link = /^https?:\/\//i.test(room.remote_url || '') ? h('a', { href: room.remote_url, target: '_blank', rel: 'noopener noreferrer' }, 'Открыть занятие') : null;
+    return h('span', {}, ...text, link);
+  });
+}
+
 function sessionsBlock(club) {
   const items = [...club.sessions].sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time));
   return h('section', { 'aria-labelledby': 'sessions-title' }, h('h2', { id: 'sessions-title' }, 'Расписание'),
     items.length
-      ? h('ul', { class: 'slot-list' }, items.map(s => h('li', {}, h('span', { class: 'slot-day' }, s.one_off_date ? `Разово: ${formatDate(s.one_off_date)}` : DAYS[s.weekday] || `День ${s.weekday}`),
-        h('span', { class: 'slot-time' }, `${s.start_time}–${s.end_time}`), h('span', {}, roomLabel(s.room || rooms.get(s.room_id))))))
+      ? h('ul', { class: 'slot-list' }, items.map(s => h('li', {}, h('span', { class: 'slot-day' }, s.one_off_date ? `Разово: ${formatDate(s.one_off_date)}` : `${DAYS[s.weekday] || `День ${s.weekday}`}${s.repeat === 'even' ? ' · чётные недели' : s.repeat === 'odd' ? ' · нечётные недели' : ''}`),
+        h('span', { class: 'slot-time' }, `${s.start_time}–${s.end_time}`), h('span', {}, (s.room_ids?.length ? s.room_ids.map(id => roomLabel(rooms.get(id), `№ ${id}`)) : [roomLabel(s.room || rooms.get(s.room_id))]).join(', ')), s.leaders?.length ? h('span', {}, s.leaders.map(l => l.name).join(', ')) : null, ...remoteDetails(s))))
       : h('div', { class: 'empty-state' }, 'Занятий в расписании пока нет.'));
 }
 
@@ -50,14 +59,19 @@ function render(club) {
   const leader = club.leader;
   const facts = h('dl', { class: 'facts' });
   if (leader) {
-    facts.append(h('dt', {}, 'Руководитель'), h('dd', {}, leader.name));
+    facts.append(h('dt', {}, 'Руководители'), h('dd', {}, (club.leaders?.length ? club.leaders.map(l => l.name) : [leader.name]).join(', ')));
     if (leader.position) facts.append(h('dt', {}, 'Должность'), h('dd', {}, leader.position));
     if (leader.contact) facts.append(h('dt', {}, 'Контакты'), h('dd', {}, leader.contact));
   }
   const side = h('div', { class: 'column' },
     h('section', { class: 'card' }, h('h2', {}, 'О кружке'), facts.children.length ? facts : h('p', {}, 'Сведений о руководителе пока нет.'),
-      h('div', { class: 'club-actions' }, h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics?week=${dateKey(monday(moscowToday()))}` }, icon('calendar'), 'В календарь — текущая неделя (.ics)'))));
-  const main = h('div', { class: 'column' }, sessionsBlock(club), changesBlock(club));
+      h('div', { class: 'club-actions' }, h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics?week=${dateKey(monday(moscowToday()))}` }, icon('calendar'), 'В календарь — текущая неделя (.ics)'),
+        h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics?start=${dateKey(moscowToday())}&end=${dateKey(addDays(moscowToday(), 27))}` }, 'В календарь — 4 недели (.ics)'),
+        h('p', { class: 'field-hint' }, 'Импортированный файл не обновляется автоматически при изменении расписания.'))));
+  const upcoming = h('section', {}, h('h2', {}, 'Ближайшие занятия'), club.upcoming_events?.length
+    ? h('ul', {}, club.upcoming_events.map(e => h('li', {}, `${formatDate(e.date)}, ${e.start_time}–${e.end_time}${e.status === 'cancelled' ? ' — отменено' : e.status === 'moved' ? ' — перенесено' : ''}`)))
+    : h('p', {}, 'В ближайшие восемь недель занятий не найдено.'));
+  const main = h('div', { class: 'column' }, upcoming, sessionsBlock(club), changesBlock(club));
   content.replaceChildren(
     h('p', { class: 'detail-copy' }, club.description || 'Описание кружка пока не добавлено.'), main, side);
   mountClubPush(side, club.id).catch(() => {});

@@ -17,7 +17,7 @@ from .database import DB_PATH, SessionLocal
 from .logging_setup import configure_logging
 from .middleware import request_pipeline
 from .migrations import current_revision, head_revision, prepare_database
-from .routers import admin, announcements, app_api, distribution, public, push
+from .routers import admin, admin_schedule, announcements, app_api, distribution, public, push
 
 configure_logging()
 log = logging.getLogger("clubs.app")
@@ -93,6 +93,7 @@ app.middleware("http")(request_pipeline)
 
 app.include_router(public.router)
 app.include_router(admin.router)
+app.include_router(admin_schedule.router)
 app.include_router(push.router)
 app.include_router(distribution.router)
 app.include_router(announcements.router)

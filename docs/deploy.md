@@ -35,6 +35,12 @@ docker compose exec app python server.py admin create admin
 
 Проверка: в админке «Рассылки» → охват показывает «FCM: N» (N — установки APK с FCM, открывавшие приложение за 60 дней); после отправки в журнале рассылок `fcm_sent`. Ошибки — в логе `clubs.fcm` / `clubs.delivery`; токены с ответом UNREGISTERED/404 удаляются автоматически.
 
+## Обновление с миграциями (schedule v2: 0010–0012)
+1. `tools/ops/backup.sh pre-migrate` — запомнить путь файла.
+2. `git pull --ff-only && docker compose up -d --build` — миграции применяются при старте.
+3. `curl -fsS https://<домен>/readyz` и `docker compose exec -T app python -c "from backend.app.migrations import current_revision,head_revision;print(current_revision(),head_revision())"`.
+4. Если что-то не так: `git checkout <прошлый коммит> && tools/ops/restore.sh <файл из п.1> --yes && docker compose up -d --build`.
+
 ## Проверка после выкатки
 `curl -fsS https://<домен>/readyz`; открыть `/`, `/admin/login.html`; `/docs` → 404; заголовки (`curl -I`): CSP, HSTS.
 

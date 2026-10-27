@@ -1,5 +1,6 @@
 import { getSchedule, getCategories, getLeaders, getRooms } from './api.js';
 import { DAY_NAMES, DAY_SHORT, parseDate, dateKey, addDays, monday, moscowToday, formatDate, minutes, eventLanes } from './schedule-dates.js';
+import { createPeriodDisplay } from './period-display.js';
 import { icon } from './icons.js';
 import { eventRoom } from './public-display.js';
 import { latestRequest } from './latest-request.js';
@@ -13,6 +14,7 @@ const today = moscowToday();
 const WEEK_MIN = '2000-01-03';
 const WEEK_MAX = '2100-12-27';
 const state = { week: monday(today), day: Math.min((today.getDay() + 6) % 7, 5), view: 'grid', filtersOpen: false, events: [], phase: 'loading', error: '' };
+const showPeriod = createPeriodDisplay(document.querySelector('#week-year'), () => dateKey(state.week));
 const fields = { search: $('#search'), category_id: $('#category'), weekday: $('#weekday'), leader_id: $('#leader'), room_id: $('#room') };
 const statusNames = { scheduled: 'По расписанию', moved: 'Перенос', cancelled: 'Отменено' };
 const scheduleRequest = latestRequest();
@@ -83,6 +85,7 @@ function safeEvents(data) {
 }
 
 async function loadSchedule() {
+  showPeriod(dateKey(state.week));
   clearTimeout(searchTimer);
   const request = scheduleRequest.begin();
   state.phase = 'loading';
@@ -186,7 +189,7 @@ function details(event) {
   const info = node('dl', 'event-facts');
   const facts = [
     ['Когда', `${formatDate(parseDate(event.date), { year: 'numeric' })}, ${event.start_time}–${event.end_time}`],
-    ['Аудитория', eventRoom(event, rooms)], ['Руководитель', event.leader_name], ['Направление', event.category_name],
+    ['Аудитория', eventRoom(event, rooms)], ['Руководитель', (event.leader_names || [event.leader_name]).join(', ')], ['Направление', event.category_name],
   ];
   if (event.status === 'moved' && parseDate(event.original_date)) facts.push(['Исходная дата', formatDate(parseDate(event.original_date), { year: 'numeric' })]);
   for (const [label, value] of facts) info.append(node('dt', '', label), node('dd', '', value));
@@ -205,11 +208,11 @@ function eventCard(event, compact = false) {
   button.dataset.eventId = event.event_id;
   const color = /^#[\da-f]{6}$/i.test(event.category_color) ? event.category_color : '#606963';
   button.style.setProperty('--event-color', color);
-  button.setAttribute('aria-label', `${event.club_name}. ${formatDate(parseDate(event.date))}, ${event.start_time}–${event.end_time}. ${eventRoom(event, rooms)}. ${event.leader_name}. ${statusNames[event.status]}. Открыть подробности.`);
+  button.setAttribute('aria-label', `${event.club_name}. ${formatDate(parseDate(event.date))}, ${event.start_time}–${event.end_time}. ${eventRoom(event, rooms)}. ${(event.leader_names || [event.leader_name]).join(', ')}. ${statusNames[event.status]}. Открыть подробности.`);
   const time = node('span', 'event-time');
   time.append(node('span', 'event-start', event.start_time), node('span', 'time-divider', '–'), node('span', 'event-end', event.end_time));
   button.append(time);
-  button.append(node('strong', 'event-name', event.club_name), node('span', 'event-room', eventRoom(event, rooms)), node('span', 'event-leader', event.leader_name));
+  button.append(node('strong', 'event-name', event.club_name), node('span', 'event-room', eventRoom(event, rooms)), node('span', 'event-leader', (event.leader_names || [event.leader_name]).join(', ')));
   if (event.status !== 'scheduled') button.append(node('span', 'event-badge', statusNames[event.status]));
   button.append(icon('right', 'event-affordance'));
   button.addEventListener('click', () => details(event));

@@ -13,6 +13,7 @@ export async function mount(root, { signal }) {
       { name: 'description', label: 'Описание', type: 'textarea', maxlength: 4000 },
       { name: 'category_id', label: 'Направление', type: 'select', numeric: true, required: true, placeholder: 'Выбери…', options: data.categories.map(c => [c.id, c.name]) },
       { name: 'leader_id', label: 'Руководитель', type: 'select', numeric: true, required: true, placeholder: 'Выбери…', options: data.leaders.map(l => [l.id, l.name]) },
+      { name: 'leader_ids', label: 'Дополнительные руководители', type: 'multiselect', options: data.leaders.map(l => [l.id, l.name]), hint: 'На компьютере удерживайте Ctrl для выбора нескольких; основной руководитель добавляется автоматически.' },
       { name: 'is_active', label: 'Показывать на сайте', type: 'checkbox' },
     ];
   }
@@ -22,7 +23,7 @@ export async function mount(root, { signal }) {
       return;
     }
     const saved = await formDialog({
-      title: club ? 'Изменить кружок' : 'Новый кружок', fields: fields(), initial: club ?? { is_active: true },
+      title: club ? 'Изменить кружок' : 'Новый кружок', fields: fields(), initial: club ? { ...club, leader_ids: (club.leader_ids || []).filter(id => id !== club.leader_id) } : { is_active: true },
       onSubmit: values => club ? clubs.update(club.id, values) : clubs.create(values),
     });
     if (saved) { await refresh(); }

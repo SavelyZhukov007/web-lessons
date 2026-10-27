@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..models.category import Category
 from ..models.club import Club
 from ..models.leader import Leader
+from ..models.period import AcademicPeriod, NoClassDay
 from ..models.room import Room
 from ..models.session import ClubSession
 from ..models.session_exception import SessionException
@@ -69,13 +70,16 @@ class ScheduleConflictService:
             event["event_id"]: event
             for event in week_events
         }
+        events_by_date: dict[str, list[dict]] = {}
+        for event in week_events:
+            events_by_date.setdefault(event["date"], []).append(event)
 
         conflicts_by_id: dict[str, dict] = {}
 
         for candidate in candidates:
             candidate_conflicts = self._find_conflicts(
                 candidate=candidate,
-                events=week_events,
+                events=events_by_date.get(candidate["date"], []),
                 exclude_event_id=candidate["event_id"],
             )
 
@@ -133,6 +137,8 @@ class ScheduleConflictService:
             {
                 "id": room.id,
                 "name": room.name,
+                "building": room.building,
+                "is_remote": room.is_remote,
             }
             for room in self.db.execute(
                 select(Room)
@@ -145,6 +151,7 @@ class ScheduleConflictService:
                 "name": club.name,
                 "category_id": club.category_id,
                 "leader_id": club.leader_id,
+                "leader_ids": club.leader_ids,
                 "is_active": club.is_active,
             }
             for club in self.db.execute(
@@ -161,6 +168,10 @@ class ScheduleConflictService:
                 "start_time": session.start_time,
                 "end_time": session.end_time,
                 "one_off_date": session.one_off_date,
+                "period_id": session.period_id,
+                "repeat": session.repeat,
+                "leader_ids": session.leader_ids,
+                "room_ids": session.room_ids,
             }
             for session in self.db.execute(
                 select(ClubSession)
@@ -185,6 +196,8 @@ class ScheduleConflictService:
         ]
 
         return {
+            "periods": [{"id": p.id, "name": p.name, "start_date": p.start_date, "end_date": p.end_date, "even_week_start": p.even_week_start} for p in self.db.scalars(select(AcademicPeriod))],
+            "no_class_days": [{"period_id": d.period_id, "date": d.date, "reason": d.reason} for d in self.db.scalars(select(NoClassDay))],
             "categories": categories,
             "leaders": leaders,
             "rooms": rooms,
@@ -210,6 +223,10 @@ class ScheduleConflictService:
                     "start_time": change.payload["start_time"],
                     "end_time": change.payload["end_time"],
                     "one_off_date": change.payload.get("one_off_date"),
+                    "period_id": change.payload.get("period_id"),
+                    "repeat": change.payload.get("repeat", "weekly"),
+                    "leader_ids": change.payload.get("leader_ids", []),
+                    "room_ids": change.payload.get("room_ids") or [change.payload["room_id"]],
                 }
             )
 
@@ -292,6 +309,11 @@ class ScheduleConflictService:
                 if "leader_id" in change.payload:
                     club["leader_id"] = change.payload["leader_id"]
 
+                if "leader_ids" in change.payload:
+                    club["leader_ids"] = [club["leader_id"], *sorted(set(change.payload["leader_ids"]) - {club["leader_id"]})]
+                elif "leader_id" in change.payload:
+                    club["leader_ids"] = [club["leader_id"]]
+
                 if "is_active" in change.payload:
                     club["is_active"] = change.payload["is_active"]
 
@@ -319,7 +341,7 @@ class ScheduleConflictService:
 
         if change.operation in {"create_session", "update_session"}:
             original = next((s for s in data["sessions"] if s["id"] == change.entity_id), None)
-            one_off = change.payload.get("one_off_date") or (original or {}).get("one_off_date")
+            one_off = change.payload.get("one_off_date", (original or {}).get("one_off_date"))
             if one_off:
                 affected_weeks.add(get_week_start(normalize_date(one_off)))
                 if original and original.get("one_off_date"):
@@ -330,6 +352,8 @@ class ScheduleConflictService:
                         if exception["new_date"]:
                             affected_weeks.add(get_week_start(normalize_date(exception["new_date"])))
                 return affected_weeks
+            if original and original.get("one_off_date"):
+                affected_weeks.add(get_week_start(normalize_date(original["one_off_date"])))
 
         if change.operation in {
             "create_cancel",
@@ -417,6 +441,14 @@ class ScheduleConflictService:
 
         if change.operation in regular_operations:
             exception_dates: set[date] = set()
+
+            # Периоды конечны: проверяем все недели, а не только текущую.
+            for period in data.get("periods", []):
+                week = get_week_start(normalize_date(period["start_date"]))
+                last = normalize_date(period["end_date"])
+                while week <= last:
+                    affected_weeks.add(week)
+                    week += timedelta(days=7)
 
             for session in data["sessions"]:
                 if session.get("one_off_date"):

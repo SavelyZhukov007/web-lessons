@@ -36,6 +36,8 @@ function fieldControl(spec, value) {
       spec.options.map(([v, label]) => h('option', { value: String(v), selected: String(v) === String(value ?? '') }, label)));
     return select;
   }
+  if (spec.type === 'multiselect') return h('select', { ...common, multiple: true, size: Math.min(5, Math.max(2, spec.options.length)) },
+    spec.options.map(([v, label]) => h('option', { value: String(v), selected: (value || []).map(String).includes(String(v)) }, label)));
   if (spec.type === 'textarea') return h('textarea', { ...common, maxlength: spec.maxlength ?? 4000, rows: 4, value: value ?? '' });
   if (spec.type === 'checkbox') return h('input', { ...common, type: 'checkbox', checked: !!value });
   const attrs = { ...common, type: spec.type || 'text', value: value ?? '', autocomplete: 'off' };
@@ -50,7 +52,8 @@ function readForm(form, fields) {
   for (const spec of fields) {
     const el = form.elements[spec.name];
     let value;
-    if (spec.type === 'checkbox') value = el.checked;
+    if (spec.type === 'multiselect') value = [...el.selectedOptions].map(o => Number(o.value));
+    else if (spec.type === 'checkbox') value = el.checked;
     else if (spec.type === 'number' || spec.type === 'select' && spec.numeric) value = el.value === '' ? null : Number(el.value);
     else value = el.value.trim();
     out[spec.name] = value;
@@ -92,7 +95,7 @@ export function formDialog({ title, fields, initial = {}, submitLabel = 'Сох�
       form.append(label);
       if (spec.hint) form.append(h('p', { class: 'field-hint', id: `f-${spec.name}-hint` }, spec.hint));
     }
-    const initialValues = Object.fromEntries(fields.map(spec => [spec.name, spec.type === 'checkbox' ? !!initial[spec.name] : spec.numeric || spec.type === 'number' ? (initial[spec.name] ?? null) : String(initial[spec.name] ?? '').trim()]));
+    const initialValues = Object.fromEntries(fields.map(spec => [spec.name, spec.type === 'multiselect' ? (initial[spec.name] || []) : spec.type === 'checkbox' ? !!initial[spec.name] : spec.numeric || spec.type === 'number' ? (initial[spec.name] ?? null) : String(initial[spec.name] ?? '').trim()]));
     const preserve = () => {
       const values = readForm(form, fields);
       const dirty = JSON.stringify(values) !== JSON.stringify(initialValues);
@@ -101,7 +104,7 @@ export function formDialog({ title, fields, initial = {}, submitLabel = 'Сох�
     };
     form.addEventListener('input', preserve);
     form.addEventListener('change', preserve);
-    if (draft) { feedback.append(h('p', { class: 'field-hint', role: 'status' }, 'Восстановлен несохранённый черновик этой вкладки.')); markUnsaved(form, true); }
+    if (draft) markUnsaved(form, true);
     const cancel = h('button', { type: 'button', class: 'btn btn--text' }, 'Отмена');
     const submit = h('button', { type: 'submit', class: `btn ${danger ? 'btn--danger' : 'btn--filled'}` }, submitLabel);
     const dialog = h('dialog', { class: 'sheet sheet--bottom', 'aria-labelledby': 'dlg-title' },

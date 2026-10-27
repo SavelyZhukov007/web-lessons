@@ -12,6 +12,7 @@ export function roomLabel(room, fallback = 'Аудитория не указан
 }
 
 export function eventRoom(event, rooms = new Map()) {
+  if (event.room_ids?.length > 1) return event.room_ids.map(id => roomLabel(rooms.get(id), event.room_names?.[event.room_ids.indexOf(id)] || `№ ${id}`)).join(', ');
   const room = rooms.get(event.room_id);
   return roomLabel({ name: event.room_name || room?.name, building: event.room_building || room?.building });
 }

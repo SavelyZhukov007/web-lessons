@@ -53,7 +53,7 @@ export function startUpdates() {
       if (id && !loadedBuild) loadedBuild = id;
       try { await registration?.update(); } catch { /* нет связи */ }
       if (registration?.waiting) pending = true;
-      if (pending) { showPending(); if (!hasUnsavedWork()) await apply(); }
+      if (pending) showPending(); // применяем только по нажатию «Обновить» или при холодном старте
       else if (manual) notify(id ? 'Установлена актуальная версия.' : 'Не удалось проверить версию. Проверьте подключение.');
       return { available: pending, build: id };
     })().finally(() => { checking = null; });
@@ -74,18 +74,20 @@ export function startUpdates() {
     if (!hadController) { hadController = true; return; } // первый install уже соответствует открытой странице
     nextBuild = await buildId() || nextBuild;
     pending = true;
-    if (hasUnsavedWork()) { applying = false; showPending(); } else if (applying || loadedBuild) reload();
+    if (hasUnsavedWork()) { applying = false; showPending(); } else if (applying) reload(); else showPending();
   });
   async function boot() {
+    const coldStart = !loadedBuild; // не сразу после применённого обновления (?__clubs_update)
     loadedBuild ||= await buildId();
     if (sw && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
       try {
         registration = await sw.register('/sw.js', { scope: '/', updateViaCache: 'none' });
-        if (registration.waiting) { pending = true; showPending(); }
+        // холодный старт: ожидающая версия применяется сразу, пока пользователь ничего не начал
+        if (registration.waiting) { pending = true; if (coldStart && !hasUnsavedWork()) apply(); else showPending(); }
         registration.addEventListener('updatefound', () => {
           const worker = registration.installing;
           worker?.addEventListener('statechange', () => {
-            if (worker.state === 'installed' && sw.controller) { pending = true; showPending(); if (!hasUnsavedWork()) apply(); }
+            if (worker.state === 'installed' && sw.controller) { pending = true; showPending(); }
           });
         });
       } catch (error) { console.warn('Service worker не зарегистрирован:', error); }

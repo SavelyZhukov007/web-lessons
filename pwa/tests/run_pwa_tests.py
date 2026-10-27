@@ -187,10 +187,10 @@ try:
         c = ctx("ios", share=True)
         pg = c.new_page()
         pg.goto("/club.html?id=1")
-        pg.wait_for_selector("a[href*='calendar.ics']")
+        pg.wait_for_selector("a[href*='calendar.ics?week=']")
         pg.wait_for_timeout(400)
-        check("кнопка «Добавить в календарь»", "Добавить в календарь" in pg.inner_text("a[href*='calendar.ics']"))
-        pg.click("a[href*='calendar.ics']")
+        check("кнопка «Добавить в календарь»", "Добавить в календарь" in pg.inner_text("a[href*='calendar.ics?week=']"))
+        pg.click("a[href*='calendar.ics?week=']")
         pg.wait_for_timeout(1200)
         sh = calls(pg, "share")
         ok = (
@@ -203,15 +203,20 @@ try:
         check(".ics (iOS): share с файлом выбранной недели text/calendar", ok, str(sh)[:200])
         def stable_ics(text):
             return [line for line in text.splitlines() if not line.startswith('DTSTAMP:')]
-        check(".ics: события совпадают с backend за выбранную неделю", sh and stable_ics(sh[0]["text"]) == stable_ics(pg.request.get(pg.locator("a[href*='calendar.ics']").get_attribute('href')).text()))
+        check(".ics: события совпадают с backend за выбранную неделю", sh and stable_ics(sh[0]["text"]) == stable_ics(pg.request.get(pg.locator("a[href*='calendar.ics?week=']").get_attribute('href')).text()))
+        pg.click("a[href*='calendar.ics?start=']")
+        pg.wait_for_timeout(1200)
+        sh = calls(pg, "share")
+        expected = pg.request.get(pg.locator("a[href*='calendar.ics?start=']").get_attribute('href')).text()
+        check(".ics: четыре недели в iOS совпадают с событиями сервера", len(sh) >= 2 and stable_ics(sh[-1]["text"]) == stable_ics(expected))
         c.close()
         c = ctx("android", w=360, h=800)
         pg = c.new_page()
         pg.goto("/club.html?id=1")
-        pg.wait_for_selector("a[href*='calendar.ics']")
+        pg.wait_for_selector("a[href*='calendar.ics?week=']")
         pg.wait_for_timeout(400)
         with pg.expect_download(timeout=8000) as dl:
-            pg.click("a[href*='calendar.ics']")
+            pg.click("a[href*='calendar.ics?week=']")
         path = dl.value.path()
         text = Path(path).read_text(encoding="utf-8")
         check(

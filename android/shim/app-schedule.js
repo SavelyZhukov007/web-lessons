@@ -13,6 +13,7 @@
 import { getSchedule } from './api.js';
 import { DAY_NAMES, DAY_SHORT, parseDate, dateKey, addDays, monday, moscowToday, formatDate, minutes } from './schedule-dates.js';
 import { icon } from './icons.js';
+import { createPeriodDisplay } from './period-display.js';
 
 const $ = s => document.querySelector(s);
 const WEEK_MIN = '2000-01-03', WEEK_MAX = '2100-12-27';
@@ -26,6 +27,7 @@ let today = moscowToday();
 function todayTarget() { today = moscowToday(); return today.getDay() === 0 ? addDays(today, 1) : today; }
 const start = todayTarget();
 const state = { week: monday(start), day: (start.getDay() + 6) % 7, events: [], phase: 'loading', error: '', filtersOpen: false, key: '' };
+let showPeriod = () => {};
 window.ItcEvent = id => state.events.find(x => x.event_id === id); // для быстрой отмены/переноса (app-extras)
 const mem = new Map(); // ключ запроса → { t, e }
 const cards = new Map(); // event_id → { sig, node }
@@ -65,6 +67,7 @@ function buildLayout() {
   const days = node('div', 'app-days'); days.id = 'app-days';
   days.append(dayButtons); // подпись диапазона недели убрана: даты видны в полосе дней
   form.closest('.schedule-controls').after(days);
+  showPeriod = createPeriodDisplay(days, () => dateKey(state.week));
   status.classList.add('visually-hidden');
   days.after(status);
   for (const sel of ['.page-command', '.mobile-days', '.schedule-caption']) $(sel)?.remove();
@@ -106,6 +109,7 @@ function safeEvents(data, week) {
 
 // ---------- загрузка: кэш сразу, сеть потом ----------
 async function load({ dir = 0, quiet = false } = {}) {
+  showPeriod(dateKey(state.week));
   clearTimeout(searchTimer);
   controller?.abort();
   controller = new AbortController();
@@ -176,7 +180,7 @@ function updateControls() {
   });
 }
 
-function sig(e) { return [e.status, e.start_time, e.end_time, e.club_name, e.room_name, e.leader_name, e.category_color, e.date, e.original_date, e.comment].join('\u0001'); }
+function sig(e) { return [e.status, e.start_time, e.end_time, e.club_name, e.room_name, e.leader_name, JSON.stringify(e.room_names), JSON.stringify(e.leader_names), e.category_color, e.date, e.original_date, e.comment].join('\u0001'); }
 function anyCard(x) { return x.ghost ? ghostCard(x.e) : card(x); }
 function ghostCard(e) {
   const nd = parseDate(e.date), box = node('div', 'calendar-event itc-ghost');
@@ -209,10 +213,10 @@ function card(e) {
   const b = node('button', `calendar-event ${e.status}${e.status !== 'scheduled' ? ' has-status' : ''}`);
   b.type = 'button'; b.dataset.eventId = e.event_id;
   b.style.setProperty('--event-color', /^#[\da-f]{6}$/i.test(e.category_color) ? e.category_color : '#606963');
-  b.setAttribute('aria-label', `${e.club_name}. ${formatDate(parseDate(e.date))}, ${e.start_time}–${e.end_time}. ${e.room_name}. ${e.leader_name}. ${statusNames[e.status]}. Открыть подробности.`);
+  b.setAttribute('aria-label', `${e.club_name}. ${formatDate(parseDate(e.date))}, ${e.start_time}–${e.end_time}. ${(e.room_names || [e.room_name]).join(', ')}. ${(e.leader_names || [e.leader_name]).join(', ')}. ${statusNames[e.status]}. Открыть подробности.`);
   const time = node('span', 'event-time');
   time.append(node('span', 'event-start', e.start_time), node('span', 'time-divider', '–'), node('span', 'event-end', e.end_time));
-  b.append(time, node('strong', 'event-name', e.club_name), node('span', 'event-room', e.room_name), node('span', 'event-leader', e.leader_name));
+  b.append(time, node('strong', 'event-name', e.club_name), node('span', 'event-room', (e.room_names || [e.room_name]).join(', ')), node('span', 'event-leader', (e.leader_names || [e.leader_name]).join(', ')));
   if (e.status !== 'scheduled') b.append(node('span', 'event-badge', statusNames[e.status]));
   b.append(icon('right', 'event-affordance'));
   const rec = { sig: s, node: b, event: e };
@@ -406,7 +410,7 @@ function details(e) {
   t.append(node('p', `event-badge ${e.status}`, statusNames[e.status]));
   const title = node('h2', '', e.club_name); title.id = 'event-title'; t.append(title);
   const dl = node('dl', 'event-facts');
-  const facts = [['Когда', `${formatDate(parseDate(e.date), { year: 'numeric' })}, ${e.start_time}–${e.end_time}`], ['Аудитория', e.room_name], ['Руководитель', e.leader_name], ['Направление', e.category_name]];
+  const facts = [['Когда', `${formatDate(parseDate(e.date), { year: 'numeric' })}, ${e.start_time}–${e.end_time}`], ['Аудитория', (e.room_names || [e.room_name]).join(', ')], ['Руководитель', (e.leader_names || [e.leader_name]).join(', ')], ['Направление', e.category_name]];
   if (e.status === 'moved' && parseDate(e.original_date)) facts.push(['Исходная дата', formatDate(parseDate(e.original_date), { year: 'numeric' })]);
   const same = state.events.filter(x => x.event_id !== e.event_id && x.date === e.date && x.status !== 'cancelled' && minutes(x.start_time) < minutes(e.end_time) && minutes(e.start_time) < minutes(x.end_time));
   if (same.length) facts.push(['Параллельно', same.map(x => `${x.club_name} (${x.room_name})`).join(', ')]);

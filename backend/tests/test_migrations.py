@@ -24,7 +24,7 @@ def real_migrations(monkeypatch):
 
 def test_empty_db_upgrades_to_head_and_matches_models(real_migrations):
     migrations.prepare_database()
-    assert migrations.current_revision() == migrations.head_revision() == "0009"
+    assert migrations.current_revision() == migrations.head_revision() == "0012"
     command.check(migrations.alembic_config())  # «No new upgrade operations detected»
     tables = set(inspect(engine).get_table_names())
     assert {"clubs", "sessions", "push_subscriptions", "login_attempts", "admin_sessions"} <= tables
@@ -37,7 +37,7 @@ def test_existing_db_without_alembic_version_is_stamped_and_keeps_data(real_migr
         c.execute(text("INSERT INTO categories (name, color) VALUES ('Спорт', '#112233')"))
         c.execute(text("DROP TABLE alembic_version"))
     migrations.prepare_database()
-    assert migrations.current_revision() == "0009"
+    assert migrations.current_revision() == "0012"
     with engine.connect() as c:
         assert c.execute(text("SELECT name FROM categories")).scalar() == "Спорт"
 
@@ -45,7 +45,27 @@ def test_existing_db_without_alembic_version_is_stamped_and_keeps_data(real_migr
 def test_prepare_database_is_idempotent(real_migrations):
     migrations.prepare_database()
     migrations.prepare_database()
-    assert migrations.current_revision() == "0009"
+    assert migrations.current_revision() == "0012"
+
+
+def test_upgrade_preserves_session_exceptions_and_assignments(real_migrations):
+    cfg = migrations.alembic_config()
+    command.upgrade(cfg, "0009")
+    with engine.begin() as c:
+        c.execute(text("INSERT INTO categories (id, name, color) VALUES (1, 'Спорт', '#112233')"))
+        c.execute(text("INSERT INTO leaders (id, name, position, contact) VALUES (1, 'Руководитель', '', '')"))
+        c.execute(text("INSERT INTO rooms (id, name, building, capacity) VALUES (1, '101', 'Корпус', 20)"))
+        c.execute(text("INSERT INTO clubs (id, name, description, category_id, leader_id, is_active) VALUES (1, 'Кружок', '', 1, 1, 1)"))
+        c.execute(text("INSERT INTO sessions (id, club_id, room_id, weekday, start_time, end_time) VALUES (1, 1, 1, 1, '09:00', '10:00')"))
+        c.execute(text("INSERT INTO session_exceptions (id, session_id, original_date, type, comment) VALUES (1, 1, '2026-11-02', 'cancelled', '')"))
+    command.upgrade(cfg, "head")
+    with engine.connect() as c:
+        assert c.execute(text("SELECT count(*) FROM sessions")).scalar() == 1
+        assert c.execute(text("SELECT count(*) FROM session_exceptions")).scalar() == 1
+        assert c.execute(text("SELECT count(*) FROM club_leaders")).scalar() == 1
+        assert c.execute(text("SELECT count(*) FROM session_rooms")).scalar() == 1
+        assert not c.exec_driver_sql("PRAGMA foreign_key_check").all()
+        assert c.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
 
 
 def test_db_rejects_garbage_time_and_date_formats(real_migrations):
@@ -75,7 +95,7 @@ def test_downgrade_and_upgrade_roundtrip(real_migrations):
     command.downgrade(cfg, "0001")
     assert "push_subscriptions" not in inspect(engine).get_table_names()
     command.upgrade(cfg, "head")
-    assert migrations.current_revision() == "0009"
+    assert migrations.current_revision() == "0012"
 
 
 def test_0007_drops_attendance_and_downgrade_recreates_it(real_migrations):
@@ -91,4 +111,4 @@ def test_0007_drops_attendance_and_downgrade_recreates_it(real_migrations):
     assert "announcements" not in {c["name"] for c in insp.get_columns("push_subscriptions")}
     assert {c["name"] for c in insp.get_columns("attendance")} == {"id", "session_id", "occurrence_date", "student_id", "method", "created_at"}
     command.upgrade(cfg, "head")
-    assert migrations.current_revision() == "0009"
+    assert migrations.current_revision() == "0012"

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+from .occurrences import original_occurs
+
 
 def build_week(week_start: date, data: dict) -> list[dict]:
     if week_start.isoweekday() != 1:
@@ -15,6 +17,10 @@ def build_week(week_start: date, data: dict) -> list[dict]:
     leaders = {leader["id"]: leader for leader in data["leaders"]}
     rooms = {room["id"]: room for room in data["rooms"]}
     sessions = {session["id"]: session for session in data["sessions"]}
+    periods = {p["id"]: p for p in data.get("periods", [])}
+    holidays = {}
+    for day in data.get("no_class_days", []):
+        holidays.setdefault(day["period_id"], set()).add(day["date"])
     exceptions = {
         (item["session_id"], item["original_date"]): item
         for item in data["session_exceptions"]
@@ -29,7 +35,7 @@ def build_week(week_start: date, data: dict) -> list[dict]:
 
         original_date = week_start + timedelta(days=session["weekday"] - 1)
         original_date_text = original_date.isoformat()
-        if session.get("one_off_date") and session["one_off_date"] != original_date_text:
+        if not original_occurs(session, original_date, periods.get(session.get("period_id")), holidays.get(session.get("period_id"), ())):
             continue
         exception = exceptions.get((session["id"], original_date_text))
         payload = _base_event_payload(session, club, categories, leaders)
@@ -39,8 +45,7 @@ def build_week(week_start: date, data: dict) -> list[dict]:
                 {
                     **payload,
                     "event_id": f"{session['id']}:{original_date_text}",
-                    "room_id": session["room_id"],
-                    "room_name": rooms[session["room_id"]]["name"],
+                    **_location_payload(session.get("room_ids") or [session["room_id"]], rooms),
                     "date": original_date_text,
                     "start_time": session["start_time"],
                     "end_time": session["end_time"],
@@ -56,8 +61,7 @@ def build_week(week_start: date, data: dict) -> list[dict]:
                 {
                     **payload,
                     "event_id": f"{session['id']}:{original_date_text}",
-                    "room_id": session["room_id"],
-                    "room_name": rooms[session["room_id"]]["name"],
+                    **_location_payload(session.get("room_ids") or [session["room_id"]], rooms),
                     "date": original_date_text,
                     "start_time": session["start_time"],
                     "end_time": session["end_time"],
@@ -74,8 +78,7 @@ def build_week(week_start: date, data: dict) -> list[dict]:
                 {
                     **payload,
                     "event_id": f"{session['id']}:{original_date_text}",
-                    "room_id": exception["new_room_id"],
-                    "room_name": rooms[exception["new_room_id"]]["name"],
+                    **_location_payload([exception["new_room_id"]], rooms),
                     "date": exception["new_date"],
                     "start_time": exception["new_start_time"],
                     "end_time": exception["new_end_time"],
@@ -108,8 +111,7 @@ def build_week(week_start: date, data: dict) -> list[dict]:
             {
                 **payload,
                 "event_id": f"{session['id']}:{exception['original_date']}",
-                "room_id": exception["new_room_id"],
-                "room_name": rooms[exception["new_room_id"]]["name"],
+                **_location_payload([exception["new_room_id"]], rooms),
                 "date": exception["new_date"],
                 "start_time": exception["new_start_time"],
                 "end_time": exception["new_end_time"],
@@ -132,7 +134,8 @@ def _base_event_payload(
     leaders: dict,
 ) -> dict:
     category = categories[club["category_id"]]
-    leader = leaders[club["leader_id"]]
+    ids = session.get("leader_ids") or club.get("leader_ids") or [club["leader_id"]]
+    leader = leaders[ids[0]]
     return {
         "session_id": session["id"],
         "club_id": club["id"],
@@ -142,4 +145,16 @@ def _base_event_payload(
         "category_color": category["color"],
         "leader_id": leader["id"],
         "leader_name": leader["name"],
+        "leader_ids": ids,
+        "leader_names": [leaders[item]["name"] for item in ids],
+        "repeat": session.get("repeat", "once" if session.get("one_off_date") else "weekly"),
+        "period_id": session.get("period_id"),
     }
+
+
+def _location_payload(ids: list, rooms: dict) -> dict:
+    first = rooms[ids[0]]
+    return {"room_id": ids[0], "room_name": first["name"], "room_ids": ids,
+            "room_names": [" · ".join(filter(None, [rooms[item]["name"], rooms[item].get("building")])) for item in ids],
+            "occupied_room_ids": [item for item in ids if not rooms[item].get("is_remote", False)],
+            "is_remote": all(rooms[item].get("is_remote", False) for item in ids)}

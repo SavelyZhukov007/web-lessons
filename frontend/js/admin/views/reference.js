@@ -17,8 +17,8 @@ const SECTIONS = {
   },
   rooms: {
     title: 'Аудитории', one: 'аудиторию', api: rooms, usedBy: (d, x) => d.sessions.filter(s => s.room_id === x.id).length, usedWord: 'занятий',
-    fields: [{ name: 'name', label: 'Номер / название', required: true, maxlength: 120 }, { name: 'building', label: 'Корпус', maxlength: 300 }, { name: 'capacity', label: 'Вместимость', type: 'number', required: true, min: 1, max: 10000 }],
-    columns: [{ label: 'Аудитория', cell: x => h('strong', {}, x.name) }, { label: 'Корпус', cell: x => x.building || '—' }, { label: 'Мест', cell: x => String(x.capacity) }],
+    fields: [{ name: 'name', label: 'Номер / название', required: true, maxlength: 120 }, { name: 'building', label: 'Корпус', maxlength: 300 }, { name: 'capacity', label: 'Вместимость', type: 'number', min: 1, max: 10000 }, { name: 'is_remote', label: 'Дистанционное занятие', type: 'checkbox' }, { name: 'remote_url', label: 'Ссылка', maxlength: 300 }, { name: 'remote_instructions', label: 'Инструкция', maxlength: 300 }],
+    columns: [{ label: 'Аудитория', cell: x => h('strong', {}, x.name) }, { label: 'Корпус', cell: x => x.building || '—' }, { label: 'Мест', cell: x => x.capacity == null ? 'Не указано' : String(x.capacity) }],
   },
 };
 

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import hmac
+import json
+import re
 import weakref
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import (
     APIRouter,
@@ -17,7 +21,7 @@ from fastapi import (
 from fastapi import (
     status as http_status,
 )
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -34,16 +38,21 @@ from ..auth import (
 )
 from ..database import get_db
 from ..models.admin import Admin, AdminSession
+from ..models.assignments import ClubLeader, SessionLeader, SessionRoom
 from ..models.category import Category
 from ..models.club import Club
+from ..models.import_draft import ImportDraft
 from ..models.leader import Leader
+from ..models.period import AcademicPeriod, NoClassDay
 from ..models.room import Room
 from ..models.session import ClubSession
 from ..models.session_exception import SessionException
 from ..schemas.admin import AdminLoginRequest, AdminStatusResponse, LoginResponse, PasswordChangeRequest, RefreshRequest
 from ..schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
 from ..schemas.club import ClubCreate, ClubRead, ClubUpdate
+from ..schemas.import_draft import ImportDecisions, ImportUpload
 from ..schemas.leader import LeaderCreate, LeaderRead, LeaderUpdate
+from ..schemas.period import NoClassInput, NoClassRange, NoClassRead, PeriodInput, PeriodRead
 from ..schemas.room import RoomCreate, RoomRead, RoomUpdate
 from ..schemas.session import SessionCreate, SessionRead, SessionUpdate
 from ..schemas.session_exception import (
@@ -53,7 +62,10 @@ from ..schemas.session_exception import (
     MoveUpdate,
     SessionExceptionRead,
 )
-from ..services import audit, login_limiter
+from ..services import audit, login_limiter, occurrence_source
+from ..services import conflicts as conflict_engine
+from ..services.importer.parser import read_rows
+from ..services.occurrences import original_occurs
 from ..services.push import notify_exception
 from ..services.schedule_conflicts import (
     ProposedChange,
@@ -188,17 +200,28 @@ def _raise_if_schedule_conflicts(
     db: Session,
     change: ProposedChange,
 ) -> None:
-    conflicts = ScheduleConflictService(db).check_proposed_state(change)
+    """Конфликты по реальным датам occurrence (services.conflicts, schedule v2)."""
+    snapshot = occurrence_source.load_snapshot(db)
+    found = conflict_engine.check_change(
+        db, change.operation, change.entity_id, change.payload, snapshot=snapshot
+    )
+    if not found:
+        return
+    after, touched = conflict_engine.apply_change(
+        snapshot, change.operation, change.entity_id, change.payload
+    )
+    conflicts = conflict_engine.merge_described(
+        [conflict_engine.describe(after, c, touched=touched) for c in found]
+    )
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "code": "CONFLICT",
+            "message": "Занятие пересекается с существующим расписанием",
+            "conflicts": conflicts,
+        },
+    )
 
-    if conflicts:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "CONFLICT",
-                "message": "Занятие пересекается с существующим расписанием",
-                "conflicts": conflicts,
-            },
-        )
 
 def _normalize_login_or_422(login: str) -> str:
     try:
@@ -239,7 +262,7 @@ def _session_exists(db: Session, session_id: int) -> None:
         raise HTTPException(404, "Регулярное занятие не найдено")
 
 
-def _validate_original_date(session: ClubSession, original_date: date) -> None:
+def _validate_original_date(db: Session, session: ClubSession, original_date: date) -> None:
     """API-04: дата отменяемого/переносимого занятия должна выпадать на день недели занятия."""
     if session.one_off_date and original_date.isoformat() != session.one_off_date:
         raise HTTPException(422, f"Разовое занятие назначено только на {session.one_off_date}")
@@ -249,6 +272,12 @@ def _validate_original_date(session: ClubSession, original_date: date) -> None:
             f"original_date {original_date.isoformat()} — это {WEEKDAYS[original_date.isoweekday() - 1]}, "
             f"а занятие проходит по дням: {WEEKDAYS[session.weekday - 1]}",
         )
+    if session.period_id:
+        period = db.get(AcademicPeriod, session.period_id)
+        days = set(db.scalars(select(NoClassDay.date).where(NoClassDay.period_id == session.period_id)))
+        info = {"start_date": period.start_date, "end_date": period.end_date, "even_week_start": period.even_week_start}
+        if not original_occurs({"weekday": session.weekday, "one_off_date": session.one_off_date, "repeat": session.repeat}, original_date, info, days):
+            raise HTTPException(409, "На эту дату занятие не запланировано с учётом периода, повторения и каникул")
 
 
 def _reject_existing_exception(db: Session, session_id: int, original_date: date, exclude_id: int | None = None) -> None:
@@ -268,6 +297,17 @@ def _validate_new_date(new_date: date) -> None:
     if new_date.isoweekday() == 7:
         raise HTTPException(422, "Нельзя переносить занятие на воскресенье (в расписании нет воскресных занятий)")
     # Перенос «в прошлое» намеренно НЕ запрещён: админ может задним числом исправлять журнал (решение владельца — PROD_STATUS API-04).
+
+
+def _validate_target_date(db: Session, session: ClubSession, new_date: date) -> None:
+    if not session.period_id:
+        return
+    period = db.get(AcademicPeriod, session.period_id)
+    day = new_date.isoformat()
+    if not period.start_date <= day <= period.end_date:
+        raise HTTPException(409, "Нельзя перенести занятие за границы учебного периода")
+    if db.scalar(select(NoClassDay.id).where(NoClassDay.period_id == session.period_id, NoClassDay.date == day)):
+        raise HTTPException(409, "Нельзя перенести занятие на неучебный день")
 
 
 def _apply_model_updates(item, payload) -> None:
@@ -587,7 +627,7 @@ def update_leader(leader_id: int, payload: LeaderUpdate, db: Session = Depends(g
 def delete_leader(leader_id: int, db: Session = Depends(get_db)):
     leader = _get_or_404(db, Leader, leader_id, "Руководитель не найден")
     has_clubs = db.scalar(select(Club.id).where(Club.leader_id == leader_id).limit(1))
-    if has_clubs is not None:
+    if has_clubs is not None or db.scalar(select(ClubLeader.club_id).where(ClubLeader.leader_id == leader_id).limit(1)) is not None or db.scalar(select(SessionLeader.session_id).where(SessionLeader.leader_id == leader_id).limit(1)) is not None:
         raise HTTPException(
             409, "Нельзя удалить руководителя, пока к нему привязаны кружки"
         )
@@ -609,6 +649,7 @@ def list_rooms(db: Session = Depends(get_db)):
     dependencies=[Depends(require_admin), Depends(schedule_write_lock)],
 )
 def create_room(payload: RoomCreate, db: Session = Depends(get_db)):
+    _check_room_unique(db, payload.name, payload.building)
     room = Room(**payload.model_dump())
     db.add(room)
     _commit_or_raise_conflict(db, "Не удалось сохранить аудиторию")
@@ -621,10 +662,24 @@ def create_room(payload: RoomCreate, db: Session = Depends(get_db)):
 )
 def update_room(room_id: int, payload: RoomUpdate, db: Session = Depends(get_db)):
     room = _get_or_404(db, Room, room_id, "Аудитория не найдена")
+    updates = payload.model_dump(exclude_unset=True)
+    if "name" in updates or "building" in updates:
+        _check_room_unique(db, updates.get("name", room.name), updates.get("building", room.building), room_id)
+    if payload.is_remote is not None and payload.is_remote != room.is_remote and (db.scalar(select(ClubSession.id).where(ClubSession.room_id == room_id).limit(1)) is not None or db.scalar(select(SessionRoom.session_id).where(SessionRoom.room_id == room_id).limit(1)) is not None or db.scalar(select(SessionException.id).where(SessionException.new_room_id == room_id).limit(1)) is not None):
+        raise HTTPException(409, "Нельзя менять формат используемой аудитории")
     _apply_model_updates(room, payload)
     _commit_or_raise_conflict(db, "Не удалось обновить аудиторию")
     db.refresh(room)
     return room
+
+
+def _check_room_unique(db: Session, name: str, building: str | None, exclude_id: int | None = None):
+    same_building = Room.building == building if building else or_(Room.building.is_(None), Room.building == "")
+    statement = select(Room.id).where(Room.name == name, same_building)
+    if exclude_id is not None:
+        statement = statement.where(Room.id != exclude_id)
+    if db.scalar(statement.limit(1)) is not None:
+        raise HTTPException(409, "Аудитория с таким названием и корпусом уже существует")
 
 
 @router.delete(
@@ -637,7 +692,7 @@ def delete_room(room_id: int, db: Session = Depends(get_db)):
     has_sessions = db.scalar(
         select(ClubSession.id).where(ClubSession.room_id == room_id).limit(1)
     )
-    if has_sessions is not None:
+    if has_sessions is not None or db.scalar(select(SessionRoom.session_id).where(SessionRoom.room_id == room_id).limit(1)) is not None:
         raise HTTPException(
             409, "Нельзя удалить аудиторию, пока в ней есть регулярные занятия"
         )
@@ -670,7 +725,12 @@ def list_clubs(db: Session = Depends(get_db)):
 def create_club(payload: ClubCreate, db: Session = Depends(get_db)):
     _category_exists(db, payload.category_id)
     _leader_exists(db, payload.leader_id)
-    club = Club(**payload.model_dump())
+    values = payload.model_dump()
+    leader_ids = set(values.pop("leader_ids")) | {payload.leader_id}
+    for leader_id in leader_ids:
+        _leader_exists(db, leader_id)
+    club = Club(**values)
+    club.leaders = [db.get(Leader, leader_id) for leader_id in sorted(leader_ids)]
     db.add(club)
     db.commit()
     db.refresh(club)
@@ -695,13 +755,19 @@ def update_club(
 
     if "leader_id" in updates:
         _leader_exists(db, updates["leader_id"])
+    if "leader_ids" in updates:
+        for leader_id in updates["leader_ids"]:
+            _leader_exists(db, leader_id)
 
     final_is_active = updates.get("is_active", club.is_active)
     final_leader_id = updates.get("leader_id", club.leader_id)
+    if "leader_id" in updates and "leader_ids" not in updates and final_leader_id != club.leader_id:
+        updates["leader_ids"] = sorted((set(club.leader_ids) - {club.leader_id}) | {final_leader_id})
 
     needs_schedule_check = final_is_active and (
         final_leader_id != club.leader_id
         or not club.is_active
+        or "leader_ids" in updates
     )
 
     if needs_schedule_check:
@@ -714,7 +780,13 @@ def update_club(
             ),
         )
 
-    _apply_model_updates(club, payload)
+    leader_ids = updates.pop("leader_ids", None)
+    if leader_ids is not None:
+        club.leaders = [db.get(Leader, leader_id) for leader_id in sorted(set(leader_ids) | {final_leader_id})]
+    elif final_leader_id != club.leader_id:
+        club.leaders = [db.get(Leader, leader_id) for leader_id in sorted((set(club.leader_ids) - {club.leader_id}) | {final_leader_id})]
+    for field, value in updates.items():
+        setattr(club, field, value)
     db.commit()
     db.refresh(club)
     return club
@@ -753,17 +825,33 @@ def list_sessions(db: Session = Depends(get_db)):
 def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
     _club_exists(db, payload.club_id)
     _room_exists(db, payload.room_id)
+    if payload.period_id and not db.get(AcademicPeriod, payload.period_id):
+        raise HTTPException(404, "Учебный период не найден")
+    if payload.period_id and payload.one_off_date:
+        period = db.get(AcademicPeriod, payload.period_id)
+        days = set(db.scalars(select(NoClassDay.date).where(NoClassDay.period_id == payload.period_id)))
+        if not original_occurs(payload.model_dump(mode="json"), payload.one_off_date, {"start_date": period.start_date, "end_date": period.end_date, "even_week_start": period.even_week_start}, days):
+            raise HTTPException(409, "Разовое занятие попадает за пределы периода или на неучебный день")
 
+    values = payload.model_dump(mode="json")
+    leader_ids = sorted(set(values.pop("leader_ids")))
+    room_ids = [payload.room_id, *sorted(set(values.pop("room_ids")) - {payload.room_id})]
+    for leader_id in leader_ids:
+        _leader_exists(db, leader_id)
+    for room_id in room_ids:
+        _room_exists(db, room_id)
     _raise_if_schedule_conflicts(
         db,
         ProposedChange(
             operation="create_session",
             entity_id=None,
-            payload=payload.model_dump(mode="json"),
+            payload={**values, "leader_ids": leader_ids, "room_ids": room_ids},
         ),
     )
 
-    session = ClubSession(**payload.model_dump(mode="json"))
+    session = ClubSession(**values)
+    session.leaders = [db.get(Leader, leader_id) for leader_id in leader_ids]
+    session.rooms = [db.get(Room, room_id) for room_id in room_ids]
     db.add(session)
     db.commit()
     db.refresh(session)
@@ -784,9 +872,34 @@ def update_session(
         db, ClubSession, session_id, "Регулярное занятие не найдено"
     )
     updates = payload.model_dump(exclude_unset=True, mode="json")
+    for leader_id in updates.get("leader_ids", []):
+        _leader_exists(db, leader_id)
+    for room_id in updates.get("room_ids", []):
+        _room_exists(db, room_id)
+    if "room_ids" in updates:
+        primary_room = updates.get("room_id", session.room_id)
+        updates["room_ids"] = [primary_room, *sorted(set(updates["room_ids"]) - {primary_room})]
+    elif "room_id" in updates and updates["room_id"] != session.room_id:
+        updates["room_ids"] = [updates["room_id"], *sorted(set(session.room_ids) - {session.room_id, updates["room_id"]})]
 
     final_date = updates.get("one_off_date", session.one_off_date)
     final_weekday = updates.get("weekday", session.weekday)
+    final_period = updates.get("period_id", session.period_id)
+    final_repeat = updates.get("repeat", session.repeat)
+    if final_period and not db.get(AcademicPeriod, final_period):
+        raise HTTPException(404, "Учебный период не найден")
+    if final_repeat in ("even", "odd") and not final_period:
+        raise HTTPException(422, "Для чётных и нечётных недель необходим учебный период")
+    if (final_repeat == "once") != bool(final_date):
+        raise HTTPException(422, "Разовое занятие должно иметь дату")
+    if final_period and final_date:
+        period = db.get(AcademicPeriod, final_period)
+        days = set(db.scalars(select(NoClassDay.date).where(NoClassDay.period_id == final_period)))
+        if not original_occurs({"weekday": final_weekday, "one_off_date": final_date, "repeat": final_repeat}, date.fromisoformat(final_date), {"start_date": period.start_date, "end_date": period.end_date, "even_week_start": period.even_week_start}, days):
+            raise HTTPException(409, "Разовое занятие попадает за пределы периода или на неучебный день")
+    pattern_changed = ("repeat" in updates and updates["repeat"] != session.repeat) or ("period_id" in updates and updates["period_id"] != session.period_id)
+    if pattern_changed and db.scalar(select(func.count()).select_from(SessionException).where(SessionException.session_id == session.id)):
+        raise HTTPException(409, "Сначала удалите отмены и переносы этого занятия")
     if final_date and date.fromisoformat(final_date).isoweekday() != final_weekday:
         raise HTTPException(422, "День недели должен совпадать с датой разового занятия")
     if "one_off_date" in updates and updates["one_off_date"] != session.one_off_date:
@@ -836,6 +949,12 @@ def update_session(
         ),
     )
 
+    leader_ids = updates.pop("leader_ids", None)
+    room_ids = updates.pop("room_ids", None)
+    if leader_ids is not None:
+        session.leaders = [db.get(Leader, leader_id) for leader_id in sorted(set(leader_ids))]
+    if room_ids is not None:
+        session.rooms = [db.get(Room, room_id) for room_id in room_ids]
     for field, value in updates.items():
         setattr(session, field, value)
 
@@ -883,7 +1002,7 @@ def create_cancellation(
     db: Session = Depends(get_db),
 ):
     session = _get_or_404(db, ClubSession, payload.session_id, "Регулярное занятие не найдено")
-    _validate_original_date(session, payload.original_date)
+    _validate_original_date(db, session, payload.original_date)
     _reject_existing_exception(db, payload.session_id, payload.original_date)
     exception = SessionException(**_prepare_exception_payload(payload))
     db.add(exception)
@@ -906,9 +1025,10 @@ def create_move(
 ):
     session = _get_or_404(db, ClubSession, payload.session_id, "Регулярное занятие не найдено")
     _room_exists(db, payload.new_room_id)
-    _validate_original_date(session, payload.original_date)
+    _validate_original_date(db, session, payload.original_date)
     _reject_existing_exception(db, payload.session_id, payload.original_date)
     _validate_new_date(payload.new_date)
+    _validate_target_date(db, session, payload.new_date)
 
     exception_payload = _prepare_exception_payload(payload)
 
@@ -951,11 +1071,13 @@ def update_exception(
         raise HTTPException(404, "Регулярное занятие не найдено")
     if user_fields & {"session_id", "original_date"}:
         _validate_original_date(
-            final_session, date.fromisoformat(updates.get("original_date", exception.original_date))
+            db, final_session, date.fromisoformat(updates.get("original_date", exception.original_date))
         )
         _reject_existing_exception(db, final_session.id, date.fromisoformat(updates.get("original_date", exception.original_date)), exception.id)
     if "new_date" in user_fields and updates.get("new_date"):
         _validate_new_date(date.fromisoformat(updates["new_date"]))
+    if exception.type == "moved":
+        _validate_target_date(db, final_session, date.fromisoformat(updates.get("new_date", exception.new_date)))
     if "new_room_id" in updates and updates["new_room_id"] is not None:
         _room_exists(db, updates["new_room_id"])
     if exception.type == "moved" and (
@@ -1019,3 +1141,255 @@ def delete_exception(
 
     db.delete(exception)
     db.commit()
+
+
+@router.get("/periods", response_model=list[PeriodRead], dependencies=[Depends(require_admin)])
+def list_periods(db: Session = Depends(get_db)):
+    return list(db.scalars(select(AcademicPeriod).order_by(AcademicPeriod.start_date)))
+
+
+@router.post("/periods", response_model=PeriodRead, status_code=201, dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
+def create_period(payload: PeriodInput, db: Session = Depends(get_db)):
+    period = AcademicPeriod(**payload.model_dump(mode="json"))
+    db.add(period)
+    db.commit()
+    db.refresh(period)
+    return period
+
+
+@router.put("/periods/{period_id}", response_model=PeriodRead, dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
+def update_period(period_id: int, payload: PeriodInput, db: Session = Depends(get_db)):
+    period = _get_or_404(db, AcademicPeriod, period_id, "Учебный период не найден")
+    from ..services.conflicts import find_conflicts
+    from ..services.schedule import build_week
+    from .public import _dump_schedule_data
+
+    proposed = payload.model_dump(mode="json")
+    data = _dump_schedule_data(db)
+    holidays = {d["date"] for d in data["no_class_days"] if d["period_id"] == period_id}
+    if any(not proposed["start_date"] <= day <= proposed["end_date"] for day in holidays):
+        raise HTTPException(409, "Неучебные дни не должны выходить за границы периода")
+    sessions = {s["id"]: s for s in data["sessions"] if s.get("period_id") == period_id}
+    for exception in data["session_exceptions"]:
+        if exception["session_id"] in sessions and not original_occurs(sessions[exception["session_id"]], date.fromisoformat(exception["original_date"]), proposed, holidays):
+            raise HTTPException(409, "Изменение периода сделает существующую отмену или перенос недействительным")
+        if exception["session_id"] in sessions and exception["type"] == "moved" and (not proposed["start_date"] <= exception["new_date"] <= proposed["end_date"] or exception["new_date"] in holidays):
+            raise HTTPException(409, "Изменение периода сделает дату переноса недействительной")
+    for current in data["periods"]:
+        if current["id"] == period_id:
+            current.update(proposed)
+    start, end = date.fromisoformat(proposed["start_date"]), date.fromisoformat(proposed["end_date"])
+    week = start - timedelta(days=start.weekday())
+    while week <= end:
+        events = build_week(week, data)
+        for event in events:
+            if event["session_id"] in sessions and event["status"] != "cancelled" and find_conflicts(event, events, exclude_event_id=event["event_id"]):
+                raise HTTPException(409, "Изменение периода создаёт конфликт расписания")
+        week += timedelta(days=7)
+    for key, value in proposed.items():
+        setattr(period, key, value)
+    db.commit()
+    return period
+
+
+@router.delete("/periods/{period_id}", status_code=204, dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
+def delete_period(period_id: int, db: Session = Depends(get_db)):
+    period = _get_or_404(db, AcademicPeriod, period_id, "Учебный период не найден")
+    if db.scalar(select(func.count()).select_from(ClubSession).where(ClubSession.period_id == period_id)):
+        raise HTTPException(409, "Период используется занятиями")
+    db.delete(period)
+    db.commit()
+
+
+@router.get("/periods/{period_id}/days-off", response_model=list[NoClassRead], dependencies=[Depends(require_admin)])
+def list_days_off(period_id: int, db: Session = Depends(get_db)):
+    _get_or_404(db, AcademicPeriod, period_id, "Учебный период не найден")
+    return list(db.scalars(select(NoClassDay).where(NoClassDay.period_id == period_id).order_by(NoClassDay.date)))
+
+
+@router.post("/periods/{period_id}/days-off", response_model=NoClassRead, status_code=201, dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
+def add_day_off(period_id: int, payload: NoClassInput, db: Session = Depends(get_db)):
+    period = _get_or_404(db, AcademicPeriod, period_id, "Учебный период не найден")
+    day = payload.date.isoformat()
+    if not period.start_date <= day <= period.end_date:
+        raise HTTPException(422, "Дата вне учебного периода")
+    # Существующие исключения нельзя сделать невидимыми изменением календаря.
+    existing = db.scalar(select(func.count()).select_from(SessionException).join(ClubSession).where(ClubSession.period_id == period_id, or_(SessionException.original_date == day, SessionException.new_date == day)))
+    if existing:
+        raise HTTPException(409, "На эту дату уже есть отмены или переносы занятий")
+    if db.scalar(select(NoClassDay.id).where(NoClassDay.period_id == period_id, NoClassDay.date == day)):
+        raise HTTPException(409, "Этот день уже отмечен как неучебный")
+    item = NoClassDay(period_id=period_id, date=day, reason=payload.reason)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/periods/{period_id}/days-off/range", status_code=201, dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
+def add_days_off(period_id: int, payload: NoClassRange, db: Session = Depends(get_db)):
+    period = _get_or_404(db, AcademicPeriod, period_id, "Учебный период не найден")
+    start, end = payload.start_date.isoformat(), payload.end_date.isoformat()
+    if not period.start_date <= start <= end <= period.end_date:
+        raise HTTPException(422, "Даты выходят за границы учебного периода")
+    existing = db.scalar(select(func.count()).select_from(SessionException).join(ClubSession).where(ClubSession.period_id == period_id, or_(SessionException.original_date.between(start, end), SessionException.new_date.between(start, end))))
+    if existing:
+        raise HTTPException(409, "В этот период уже есть отмены или переносы занятий")
+    known = set(db.scalars(select(NoClassDay.date).where(NoClassDay.period_id == period_id, NoClassDay.date.between(start, end))))
+    day = payload.start_date
+    added = 0
+    while day <= payload.end_date:
+        if day.isoformat() not in known:
+            db.add(NoClassDay(period_id=period_id, date=day.isoformat(), reason=payload.reason))
+            added += 1
+        day += timedelta(days=1)
+    db.commit()
+    return {"added": added}
+
+
+@router.delete("/periods/{period_id}/days-off/{day_id}", status_code=204, dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
+def delete_day_off(period_id: int, day_id: int, db: Session = Depends(get_db)):
+    item = _get_or_404(db, NoClassDay, day_id, "День не найден")
+    if item.period_id != period_id:
+        raise HTTPException(404, "День не найден")
+    from ..services.conflicts import find_conflicts
+    from ..services.schedule import build_week
+    from .public import _dump_schedule_data
+
+    # При возвращении занятий проверяем все их ресурсы на исходную дату.
+    data = _dump_schedule_data(db)
+    data["no_class_days"] = [d for d in data["no_class_days"] if not (d["period_id"] == period_id and d["date"] == item.date)]
+    day = date.fromisoformat(item.date)
+    events = build_week(day - timedelta(days=day.weekday()), data)
+    period_sessions = {s["id"] for s in data["sessions"] if s.get("period_id") == period_id}
+    for event in events:
+        if event["session_id"] in period_sessions and event["date"] == item.date and event["status"] != "cancelled":
+            if find_conflicts(event, events, exclude_event_id=event["event_id"]):
+                raise HTTPException(409, "Возвращение занятий создаёт конфликт в расписании")
+    db.delete(item)
+    db.commit()
+
+
+def _draft_data(item: ImportDraft) -> dict:
+    return {"id": item.id, "filename": item.filename, "status": item.status,
+            "rows": json.loads(item.rows_json), "decisions": json.loads(item.decisions_json)}
+
+
+@router.get("/imports", dependencies=[Depends(require_admin)])
+def list_imports(db: Session = Depends(get_db)):
+    return [_draft_data(item) for item in db.scalars(select(ImportDraft).order_by(ImportDraft.id.desc()).limit(50))]
+
+
+@router.post("/imports", status_code=201, dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
+def create_import(payload: ImportUpload, db: Session = Depends(get_db)):
+    try:
+        content = base64.b64decode(payload.content_base64, validate=True)
+        rows = read_rows(payload.filename, content)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    existing_clubs = list(db.scalars(select(Club)))
+    existing_leaders = list(db.scalars(select(Leader)))
+    existing_rooms = list(db.scalars(select(Room)))
+    for row in rows:
+        matches = [club.id for club in existing_clubs if club.name.casefold() == row["club_name"].casefold()]
+        row["matching_club_ids"] = matches
+        leader_names = {part.strip().casefold() for part in row["leaders"].split("/")}
+        row["matching_leader_ids"] = [leader.id for leader in existing_leaders if leader.name.strip().casefold() in leader_names]
+        room_names = {re.sub(r"\s*каб\.?\s*$", "", part, flags=re.I).strip().casefold() for part in row["rooms"].split("/")}
+        row["matching_room_ids"] = [room.id for room in existing_rooms if room.name.strip().casefold() in room_names]
+        if matches:
+            row["issues"].append("Есть кружок с таким названием — проверьте, совпадает ли он")
+        if row["matching_leader_ids"]:
+            row["issues"].append("Найдены возможные совпадения руководителей")
+        if row["matching_room_ids"]:
+            row["issues"].append("Найдены возможные совпадения аудиторий; проверьте корпус")
+    filename = payload.filename.replace("\\", "/").rsplit("/", 1)[-1]
+    item = ImportDraft(filename=filename, rows_json=json.dumps(rows, ensure_ascii=False), decisions_json="[]", status="draft")
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return _draft_data(item)
+
+
+@router.put("/imports/{draft_id}/decisions", dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
+def update_import_decisions(draft_id: int, payload: ImportDecisions, db: Session = Depends(get_db)):
+    item = _get_or_404(db, ImportDraft, draft_id, "Черновик не найден")
+    if item.status != "draft":
+        raise HTTPException(409, "Этот черновик уже опубликован")
+    valid_rows = {row["row"] for row in json.loads(item.rows_json)}
+    numbers = [decision.row for decision in payload.decisions]
+    if len(numbers) != len(set(numbers)) or not set(numbers) <= valid_rows:
+        raise HTTPException(422, "Проверьте номера строк и повторяющиеся решения")
+    item.decisions_json = json.dumps([d.model_dump(mode="json") for d in payload.decisions], ensure_ascii=False)
+    db.commit()
+    return _draft_data(item)
+
+
+@router.post("/imports/{draft_id}/publish", dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
+def publish_import(draft_id: int, db: Session = Depends(get_db)):
+    item = _get_or_404(db, ImportDraft, draft_id, "Черновик не найден")
+    if item.status != "draft":
+        raise HTTPException(409, "Этот черновик уже опубликован")
+    rows = {r["row"]: r for r in json.loads(item.rows_json)}
+    decisions = json.loads(item.decisions_json)
+    if {d["row"] for d in decisions} != set(rows):
+        raise HTTPException(409, "Для каждой строки выберите создание или пропуск")
+    from ..services import import_publish as import_journal
+
+    backup_path = import_journal.backup_before_draft()  # schedule v2: снимок для отката публикации
+    created = 0
+    new_clubs = {}
+    for decision in decisions:
+        if decision["action"] == "skip":
+            continue
+        row = dict(rows[decision["row"]])
+        for field in ("weekday", "start_time", "end_time", "club_name"):
+            if decision.get(field) is not None:
+                row[field] = decision[field]
+        if not row["weekday"] or not row["start_time"] or not row["end_time"] or not decision["room_ids"]:
+            raise HTTPException(422, f"Строка {row['row']}: проверьте день, время и аудиторию")
+        for room_id in decision["room_ids"]:
+            _room_exists(db, room_id)
+        for leader_id in decision["leader_ids"]:
+            _leader_exists(db, leader_id)
+        if decision["period_id"] and not db.get(AcademicPeriod, decision["period_id"]):
+            raise HTTPException(404, f"Строка {row['row']}: период не найден")
+        if decision["club_id"]:
+            club = _get_or_404(db, Club, decision["club_id"], f"Строка {row['row']}: кружок не найден")
+        else:
+            if not decision["category_id"] or not decision["leader_id"]:
+                raise HTTPException(422, f"Строка {row['row']}: укажите направление и основного руководителя")
+            _category_exists(db, decision["category_id"])
+            _leader_exists(db, decision["leader_id"])
+            key = (row["club_name"].casefold(), decision["category_id"], decision["leader_id"])
+            club = new_clubs.get(key)
+            if club is None:
+                club = Club(name=row["club_name"], description="", category_id=decision["category_id"], leader_id=decision["leader_id"], is_active=True)
+                club.leaders = [db.get(Leader, x) for x in sorted(set(decision["leader_ids"]) | {decision["leader_id"]})]
+                db.add(club)
+                db.flush()
+                new_clubs[key] = club
+        values = {"club_id": club.id, "room_id": decision["room_ids"][0], "weekday": row["weekday"], "start_time": row["start_time"], "end_time": row["end_time"], "period_id": decision["period_id"], "repeat": decision["repeat"], "leader_ids": decision["leader_ids"], "room_ids": decision["room_ids"]}
+        try:
+            validated = SessionCreate.model_validate(values).model_dump(mode="json")
+        except ValueError as exc:
+            raise HTTPException(422, f"Строка {row['row']}: {exc}") from exc
+        try:
+            _raise_if_schedule_conflicts(db, ProposedChange(operation="create_session", entity_id=None, payload=validated))
+        except HTTPException as exc:
+            if isinstance(exc.detail, dict):
+                detail = {**exc.detail, "message": f"Строка {row['row']}: {exc.detail.get('message', 'конфликт расписания')}"}
+                raise HTTPException(exc.status_code, detail) from exc
+            raise HTTPException(exc.status_code, f"Строка {row['row']}: {exc.detail}") from exc
+        leader_ids = validated.pop("leader_ids")
+        room_ids = validated.pop("room_ids")
+        session = ClubSession(**validated)
+        session.leaders = [db.get(Leader, x) for x in sorted(set(leader_ids))]
+        session.rooms = [db.get(Room, x) for x in sorted(set(room_ids))]
+        db.add(session)
+        db.flush()
+        created += 1
+    item.status = "published"
+    db.commit()
+    entry = import_journal.record_draft_publish(item.id, backup_path, created=created, skipped=len(decisions) - created)
+    return {"id": item.id, "status": item.status, "created": created, "skipped": len(decisions) - created, "publish_id": entry.get("id")}

@@ -474,7 +474,7 @@
     .schedule-page .week-actions { gap: 8px; }
 }
 
-/* ---------- Шапка (kc9): все элементы на одной центральной линии; на узких экранах — только знак, крупнее ---------- */
+/* ---------- Шапка (kc10): все элементы на одной центральной линии; на узких экранах — только знак, крупнее ---------- */
 .campus-header { align-items: center; }
 .campus-header > * { align-self: center; }
 .campus-header .settings-button { flex: none; }
