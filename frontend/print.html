@@ -1,17 +1,103 @@
 <!doctype html>
 <html lang="ru">
-
 <head>
     <meta charset="utf-8">
     <title>Расписание — KipClub (Печать)</title>
     <link rel="stylesheet" href="./css/print.css">
 </head>
-<body class="print-page">
+<body class="print-schedule-page">
     <div class="print-schedule-header">
-        hello
+        <h1>Расписание</h1>
+        <div class="print-schedule-toolbar">
+            <button id="print-button" class="schedule-button">
+                print
+            </button>
+            <button id="prev-button" class="schedule-button">
+                &lt;
+            </button>
+            <div class="schedule-week-caption">
+                week1
+            </div>
+            <button id="next-button" class="schedule-button">
+                >
+            </button>
+        </div>
     </div>
     <div class="print-schedule-content">
-        content
+        <div class="print-schedule-week">
+            <div class="print-schedule-day">
+                day1
+                <div class="print-schedule-lesson">
+                    lesson1
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson2
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson3
+                </div>
+            </div>
+            <div class="print-schedule-day">
+                day2
+                <div class="print-schedule-lesson">
+                    lesson1
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson2
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson3
+                </div>
+            </div>
+            <div class="print-schedule-day">
+                day3
+                <div class="print-schedule-lesson">
+                    lesson1
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson2
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson3
+                </div>
+            </div>
+            <div class="print-schedule-day">
+                day4
+                <div class="print-schedule-lesson">
+                    lesson1
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson2
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson3
+                </div>
+            </div>
+            <div class="print-schedule-day">
+                day5
+                <div class="print-schedule-lesson">
+                    lesson1
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson2
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson3
+                </div>
+            </div>
+            <div class="print-schedule-day">
+                day6
+                <div class="print-schedule-lesson">
+                    lesson1
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson2
+                </div>
+                <div class="print-schedule-lesson">
+                    lesson3
+                </div>
+            </div>
+        </div>
     </div>
     <script type="module" src="./js/print.js"></script>
 </body>

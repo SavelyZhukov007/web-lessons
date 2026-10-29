@@ -82,6 +82,5 @@ function render() {
     $('#result-status').textContent = `${mobile.matches ? 'За день' : 'За выбранные дни'}: ${active} · отменено: ${cancelled}${hasFilters() ? ' · фильтры включены' : ''}`;
     if (events.length === 0) {
         content.append(emptyState(hasFilters() ? 'Ничего не нашлось' : 'Занятий пока нет', hasFilters() ? 'Попробуй другое сочетание фильтров или сбрось их.' : 'Выбери другой день или неделю. Здесь появятся занятия, добавленные в расписание.', hasFilters() ? { label: 'Сбросить фильтры', run: resetFilters } : undefined));
-    } else if (mobile.matches || state.view === 'list') renderList(events, days);
-    else renderGrid(events, days);
+    } else renderList(events, days);
 }
