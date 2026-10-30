@@ -77,7 +77,10 @@ console.log('[patch-android] цвета светлой/тёмной темы + S
 // ---- демо-сборка (APP_DEMO=1): своё имя/ID (ставится рядом с обычным приложением) + иконки бренда, если есть
 import { readdirSync, cpSync } from 'node:fs';
 const DEMO = /^(1|true|yes)$/i.test(process.env.APP_DEMO || '');
-const APP_NAME = process.env.APP_NAME || (DEMO ? 'KipClub' : 'KipClub');
+// канал i (не демо) — тестовая сборка: отдельный applicationId (.test) и «Тест» в названии, ставится рядом с публичной
+const TEST = !DEMO && (process.env.ITC_CHANNEL || readVersion('android').channel) === 'i';
+const ID_SUFFIX = DEMO ? '.demo' : TEST ? '.test' : '';
+const APP_NAME = process.env.APP_NAME || (TEST ? 'KipClub Тест' : 'KipClub');
 const stringsPath = join(app, 'res', 'values', 'strings.xml');
 if (existsSync(stringsPath)) {
   let s = readFileSync(stringsPath, 'utf8');
@@ -86,8 +89,8 @@ if (existsSync(stringsPath)) {
 }
 const gradlePath = join(root, 'android', 'app', 'build.gradle');
 if (existsSync(gradlePath)) {
-  let g = readFileSync(gradlePath, 'utf8').replace(/\n\s*applicationIdSuffix "\.demo"/, '');
-  if (DEMO) g = g.replace(/(applicationId "[^"]+")/, '$1\n        applicationIdSuffix ".demo"');
+  let g = readFileSync(gradlePath, 'utf8').replace(/\n\s*applicationIdSuffix "\.(demo|test)"/, '');
+  if (ID_SUFFIX) g = g.replace(/(applicationId "[^"]+")/, `$1\n        applicationIdSuffix "${ID_SUFFIX}"`);
   writeFileSync(gradlePath, g);
 }
 // иконка KipClub (adaptive + monochrome + legacy mipmap) — из репозитория assets/brand/kipclub/android; BRAND_ANDROID_DIR переопределяет
@@ -101,7 +104,7 @@ if (existsSync(brand)) {
   } };
   walk(brand);
 }
-console.log(`[patch-android] имя «${APP_NAME}»${DEMO ? ', applicationId +.demo' : ''}; иконок бренда: ${icons}${!existsSync(brand) ? ' (нет ' + brand + ')' : ''}`);
+console.log(`[patch-android] имя «${APP_NAME}»${ID_SUFFIX ? ', applicationId +' + ID_SUFFIX : ''}; иконок бренда: ${icons}${!existsSync(brand) ? ' (нет ' + brand + ')' : ''}`);
 
 // ---- версия приложения: android/version.json (build-apk.mjs поднимает её перед каждой сборкой)
 {
@@ -159,7 +162,7 @@ $1buildTypes {`);
 {
   const nativeDir = join(root, 'native');
   const appDir = join(root, 'android', 'app');
-  const appId = JSON.parse(readFileSync(join(root, 'capacitor.config.json'), 'utf8')).appId + (DEMO ? '.demo' : '');
+  const appId = JSON.parse(readFileSync(join(root, 'capacitor.config.json'), 'utf8')).appId + ID_SUFFIX;
   cpSync(join(nativeDir, 'java'), join(appDir, 'src', 'main', 'java'), { recursive: true });
   cpSync(join(nativeDir, 'res'), join(appDir, 'src', 'main', 'res'), { recursive: true });
   cpSync(join(nativeDir, 'test'), join(appDir, 'src', 'test', 'java'), { recursive: true });
@@ -224,7 +227,7 @@ $1buildTypes {`);
   const javaDir = join(appDir, 'src', 'main', 'java', 'ru', 'kipfin', 'clubs');
   let fcmOn = false;
   if (existsSync(src) && !DEMO) {
-    const appId = JSON.parse(readFileSync(join(root, 'capacitor.config.json'), 'utf8')).appId;
+    const appId = JSON.parse(readFileSync(join(root, 'capacitor.config.json'), 'utf8')).appId + ID_SUFFIX;
     const gs = JSON.parse(readFileSync(src, 'utf8'));
     fcmOn = (gs.client || []).some((c) => c?.client_info?.android_client_info?.package_name === appId);
     if (!fcmOn) console.warn(`[patch-android] google-services.json не содержит ${appId} — FCM пропущен`);

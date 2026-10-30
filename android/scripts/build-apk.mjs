@@ -87,5 +87,5 @@ if (install) {
   if (!existsSync(adb)) { console.error('Нет adb: ' + adb + ' (поставь platform-tools в SDK Manager).'); process.exit(4); }
   sh(`"${adb}" devices`);
   sh(`"${adb}" install -r "${dest}"`);
-  sh(`"${adb}" shell monkey -p ru.kipfin.clubs${demo ? '.demo' : ''} -c android.intent.category.LAUNCHER 1`);
+  sh(`"${adb}" shell monkey -p ru.kipfin.clubs${demo ? '.demo' : ver.channel === 'i' ? '.test' : ''} -c android.intent.category.LAUNCHER 1`);
 }
