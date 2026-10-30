@@ -2,12 +2,38 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MARKER = ".clubs-build.json"
+
+
+def apply_test_brand(out: Path) -> None:
+    """Use the supplied Beta icon kit only for explicitly selected test builds."""
+    if os.getenv("KIPCLUB_TEST_BUILD", "").lower() not in {"1", "true", "yes"}:
+        return
+    assets = ROOT / "assets/brand/kipclub-beta/web"
+    if not assets.is_dir():
+        raise BuildError("Не найдены иконки тестовой сборки KipClub Beta")
+    for file in assets.iterdir():
+        if file.is_file():
+            shutil.copy2(file, out / "icons" / file.name)
+    manifest_path = out / "manifest.webmanifest"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["name"] = "KipClub Beta — тестовое расписание"
+    manifest["short_name"] = "KipClub Beta"
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2).replace("?v=kc3", "?v=beta1") + "\n", encoding="utf-8")
+    for path in out.rglob("*.html"):
+        html = path.read_text(encoding="utf-8")
+        html = html.replace("/icons/icon.svg?v=kc4", "/icons/icon.svg?v=beta1")
+        html = html.replace("/icons/favicon-32.png?v=kc4", "/icons/favicon-32.png?v=beta1")
+        html = html.replace("/icons/icon-192.png?v=kc4", "/icons/icon-192.png?v=beta1")
+        html = html.replace("/icons/apple-touch-icon.png?v=kc4", "/icons/apple-touch-icon.png?v=beta1")
+        html = html.replace("/manifest.webmanifest?v=kc5", "/manifest.webmanifest?v=beta1")
+        path.write_text(html, encoding="utf-8")
 
 
 class BuildError(Exception):

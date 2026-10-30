@@ -1,0 +1,34 @@
+.storage-notice {
+  position: fixed;
+  z-index: 1000;
+  left: max(16px, env(safe-area-inset-left));
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  max-width: 580px;
+  margin-inline: auto;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #a1aaa5;
+  border-radius: 12px;
+  background: #f7faf8;
+  color: #17261e;
+  box-shadow: 0 4px 24px #0003;
+  font: 15px/1.45 system-ui, sans-serif;
+}
+.storage-notice p { margin: 0; flex: 1; }
+.storage-notice button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid #235d3e;
+  border-radius: 8px;
+  background: #235d3e;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+.storage-notice button:focus-visible { outline: 3px solid #d18b00; outline-offset: 3px; }
+@media (max-width: 480px) {
+  .storage-notice { align-items: stretch; flex-direction: column; gap: 10px; }
+}

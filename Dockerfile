@@ -12,10 +12,12 @@ COPY pwa pwa
 COPY android/shim android/shim
 COPY tools tools
 COPY data data
+COPY assets/brand/kipclub-beta assets/brand/kipclub-beta
 COPY server.py pyproject.toml version.json ./
 # Продовая сборка фронта = сборка PWA: в обычной вкладке сайт как прежде, в установленном PWA (standalone)
 # — та же оболочка, что в APK. Хэш сборки в service worker, без тестов/служебных файлов
-RUN python server.py build pwa --out /app/builds/web
+ARG KIPCLUB_TEST_BUILD=0
+RUN KIPCLUB_TEST_BUILD=$KIPCLUB_TEST_BUILD python server.py build pwa --out /app/builds/web
 
 RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
     && mkdir -p /data /backups && chown app:app /data /backups

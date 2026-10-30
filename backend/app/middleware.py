@@ -71,7 +71,7 @@ def _security_headers(response: Response, request: Request) -> None:
         h.setdefault("Content-Security-Policy", CSP)
     if settings.is_production() or request.url.scheme == "https":
         h.setdefault("Strict-Transport-Security", "max-age=31536000")
-    if request.url.path.startswith(("/api/admin", "/api/push/status")):
+    if request.url.path == "/admin" or request.url.path.startswith(("/admin/", "/api/admin", "/api/push/status")):
         h["Cache-Control"] = "no-store"
 
 

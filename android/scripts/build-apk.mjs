@@ -17,6 +17,15 @@ const demo = process.argv.includes('--demo');        // офлайн-демо: �
 if (demo) process.env.APP_DEMO = '1';
 const release = process.argv.includes('--release');   // release: подпись ключом из ANDROID_KEYSTORE*
 const noBump = process.argv.includes('--no-bump');    // не поднимать versionCode/versionName
+// Тестовый сервер использует отдельную иконку, при этом остальные настройки
+// приложения остаются такими же, как у публичной сборки.
+const testBrand = /^(1|true|yes)$/i.test(process.env.KIPCLUB_TEST_BUILD || '') || process.env.ITC_CHANNEL === 'i';
+if (testBrand && !process.env.BRAND_ANDROID_DIR) {
+  process.env.BRAND_ANDROID_DIR = resolve(root, '../assets/brand/kipclub-beta/android');
+}
+if (testBrand && !existsSync(join(process.env.BRAND_ANDROID_DIR, 'res', 'mipmap-anydpi-v26', 'ic_launcher.xml'))) {
+  throw new Error('Для тестовой сборки не найдены ресурсы иконки KipClub Beta.');
+}
 const sh = (cmd, opts = {}) => {
   console.log(`\n> ${cmd}`);
   const r = spawnSync(cmd, { cwd: root, stdio: 'inherit', shell: true, env: process.env, ...opts });

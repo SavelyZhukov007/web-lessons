@@ -4,7 +4,7 @@ import json
 import shutil
 from pathlib import Path
 
-from .common import ROOT, copy_tree, output_dir, stamp_web
+from .common import ROOT, apply_test_brand, copy_tree, output_dir, stamp_web
 
 
 def build_pwa(out: Path | None = None) -> Path:
@@ -25,6 +25,7 @@ def build_pwa(out: Path | None = None) -> Path:
         html = path.read_text(encoding="utf-8")
         html = html.replace("</head>", '    <script src="/pwa/pwa-standalone.js"></script>\n</head>')
         path.write_text(html, encoding="utf-8")
+    apply_test_brand(dest)
     stamp_web(dest)
     print(f"PWA собрано: {dest}. Safari → Поделиться → Добавить на экран Домой.")
     return dest

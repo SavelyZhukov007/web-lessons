@@ -13,6 +13,7 @@ def test_security_headers_and_csp(client):
     assert h["referrer-policy"] and h["x-request-id"]
     api = client.get("/api/admin/status")
     assert api.headers["cache-control"] == "no-store"
+    assert client.get("/admin/login.html").headers["cache-control"] == "no-store"
 
 
 def test_request_id_is_propagated(client):
