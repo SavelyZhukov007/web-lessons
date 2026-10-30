@@ -33,7 +33,7 @@ const DEMO = /^(1|true|yes)$/i.test(process.env.APP_DEMO || '');
 // Публичный канал (p, не демо): адрес сервера зашит при сборке (APP_SERVER_URL, по умолчанию production),
 // экрана «Сервер расписания» и смены сервера нет. Каналы l/i — как раньше (адрес вводит пользователь).
 const FIXED_SERVER = !DEMO && (process.env.ITC_CHANNEL || readVersion('android').channel) === 'p';
-const PROD_SERVER = 'http://lekora.ru:7443';
+const PROD_SERVER = 'https://club.kipfin.ru'; // production с 2026-10-28
 if (DEMO) {
   // демо + инструменты подключения к тестовому серверу (app-shim)
   for (const f of ['demo-backend.js', 'app-shim.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));

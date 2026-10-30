@@ -10,9 +10,9 @@ const manifestPath = join(app, 'AndroidManifest.xml');
 if (!existsSync(manifestPath)) throw new Error('Нет ' + manifestPath + ' — сначала `npx cap add android`');
 
 mkdirSync(join(app, 'res', 'xml'), { recursive: true });
-// канал p (не демо): http разрешён только к production-серверу (APP_SERVER_URL, по умолчанию lekora.ru), остальное — только HTTPS
+// канал p (не демо): http разрешён только к production-серверу (APP_SERVER_URL, по умолчанию club.kipfin.ru), остальное — только HTTPS
 const PUBLIC = !/^(1|true|yes)$/i.test(process.env.APP_DEMO || '') && (process.env.ITC_CHANNEL || readVersion('android').channel) === 'p';
-const serverHost = new URL(process.env.APP_SERVER_URL || process.env.APP_DEFAULT_SERVER || 'http://lekora.ru:7443').hostname;
+const serverHost = new URL(process.env.APP_SERVER_URL || process.env.APP_DEFAULT_SERVER || 'https://club.kipfin.ru').hostname;
 if (PUBLIC) writeFileSync(join(app, 'res', 'xml', 'network_security_config.xml'), `<?xml version="1.0" encoding="utf-8"?>
 <!-- PUBLIC (канал p): cleartext только к серверу расписания ${serverHost}; остальные адреса — только HTTPS. -->
 <network-security-config>
