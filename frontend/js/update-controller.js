@@ -6,7 +6,7 @@ export function hasUnsavedWork(doc = document) {
 export function startUpdates() {
   if (window.Capacitor?.isNativePlatform?.() || window.ClubsUpdates) return;
   let registration, pending = false, nextBuild = null, loadedBuild = null, checking, lastCheck = 0, applying = false;
-  let bar, message, button;
+  let bar, message, button, closeButton;
   const sw = navigator.serviceWorker;
   let hadController = !!sw?.controller;
   function notify(text) {
@@ -14,7 +14,14 @@ export function startUpdates() {
       bar = document.createElement('aside'); bar.className = 'app-update-notice'; bar.setAttribute('aria-label', 'Обновление приложения');
       message = document.createElement('span'); message.setAttribute('role', 'status');
       button = document.createElement('button'); button.type = 'button'; button.textContent = 'Обновить'; button.addEventListener('click', apply);
-      bar.append(message, button); document.body.append(bar);
+      
+      closeButton = document.createElement('button');
+      closeButton.type = 'button';
+      closeButton.textContent = 'X';
+      closeButton.setAttribute('aria-label', 'Закрыть уведомление об обновлении');
+      closeButton.addEventListener('click', () => { bar.hidden = true; });
+      
+      bar.append(message, button, closeButton); document.body.append(bar);
     }
     bar.hidden = false; message.textContent = text; button.hidden = !pending; button.disabled = pending && hasUnsavedWork();
   }
