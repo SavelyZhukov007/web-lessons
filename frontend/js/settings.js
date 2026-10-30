@@ -2,6 +2,7 @@
 // Подключается на каждой странице: <script type="module" src="/js/settings.js">. Кнопка-шестерёнка добавляется в шапку сама.
 import { h, icon, toast, installRipple } from './ui.js';
 import { request } from './api.js';
+import './log-collector.js'; // журнал устройства для «Обратной связи» — с первой загрузки страницы
 
 const theme = window.ClubsTheme;
 const ACCENTS = [['brick', 'Кирпичный'], ['blue', 'Синий'], ['green', 'Зелёный'], ['violet', 'Фиолетовый']];
@@ -186,6 +187,9 @@ function build() {
     announcementsSection(), accountSection(), serverSection(), demoSection());
   const reset = h('button', { type: 'button', class: 'btn btn--text', onclick: () => { theme.set(theme.DEFAULTS); rebuild(); toast('Настройки сброшены'); } }, 'Сбросить');
   const done = h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово');
+  const fb = h('button', { type: 'button', class: 'list-row', dataset: { feedbackOpen: '' } }, h('span', {}, 'Обратная связь'));
+  fb.addEventListener('click', async () => { dialog.close(); (await import('./feedback.js')).openFeedback(document.querySelector('[data-settings-button]')); });
+  body.append(h('section', { class: 'sheet-section' }, h('h3', {}, 'Помощь'), h('div', { class: 'list-group' }, fb)));
   if (window.ClubsUpdates) body.append(h('section', { class: 'sheet-section' }, h('h3', {}, 'Версия приложения'),
     h('button', { type: 'button', class: 'btn btn--tonal', onclick: () => { dialog.close(); window.ClubsUpdates.check({ manual: true }); } }, 'Проверить обновления')));
   const foot = h('div', { class: 'sheet-foot' }, reset, done);

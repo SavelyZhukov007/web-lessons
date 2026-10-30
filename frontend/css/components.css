@@ -835,3 +835,30 @@ dialog .list-row--danger, dialog .list-row--danger span { color: var(--danger, #
 .acc-tx { display: flex; flex-direction: column; min-width: 0; }
 .acc-tx small { color: var(--on-surface-variant, #5f5f5f); }
 .settings-place { width: 100%; justify-content: center; }
+
+/* «Обратная связь» (js/feedback.js) и её раздел в админке (js/admin/views/feedback.js) */
+.feedback-sheet .fb-form { display: grid; gap: 18px; }
+.feedback-sheet .segmented { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; box-sizing: border-box; }
+.feedback-sheet .segmented label { display: flex; min-width: 0; }
+.feedback-sheet .segmented span { flex: 1 1 auto; min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; }
+.fb-under { display: flex; gap: 8px; align-items: flex-start; }
+.fb-under .field-error { flex: 1; margin: 0; }
+.fb-counter { margin-left: auto; font-size: .9em; color: var(--on-surface-muted); white-space: nowrap; }
+.fb-hp { position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0; }
+.fb-thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.fb-thumbs:empty { display: none; }
+.fb-thumb { position: relative; margin: 0; width: 88px; height: 88px; border-radius: var(--radius-s); overflow: hidden; border: 1px solid var(--outline-variant, var(--outline)); background: var(--surface-container, transparent); }
+.fb-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+.fb-thumb-name { display: block; padding: 6px; font-size: 11px; word-break: break-all; }
+.feedback-sheet .fb-thumb-remove { position: absolute; top: 0; right: 0; width: 44px; height: 44px; min-width: 0; min-height: 0; padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; color: #fff; display: grid; place-items: start end; cursor: pointer; box-shadow: none; -webkit-tap-highlight-color: transparent; }
+.feedback-sheet .fb-thumb-remove::before { content: ""; position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0, 0, 0, .6); box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
+.feedback-sheet .fb-thumb-remove svg { position: relative; width: 16px; height: 16px; margin: 10px 10px 0 0; }
+.feedback-sheet .fb-thumb-remove:focus-visible { outline: none; }
+.feedback-sheet .fb-thumb-remove:focus-visible::before { box-shadow: 0 0 0 2px var(--primary, #fff); }
+.feedback-sheet .sheet-foot { padding: 12px 0 0; }
+.feedback-sheet .sheet-foot .btn { min-height: 44px; }
+.fb-logs-preview { max-height: 320px; overflow: auto; font-size: .75em; white-space: pre-wrap; word-break: break-word; background: var(--surface-container, transparent); border: 1px solid var(--outline-variant, var(--outline)); border-radius: var(--radius-s); padding: 8px; }
+.fb-status:empty { display: none; }
+.fb-status--error { color: var(--danger); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fb-success { text-align: center; display: grid; gap: 12px; justify-items: center; padding: 24px 0; }
+.fb-tech { margin: 0; font-size: .8em; color: var(--on-surface-muted); }

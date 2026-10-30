@@ -31,3 +31,6 @@ prod.ps1
 # Ключ сервисного аккаунта Firebase (FCM) — секрет, только на сервере
 fcm-key*.json
 *service-account*.json
+
+# Выгрузка «Обратной связи» (tools/feedback_export.py) — локально, не коммитим
+QA/

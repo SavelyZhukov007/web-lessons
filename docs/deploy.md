@@ -45,3 +45,47 @@ docker compose exec app python server.py admin create admin
 `curl -fsS https://<домен>/readyz`; открыть `/`, `/admin/login.html`; `/docs` → 404; заголовки (`curl -I`): CSP, HSTS.
 
 **Что здесь проверено, а что нет:** конфигурация production протестирована локально (старт, Host-проверка, заголовки, `/docs` 404, `/readyz`); `docker build`, `docker compose` и Caddy в песочнице разработки **не запускались** (нет Docker) — первый запуск на сервере считай приёмочным.
+
+## «Обратная связь» (только для разработчиков)
+
+**Где лежат отчёты.** `POST /api/feedback` пишет каждое обращение папкой в `FEEDBACK_DIR` (по умолчанию — `feedback`
+рядом с БД; в Docker это `/data/feedback` внутри контейнера `app`, именованный том `clubs_clubs-data`). На тестовом
+сервере том лежит в `/var/lib/docker/volumes/clubs_clubs-data/_data` и пользователю `savely-server` напрямую не
+читается — поэтому выгрузка идёт через `docker compose -f /opt/clubs/docker-compose.yml exec -T app …`
+(пользователь в группе `docker`). БД для обратной связи не используется — источник правды папки:
+
+```
+/data/feedback/2026-10-30_141500_bug_1a2b3c4d/
+    description.md  report.json  logs.json  screenshots/01.png…  manifest.json
+```
+
+Время в имени — UTC, хвост — первые 8 символов id. `manifest.json`: полный id (UUID), `created_at`, sha256 и размер
+каждого файла. Отчёт сначала пишется в `.tmp-<uuid>/` и атомарно переименовывается; `manifest.json` пишется последним,
+так что папка без него считается незаконченной. В админке раздела нет.
+
+**Хранение.** После каждого сохранения остаются только последние `FEEDBACK_KEEP` отчётов (по умолчанию 50),
+более старые удаляются; брошенные `.tmp-*` старше часа — тоже. Частота: 5 обращений в час с IP (в памяти процесса).
+
+**Лимит тела в Caddy.** Запрос — multipart до ~26 МБ (до 5 скриншотов по 5 МБ + логи). Если в Caddyfile задан
+общий лимит `request_body`, добавьте для этого пути отдельный (или поднимите общий до 30 МБ):
+
+```
+@feedback path /api/feedback
+request_body @feedback {
+    max_size 30MB
+}
+```
+
+**Выгрузка на компьютер разработчика** (Windows PowerShell 5 + OpenSSH или любой Python 3.10+; paramiko — по желанию):
+
+```
+.\tools\feedback_export.ps1 -Server test -Key $HOME\.ssh\id_ed25519
+python tools/feedback_export.py --server test --key ~/.ssh/id_ed25519 [--dry-run]
+python tools/feedback_export.py --server prod --host <ip> --key ~/.ssh/id_ed25519
+```
+
+Скрипт только читает: сравнивает папки на сервере с `QA/<server>/` по id и sha256 из `manifest.json`, скачивает
+новые/изменённые (`tar` через `docker compose exec`), проверяет хэши, обновляет `QA/<server>/index.csv` и `QA/README.md`.
+На сервере ничего не удаляется; локально остаётся всё, что когда-либо скачано. `--host/--user/--port/--remote-dir`
+переопределяют умолчания (test: `savely-server@185.53.233.170:22`, `/data/feedback`); `--mode direct` — если папка
+отчётов читается пользователем SSH напрямую (не через Docker).

@@ -79,6 +79,23 @@ def logs_dir() -> Path:
     return Path(os.getenv("APP_LOGS_DIR") or Path(__file__).resolve().parents[2] / "data" / "client-logs").resolve()
 
 
+def feedback_dir() -> Path:
+    """Папка отчётов «Обратная связь»: FEEDBACK_DIR → рядом с БД (в Docker это том /data → /data/feedback) → data/feedback."""
+    custom = os.getenv("FEEDBACK_DIR")
+    if custom:
+        return Path(custom).resolve()
+    db = os.getenv("CLUBS_SCHEDULE_DB_PATH")
+    return (Path(db).resolve().parent / "feedback") if db else (ROOT / "data" / "feedback").resolve()
+
+
+def feedback_keep() -> int:
+    """Сколько последних обращений хранить на сервере (старые удаляются после каждого сохранения)."""
+    try:
+        return max(1, int(os.getenv("FEEDBACK_KEEP", "50")))
+    except ValueError:
+        return 50
+
+
 def logs_retention_days() -> int:
     try:
         return min(21, max(1, int(os.getenv("LOGS_RETENTION_DAYS", "14"))))  # журнал клиентов храним не дольше 21 дня
