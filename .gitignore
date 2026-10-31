@@ -34,3 +34,5 @@ fcm-key*.json
 
 # Выгрузка «Обратной связи» (tools/feedback_export.py) — локально, не коммитим
 QA/
+
+py.py
