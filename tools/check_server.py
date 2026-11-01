@@ -20,7 +20,7 @@ def check_endpoint(session, base_url, path, timeout):
     except requests.exceptions.ConnectionError:
         print(f"FAIL: {path} — connection failed")
         return False
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         print(f"FAIL: {path} — error: {e}")
         return False
 
@@ -30,17 +30,15 @@ def main():
         print("Usage: python tools/check_server.py <server_address>")
         sys.exit(1)
 
-    base_url = sys.argv
+    base_url = sys.argv[1]
     timeout = 5
     paths = ["/healthz", "/readyz"]
-
-    session = requests.Session()
     all_ok = True
-
-    for path in paths:
-        ok = check_endpoint(session, base_url, path, timeout)
-        if not ok:
-            all_ok = False
+    with requests.Session() as session:
+        for path in paths:
+            ok = check_endpoint(session, base_url, path, timeout)
+            if not ok:
+                all_ok = False
 
     if all_ok:
         print("Server is available, application is ready to work")
