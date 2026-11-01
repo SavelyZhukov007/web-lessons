@@ -64,6 +64,7 @@ function safeEvents(data) {
 async function loadSchedule() {
     const id = ++requestId;
     state.phase = 'loading';
+    state.error = '';
     render();
     try {
         const data = await getSchedule(dateKey(state.weekStart));
@@ -82,9 +83,9 @@ async function loadSchedule() {
     render();
 }
 
-function node(tag, className = '', text = '') {
+function node(tag, className, text = '') {
     const item = document.createElement(tag);
-    if (className !== undefined) item.className = className;
+    if (className) item.className = className;
     if (text !== undefined) item.textContent = text;
     return item;
 }
@@ -101,17 +102,17 @@ function render() {
 }
 
 function renderLoading() {
-    weekNode.append(node('h3', '', 'Loading...'));
+    weekNode.append(node('h3', 'print-schedule-loading', 'Загрузка данных...'));
 }
 
 function renderError() {
-    weekNode.append(node('h1', '', state.error));
+    weekNode.append(node('h1', 'print-schedule-error', state.error));
 }
 
 function renderSchedule() {
     // Data is already sorted by (item["date"], item["start_time"], item["club_name"])
     let j = 0;
-    // Outer loop for weekdays, inner for state.events array
+    // Outer loop for weekdays, inner for state.events array -> O(i+j)
     for (let i = 0; i < 6; i++) {
         const dayStart = j;
         const date = addDays(state.weekStart, i);
@@ -130,31 +131,53 @@ function renderSchedule() {
 }
 
 function assembleEvent(event) {
+    console.log(event);
     const eventNode = node('div', 'print-schedule-lesson');
     const timeNode = node('span', 'ps-lesson-time');
+    const leftColumn = node('div', 'print-schedule-lesson-left');
+    const midColumn = node('div', 'print-schedule-lesson-mid');
+    const rightColumn = node('div', 'print-schedule-lesson-right');
     timeNode.append(
         node('span', 'ps-lesson-time-start', event.start_time),
         node('span', 'ps-lesson-time-end', event.end_time)
     );
-    eventNode.append(timeNode);
-
-    eventNode.append(node('strong', 'ps-lesson-name', event.club_name));
-    eventNode.append(node(
+    const lessonNameNode = node('strong', 'ps-lesson-name', event.club_name);
+    const lessonRoomNode = node(
         'span', 
         'ps-lesson-room',
         (event.room_names.length > 1) 
             ? event.room_names.join(', ') 
             : event.room_name || 'Аудитория не указана'
-    ));
-    eventNode.append(node(
+    );
+    const lessonLeaderNode = node(
         'span', 
         'ps-lesson-leader', 
-        (event.leader_names.length > 1) ? event.leader_names.join(', ') : event.leader_name
-    ));
+        (event.leader_names.length > 1) 
+            ? event.leader_names.join(', ') 
+            : event.leader_name || 'Преподаватель неизвестен'
+    );
     
-    if (event.status !== 'scheduled') {
-        eventNode.append(node('span', 'ps-lesson-status', statusNames[event.status]));
+    if (event.status === 'cancelled') {
+        lessonNameNode.classList.add('crossed-out');
+        lessonRoomNode.classList.add('crossed-out');
+        lessonLeaderNode.classList.add('crossed-out');
+        timeNode.classList.add('crossed-out');
     }
+
+    leftColumn.append(timeNode);
+    midColumn.append(lessonNameNode);
+    midColumn.append(lessonRoomNode);
+    rightColumn.append(lessonLeaderNode);
+    
+    if (event.status === 'cancelled') {
+        leftColumn.append(node('span', 'ps-lesson-status', statusNames[event.status]));
+    } else if (event.status === 'moved') {
+        leftColumn.append(node(
+            'span', 'ps-lesson-status', 
+            `${statusNames[event.status]} c ${dateHuman(new Date(event.original_date))}`
+        ));
+    }
+    eventNode.append(leftColumn, midColumn, rightColumn);
     return eventNode;
 }
 

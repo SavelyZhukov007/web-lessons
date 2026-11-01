@@ -1,118 +1,49 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="light"> 
 <head>
     <meta charset="utf-8">
-    <title>Расписание — KipClub (Печать)</title>
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg?v=kc4">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=kc4">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=kc4">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=kc4">
+    <title>Расписание — KipClub (Печатное)</title>
+    <!-- Is it needed? -->
+    <!-- <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="KipClub">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default"> -->
+    <link rel="stylesheet" href="./css/tokens.css">
+    <link rel="stylesheet" href="./css/campus.css">
     <link rel="stylesheet" href="./css/print.css">
 </head>
 <body class="print-schedule-page">
     <div class="print-schedule-header">
-        <h1>Расписание</h1>
-        <div class="print-schedule-toolbar">
-            <button id="print-button" class="schedule-button-print">
-                print
-            </button>
-            <button id="prev-button" class="schedule-button-nav">
-                &lt;
-            </button>
-            <div class="schedule-week-caption">
-                week1
+        <div class="print-schedule-header-brand">
+            <a class="campus-brand" href="/" aria-label="KipClub — главная">
+                <span class="brand-mark" aria-hidden="true"></span>
+                <span>KipClub</span>
+            </a>  
+        </div>
+        <div class="print-schedule-header-content">
+            <h1>Расписание</h1>
+            <div class="print-schedule-toolbar">
+                <button id="print-button" class="schedule-button-print">
+                    Распечатать
+                </button>
+                <button id="prev-button" class="schedule-button-nav">
+                    &lt;
+                </button>
+                <div class="schedule-week-caption">
+                    week1
+                </div>
+                <button id="next-button" class="schedule-button-nav">
+                    >
+                </button>
             </div>
-            <button id="next-button" class="schedule-button-nav">
-                >
-            </button>
         </div>
     </div>
     <div class="print-schedule-content">
         <div class="print-schedule-week">
-            <div class="print-schedule-day">
-                day1
-                <div class="print-schedule-lesson">
-                    <span class="ps-lesson-time">
-                        <span class="ps-lesson-time-start">
-                            
-                        </span>
-                        <span class="ps-lesson-time-end">
-                            
-                        </span>
-                    </span>
-                    <strong class="ps-lesson-name">
-
-                    </strong>
-                    <span class="ps-lesson-room">
-
-                    </span>
-                    <span class="ps-lesson-leader">
-
-                    </span>
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson2
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson3
-                </div>
-            </div>
-            <div class="print-schedule-day">
-                day2
-                <div class="print-schedule-lesson">
-                    lesson1
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson2
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson3
-                </div>
-            </div>
-            <div class="print-schedule-day">
-                day3
-                <div class="print-schedule-lesson">
-                    lesson1
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson2
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson3
-                </div>
-            </div>
-            <div class="print-schedule-day">
-                day4
-                <div class="print-schedule-lesson">
-                    lesson1
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson2
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson3
-                </div>
-            </div>
-            <div class="print-schedule-day">
-                day5
-                <div class="print-schedule-lesson">
-                    lesson1
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson2
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson3
-                </div>
-            </div>
-            <div class="print-schedule-day">
-                day6
-                <div class="print-schedule-lesson">
-                    lesson1
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson2
-                </div>
-                <div class="print-schedule-lesson">
-                    lesson3
-                </div>
-            </div>
         </div>
     </div>
     <script type="module" src="./js/print.js"></script>
