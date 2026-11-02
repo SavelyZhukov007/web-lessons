@@ -50,6 +50,8 @@ function updateControls() {
   const end = addDays(state.week, 5);
   $('#week-year').textContent = state.week.getFullYear() === end.getFullYear() ? String(state.week.getFullYear()) : `${state.week.getFullYear()} / ${end.getFullYear()}`;
   $('#week-date').value = dateKey(addDays(state.week, state.day));
+  const printLink = $('#print-week');
+  if (printLink) printLink.href = `/print.html?week=${dateKey(state.week)}`; // печатная версия той же недели (Пн–Сб)
   $('#prev-week').disabled = dateKey(addDays(state.week, -7)) < WEEK_MIN;
   $('#next-week').disabled = dateKey(addDays(state.week, 7)) > WEEK_MAX;
   $('#prev-day').disabled = state.day === 0 && $('#prev-week').disabled;

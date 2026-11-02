@@ -1040,3 +1040,19 @@
 .calendar-event.itc-ghost .itc-ghost-time s { text-decoration-thickness: 1.5px; }
 .itc-ghost-link { justify-self: start; padding: 2px 0; border: 0; background: none; color: var(--primary, #1a56db); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-align: left; cursor: pointer; }
 .calendar-event.itc-flash { outline: 3px solid var(--primary, #1a56db); outline-offset: 2px; }
+
+/* «Печать»: печатная версия выбранной недели (print.html?week=) */
+.print-week-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    color: var(--on-surface);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.print-week-link:hover { background: var(--surface-2, var(--surface-1)); }
+.print-week-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 720px) { .print-week-link { display: none; } }
