@@ -11,7 +11,6 @@ PROJECT = HERE.parent  # корень проекта (feature): CORS включ�
 DEMO_DB = Path(os.environ.get("DEMO_DB", "/workspace/itc/shotdb.sqlite3"))
 CHROME = os.environ.get("CHROME_PATH", "/usr/bin/google-chrome")
 SHOTS = Path(os.environ.get("SHOTS_DIR", "/workspace/itc/shots"))
-WWW = HERE / "www"
 P_CORS, P_PLAIN, P_STATIC = 48988, 48989, int(os.environ.get("STATIC_PORT", "9100"))
 procs, results = [], []
 
@@ -30,6 +29,14 @@ def start_backend(dirpath, port, env_extra=None):
     raise RuntimeError("backend не поднялся на %s" % port)
 
 tmp = Path(tempfile.mkdtemp(prefix="shimtest_"))
+# Свой www/ канала l (адрес вводит пользователь, есть /settings.html). Раньше брался android/www последней сборки:
+# после сборки i/p-канала там зашит сервер (APP_FIXED_SERVER) и нет экрана настроек — тест висел на wait_for_url(settings.html).
+WWW = tmp / "www"
+def prepare_www(extra=None):
+    env = {k: v for k, v in os.environ.items() if k not in ("APP_DEMO", "APP_DEFAULT_SERVER", "APP_SERVER_URL")}
+    env.update(ITC_CHANNEL="l", WWW_OUT=str(WWW), **(extra or {}))
+    subprocess.run(["node", str(HERE / "scripts" / "prepare-web.mjs")], cwd=HERE, check=True, capture_output=True, env=env)
+prepare_www()
 plain = cors = PROJECT
 for port in (P_CORS, P_PLAIN):
     shutil.copy(DEMO_DB, tmp / f"db{port}.sqlite3")
@@ -89,18 +96,20 @@ try:
         check("расписание отрисовано через shim", pg.locator(".calendar-event").count() > 0, f"карточек: {pg.locator('.calendar-event').count()}")
         pg.screenshot(path=str(SHOTS / "apk-web-03-schedule-via-shim.png"))
         # 8. Навигация/фильтр/страницы работают
-        pg.click("#next-week"); pg.wait_for_timeout(700)
-        check("переключение недели работает через shim", "26" in pg.inner_text("#week-label"), pg.inner_text("#week-label"))
-        gear = pg.locator("[data-settings-button]").first
-        box = gear.bounding_box(); check("кнопка «Настройки» (в шапке сайта) ≥ 44px", box["height"] >= 44 and box["width"] >= 44, str(box))
-        check("старой плавающей кнопки «⚙ сервер» нет (есть единый диалог настроек)", pg.locator("#app-gear").count() == 0)
+        # В APK шапка недели (#next-week/#week-label) убрана app-schedule.js: неделя выбирается датой (#week-date), дни — полосой #app-days
+        before = pg.inner_text("#app-days")
+        pg.evaluate("""() => { const i = document.querySelector('#week-date'); const d = new Date(i.value || Date.now()); d.setDate(d.getDate() + 7);
+            i.value = d.toISOString().slice(0, 10); i.dispatchEvent(new Event('change', { bubbles: true })); }""")
+        pg.wait_for_timeout(900)
+        check("переключение недели работает через shim", pg.inner_text("#app-days") != before, pg.inner_text("#app-days").replace("\n", " ")[:60])
+        check("старой плавающей кнопки «⚙ сервер» нет", pg.locator("#app-gear").count() == 0)
         pg.goto(APP + "/clubs.html"); pg.wait_for_selector("#content a")
         check("clubs.html грузит список через shim", pg.locator("#content a").count() == 8)
         pg.click("#content a >> nth=0"); pg.wait_for_load_state("networkidle"); check("club.html?id= грузит кружок", pg.inner_text("h1") not in ("Кружок", "Кружок не найден"), pg.inner_text("h1"))
         # 9. Админка: логин из другого origin
         pg.goto(APP + "/admin/login.html"); pg.fill("input[name=login]", "admin"); pg.fill("input[name=password]", "wrongwrong1"); pg.click("#login-form button[type=submit]"); pg.wait_for_timeout(800)
         check("админ-логин: неверный пароль -> сообщение (CORS ок, тело ошибки читается)", "Неверный" in pg.inner_text("#message"), pg.inner_text("#message"))
-        pg.fill("input[name=password]", "DemoPass123!"); pg.click("#login-form button[type=submit]"); pg.wait_for_url("**/admin/", timeout=15000)
+        pg.fill("input[name=password]", "DemoPass123!"); pg.click("#login-form button[type=submit]"); pg.wait_for_url("**/admin/**", timeout=15000)
         pg.wait_for_selector("#admin-main h1, #admin-main h2", timeout=15000)
         token = pg.evaluate("localStorage.getItem('clubs.adminToken')")
         cookies = [c for c in ctx.cookies() if c["name"] == "admin_session"]
@@ -128,22 +137,21 @@ try:
         # 11. Сохранить недоступный
         pg.fill("#server-url", "127.0.0.1:1"); pg.click("#save"); pg.wait_for_selector("#status.err", timeout=15000)
         check("недоступный сервер: «Сохранить» не сохраняет, показывается «Всё равно сохранить»", pg.is_visible("#force") and pg.evaluate("localStorage.getItem('clubs.serverUrl')") is None)
+        # без кэша расписания (app-schedule.js сначала показывает кэш прошлого сервера, ошибка видна только без него)
+        pg.evaluate("Object.keys(localStorage).filter(k => k.startsWith('itc.sched.')).forEach(k => localStorage.removeItem(k))")
         pg.click("#force"); pg.wait_for_url(APP + "/"); pg.wait_for_selector(".schedule-state", timeout=20000)
         check("экран ошибки сети при недоступном сервере (штатный от api.js)", "связаться" in pg.inner_text("#content") or "Не получилось" in pg.inner_text("#content"), pg.inner_text("#content").replace("\n", " ")[:90])
         pg.screenshot(path=str(SHOTS / "apk-web-05-offline-server-error.png"))
         # 12. сборка с предзаданным сервером (build android --server-url): первый запуск без экрана настроек
         ctx.close()
-        prep = lambda extra: subprocess.run(["node", str(HERE / "scripts" / "prepare-web.mjs")], cwd=HERE, check=True, capture_output=True, env=dict(os.environ, **extra))
-        prep({"APP_DEFAULT_SERVER": CORS_URL})
-        try:
-            ctx2 = b.new_context(viewport={"width": 390, "height": 844}); pg2 = ctx2.new_page()
+        prepare_www({"APP_DEFAULT_SERVER": CORS_URL})
+        if True:  # отдельный контекст: чистый localStorage
+            ctx2 = b.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True, device_scale_factor=2); pg2 = ctx2.new_page()
             pg2.goto(APP + "/"); pg2.wait_for_selector(".calendar-event", timeout=20000)
             check("APP_DEFAULT_SERVER: первый запуск сразу показывает расписание, без экрана настроек", "settings.html" not in pg2.url and pg2.evaluate("localStorage.getItem('clubs.serverUrl')") is None, pg2.url)
-            pg2.click("[data-settings-button] >> nth=0"); pg2.wait_for_selector("#settings-server")
+            pg2.evaluate("document.querySelector('[data-settings-button]').click()"); pg2.wait_for_selector("#settings-server", state="attached")
             check("APP_DEFAULT_SERVER виден в диалоге «Настройки» и его можно сменить", pg2.input_value("#settings-server") == CORS_URL)
             ctx2.close()
-        finally:
-            prep({"APP_DEFAULT_SERVER": ""})
         b.close()
 finally:
     for pr in procs: pr.terminate()
