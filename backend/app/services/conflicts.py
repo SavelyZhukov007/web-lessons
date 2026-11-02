@@ -57,7 +57,10 @@ def find_conflicts(candidate: dict, events: list[dict], exclude_event_id: str | 
 import json  # noqa: E402
 import threading  # noqa: E402
 from dataclasses import dataclass as _dataclass  # noqa: E402
-from datetime import date as _date, datetime as _datetime, timedelta as _timedelta, timezone as _tz  # noqa: E402
+from datetime import date as _date  # noqa: E402
+from datetime import datetime as _datetime  # noqa: E402
+from datetime import timedelta as _timedelta  # noqa: E402
+from datetime import timezone as _tz  # noqa: E402
 from pathlib import Path as _Path  # noqa: E402
 from types import SimpleNamespace as _NS  # noqa: E402
 from typing import Any as _Any  # noqa: E402

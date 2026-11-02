@@ -96,7 +96,7 @@ def validate(dataset: Any) -> list[str]:
     for i, leader in enumerate(dataset.get("leaders", [])):
         if not str(leader.get("full_name", "")).strip():
             errors.append(f"leaders[{i}].full_name: пусто")
-    leader_keys = {norm(l.get("full_name")) for l in dataset.get("leaders", [])}
+    leader_keys = {norm(ld.get("full_name")) for ld in dataset.get("leaders", [])}
     room_keys = {(norm(r.get("building")), norm(r.get("number"))) for r in dataset.get("rooms", [])}
     seen_clubs: set[str] = set()
     clubs = dataset.get("clubs")
@@ -167,7 +167,7 @@ def _apply(db: Session, dataset: dict, *, prune: bool) -> dict:
     has_repeat = "repeat" in session_cols
 
     categories = {norm(c.name): c for c in db.scalars(select(Category))}
-    leaders = {norm(l.name): l for l in db.scalars(select(Leader))}
+    leaders = {norm(ld.name): ld for ld in db.scalars(select(Leader))}
     rooms = {(norm(r.building), norm(r.name)): r for r in db.scalars(select(Room))}
     clubs = {norm(c.name): c for c in db.scalars(select(Club))}
 
@@ -232,7 +232,7 @@ def _apply(db: Session, dataset: dict, *, prune: bool) -> dict:
                 club.description = item["description"]
                 changed = True
             stats["clubs_updated"] += int(changed)
-        _set_links(db, "club_leaders", "club_id", club.id, "leader_id", [l.id for l in club_leaders])
+        _set_links(db, "club_leaders", "club_id", club.id, "leader_id", [ld.id for ld in club_leaders])
 
         existing = {(_session_sig(s, has_repeat)): s for s in db.scalars(select(ClubSession).where(ClubSession.club_id == club.id))}
         wanted: set[tuple] = set()

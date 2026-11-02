@@ -274,7 +274,7 @@ class Snapshot:
     session_groups: dict[int, tuple[str, ...]]
     calendar: Any
 
-    def copy(self) -> "Snapshot":
+    def copy(self) -> Snapshot:
         def clone(ns: SimpleNamespace) -> SimpleNamespace:
             return SimpleNamespace(**vars(ns))
 
