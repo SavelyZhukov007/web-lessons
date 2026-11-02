@@ -497,3 +497,5 @@
 @media (max-width: 380px) {
     .campus-header nav { gap: 10px; }
 }
+.app-update-notice .app-update-close { flex: 0 0 auto; min-width: 40px; min-height: 40px; padding: 8px; }
+.app-update-notice .app-update-close svg { width: 20px; height: 20px; }

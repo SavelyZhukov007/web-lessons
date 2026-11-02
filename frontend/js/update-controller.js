@@ -1,3 +1,6 @@
+import { icon } from './icons.js';
+import { rememberDismiss, shouldShowUpdate } from './update-dismiss.js';
+
 const CHECK_INTERVAL = 60_000;
 export function hasUnsavedWork(doc = document) {
   return !!doc.querySelector('dialog[open], [data-unsaved="true"], [data-update-busy="true"]');
@@ -17,15 +20,18 @@ export function startUpdates() {
       
       closeButton = document.createElement('button');
       closeButton.type = 'button';
-      closeButton.textContent = 'X';
+      closeButton.className = 'btn btn--text btn--small app-update-close';
       closeButton.setAttribute('aria-label', 'Закрыть уведомление об обновлении');
-      closeButton.addEventListener('click', () => { bar.hidden = true; });
-      
+      closeButton.append(icon('close'));
+      // закрытие запоминается для этой версии: автопроверки и перезагрузки её больше не показывают
+      closeButton.addEventListener('click', () => { bar.hidden = true; if (pending) rememberDismiss(pendingVersion()); });
       bar.append(message, button, closeButton); document.body.append(bar);
     }
     bar.hidden = false; message.textContent = text; button.hidden = !pending; button.disabled = pending && hasUnsavedWork();
   }
-  function showPending() {
+  function pendingVersion() { return nextBuild || (registration?.waiting ? `worker:${registration.waiting.scriptURL || 'waiting'}` : null); }
+  function showPending({ manual = false } = {}) {
+    if (!shouldShowUpdate(pendingVersion(), { manual })) return;
     notify(hasUnsavedWork() ? 'Есть обновление. Сохраните или закройте форму — ввод не будет потерян.' : 'Доступна новая версия приложения.');
   }
   function reload() {
@@ -60,7 +66,7 @@ export function startUpdates() {
       if (id && !loadedBuild) loadedBuild = id;
       try { await registration?.update(); } catch { /* нет связи */ }
       if (registration?.waiting) pending = true;
-      if (pending) showPending(); // применяем только по нажатию «Обновить» или при холодном старте
+      if (pending) showPending({ manual }); // применяем только по нажатию «Обновить» или при холодном старте
       else if (manual) notify(id ? 'Установлена актуальная версия.' : 'Не удалось проверить версию. Проверьте подключение.');
       return { available: pending, build: id };
     })().finally(() => { checking = null; });
