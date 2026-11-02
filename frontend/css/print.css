@@ -229,6 +229,11 @@ body {
 }
 
 @media (max-width: 425px) {
+    #prev-button,
+    #next-button {
+        width: 80px;
+    }
+
     .print-schedule-toolbar {
         display: grid;
         grid-template-columns: auto auto;
