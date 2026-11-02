@@ -15,17 +15,14 @@ const weekCaptionNode = $('.schedule-week-caption');
 const nextButton = $('#next-button');
 const prevButton = $('#prev-button');
 const printButton = $('#print-button');
+const headerBrandNode = $('.print-schedule-header-brand');
 
-// To prevent stale api requests overwriting new ones
-// Need to increment id and store the local (to function) copy to compare.
-// No match -> data is stale -> not needed.
-let requestId = 0;
+let requestController = null;
 
 const today = moscowToday();
 const weekStart = monday(today);
 
-// Centralized state struct
-const state = { 
+const state = {
     weekStart: weekStart,
     weekEnd: addDays(weekStart, 5),
     events: [],
@@ -62,24 +59,41 @@ function safeEvents(data) {
 }
 
 async function loadSchedule() {
-    const id = ++requestId;
-    state.phase = 'loading';
+    requestController?.abort();
+    const controller = new AbortController();
+    requestController = controller;
+
+    const hasSchedule = state.phase === 'ready';
+    if (hasSchedule) {
+        state.phase = 'updating';
+    } else {
+        state.phase = 'loading';
+    }
     state.error = '';
+    
     render();
     try {
-        const data = await getSchedule(dateKey(state.weekStart));
-        if (id !== requestId) {
-            return;
+        const data = await getSchedule(
+            dateKey(state.weekStart), {}, { signal: controller.signal }
+        );
+        if (requestController !== controller) {
+            // Handles this page's cancellation events
+            return; 
         }
         state.events = safeEvents(data);
         state.phase = 'ready';
     } catch (error) {
-        if (id !== requestId) {
+        if (requestController !== controller || error.name === 'AbortError') {
+            // If abortion or other error came from getSchedule
+            // I don't want to render() error if the request isn't
+            // current
             return;
         }
         state.phase = 'error';
         state.error = error.message;
-    }
+    } 
+
+    requestController = null;
     render();
 }
 
@@ -91,25 +105,58 @@ function node(tag, className, text = '') {
 }
 
 function render() {
-    weekNode.replaceChildren(); // clears child nodes
     if (state.phase === 'loading') {
-        renderLoading();
+        weekNode.replaceChildren();
+        assembleLoading();
     } else if (state.phase === 'ready') {
-        renderSchedule();
+        weekNode.replaceChildren();
+        headerBrandNode.replaceChildren();
+        assembleUpdating(false);
+        assembleSchedule();
+    } else if (state.phase === 'updating') {
+        headerBrandNode.replaceChildren();
+        assembleUpdating(true);
     } else {
-        renderError();
+        weekNode.replaceChildren();
+        assembleError();
     }
 }
 
-function renderLoading() {
-    weekNode.append(node('h3', 'print-schedule-loading', 'Загрузка данных...'));
+function createBrand() {
+    const brand = node('a', 'campus-brand');
+    brand.href = "/";
+    brand.setAttribute("aria-label", "KipClub — главная");
+
+    const mark = node('span', 'brand-mark');
+    mark.setAttribute("aria-hidden", "true");
+
+    const name = node('span', '', 'KipClub');
+    brand.append(mark, name)
+    return brand
 }
 
-function renderError() {
+function assembleUpdating(renderCircle) {
+    console.log(`updating with ${renderCircle}`);
+    if (renderCircle) {
+        const circleWrapper = node('div', 'loading-circle-wrapper');
+        const loadingCircle = node('div', 'loading-circle');
+
+        circleWrapper.append(loadingCircle);
+        headerBrandNode.append(createBrand(), circleWrapper);
+    } else {
+        headerBrandNode.append(createBrand())
+    }
+}
+
+function assembleLoading() {
+    weekNode.append(node('h1', 'print-schedule-loading', 'Загрузка данных...'));
+}
+
+function assembleError() {
     weekNode.append(node('h1', 'print-schedule-error', state.error));
 }
 
-function renderSchedule() {
+function assembleSchedule() {
     // Data is already sorted by (item["date"], item["start_time"], item["club_name"])
     let j = 0;
     // Outer loop for weekdays, inner for state.events array -> O(i+j)
@@ -120,7 +167,7 @@ function renderSchedule() {
         const daySchedule = node('div', 'print-schedule-day');
         daySchedule.append(node('h3', '', `${DAY_NAMES[i]}, ${formatDate(date)}`));
         while ((j < state.events.length) && (state.events[j].date === key)) {
-            daySchedule.append(assembleEvent(state.events[j]));
+            daySchedule.append(createEvent(state.events[j]));
             j++;
         }   
         if (j === dayStart) {
@@ -130,8 +177,7 @@ function renderSchedule() {
     }
 }
 
-function assembleEvent(event) {
-    console.log(event);
+function createEvent(event) {
     const eventNode = node('div', 'print-schedule-lesson');
     const timeNode = node('span', 'ps-lesson-time');
     const leftColumn = node('div', 'print-schedule-lesson-left');
