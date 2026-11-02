@@ -1,0 +1,346 @@
+body {
+    margin: 0;
+    background: var(--surface-1);
+    color: var(--on-surface);
+    font-family: var(--font-ui);
+    font-size: calc(14px * var(--text-scale));
+    line-height: 1.5;
+}
+
+.loading-circle-wrapper {
+    padding-left: 4px;
+}
+
+.loading-circle {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 16px;
+    border: 2px solid var(--outline-variant);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.print-schedule-header {
+    display: grid;
+    grid-template-columns: minmax(40px, 1fr) auto minmax(0, 1fr);
+}
+
+.print-schedule-header-brand {
+    display: flex;
+    justify-self: start;
+    width: 100%;
+    align-items: center;
+}
+
+.campus-brand {
+    color: inherit;
+    text-decoration: none;
+    justify-self: start;
+}
+
+.campus-brand:hover {
+    text-decoration: underline;
+}
+
+.ps-header-content-caption {
+    display: flex;
+    align-items: center;
+}
+
+.print-schedule-header-content {
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.print-schedule-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+#print-button,
+#prev-button,
+#next-button {
+    min-height: 44px;
+    padding: 10px 15px;
+    color: var(--on-surface);
+    background: var(--bg);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-control);
+    font: inherit;
+    cursor: pointer;
+}
+
+#print-button:hover,
+#prev-button:hover,
+#next-button:hover {
+    background: var(--surface-2);
+}  
+
+.print-schedule-week {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 16px;
+    gap: 8px;
+} 
+ 
+.schedule-week-caption {
+    min-width: 170px;
+    text-align: center;
+}
+
+.print-schedule-day {
+    padding: 8px 16px;
+    border: 1px solid var(--outline-variant);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    width: 800px;
+    align-self: center;
+}
+
+.print-schedule-empty,
+.print-schedule-day h3{
+    margin: 0;
+    padding: 8px 4px 8px 0;
+}
+
+.print-schedule-lesson {
+    display: grid;
+    grid-template-columns: 100px minmax(0, 1fr) minmax(120px, 0.7fr);
+    align-items: start;
+    column-gap: 8px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    border-top: 1px solid var(--outline-variant);
+}
+
+.ps-lesson-status,
+.ps-lesson-leader,
+.ps-lesson-name,
+.ps-lesson-room,
+.ps-lesson-time,
+.print-schedule-lesson-left,
+.print-schedule-lesson-mid,
+.print-schedule-lesson-right {
+    display: flex;
+    flex-direction: column;
+}
+
+.crossed-out {
+    text-decoration: line-through;
+}
+
+.print-schedule-error,
+.print-schedule-loading {
+    display: flex;
+    align-items: start;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+@media (max-width: 930px) {
+    .campus-brand .brand-mark { 
+        width: calc(40px * var(--text-scale, 1)); 
+        height: calc(40px * var(--text-scale, 1));
+    }
+
+    .campus-brand {
+        flex-direction: row;
+        align-items: center;
+        gap: 0;
+    }
+
+    .campus-brand > span:not(.brand-mark),
+    .campus-brand small { display: none; }
+}
+
+@media (max-width: 848px) { 
+    .print-schedule-week {
+        display: grid;
+    }
+
+    .print-schedule-day {
+        width: auto;
+    }
+}
+
+@media (max-width: 700px) { 
+    #print-button {
+        font: unset;
+        font-size: 0;
+    }
+
+    #print-button::before {
+        content: "🖨️";
+        font-size: calc(14px * var(--text-scale));;
+    }
+}
+
+@media (max-width: 666px) {
+    .print-schedule-header {
+        grid-template-columns: auto;
+        gap: 8px 12px;
+        align-items: center;
+        padding: 8px 12px;
+    }
+
+    .print-schedule-header-content {
+        display: contents;
+    }
+
+    .print-schedule-header-brand{
+        grid-column: 1;
+        grid-row: 1;
+        padding-left: 0;
+        justify-self: start;
+    }
+
+    .print-schedule-header-content h1 {
+        grid-column: 1;
+        grid-row: 1;
+        margin: 0;
+        justify-self: center;
+    }
+
+    .print-schedule-toolbar {
+        grid-column: 1;
+        grid-row: 2;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 454px) {
+    .print-schedule-lesson {
+        grid-template-columns: 67px minmax(0, 1fr) minmax(120px, 0.7fr);
+    }
+}
+
+@media (max-width: 420px) {
+    .print-schedule-toolbar {
+        display: grid;
+        grid-template-columns: auto auto;
+        grid-template-rows: auto auto auto; 
+        gap: 4px;
+    }
+
+    .campus-brand .brand-mark { 
+        width: calc(30px * var(--text-scale, 1)); 
+        height: calc(30px * var(--text-scale, 1));
+    }
+
+    .loading-circle-wrapper {
+        padding-left: 0;
+    }
+
+    .loading-circle {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 16px;
+        border: 2px solid var(--outline-variant);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    #prev-button {
+        grid-row: 3;    
+        grid-column: 1;
+        justify-self: start;
+    }
+
+    #next-button {
+        grid-row: 3;    
+        grid-column: 1;
+        justify-self: end;
+    }
+
+    .schedule-week-caption {
+        grid-row: 1;    
+        grid-column: 1;
+        justify-self: center;
+    }
+
+    #print-button{
+        grid-row: 2;    
+        grid-column: 1;
+        justify-self: center;
+    }
+
+    .print-schedule-lesson {
+        grid-template-columns: 64px minmax(0, 1fr);
+        grid-template-areas:
+            "left mid"
+            "left right";
+        column-gap: 12px;
+        row-gap: 4px;
+    }
+
+    .print-schedule-lesson-left,
+    .print-schedule-lesson-mid,
+    .print-schedule-lesson-right {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .print-schedule-lesson-left { grid-area: left }
+    .print-schedule-lesson-mid { grid-area: mid }
+    .print-schedule-lesson-right { grid-area: right }
+}
+
+@media print {
+    body {
+        font-size: calc(10px * var(--text-scale));
+        line-height: 1;
+    }
+
+    #prev-button, 
+    #next-button,
+    #print-button {
+        display: none;
+    }
+
+    .schedule-week-caption {
+        font-size: 19px;
+    }
+
+    .print-schedule-day {
+        padding: 0 8px 0 8px;
+        border: 1px solid var(--outline-variant);
+        border-radius: 0;
+        box-shadow: none;
+        break-inside: avoid;
+        width: 90%;
+        page-break-inside: avoid; /* legacy browser compatibility (do I need this?) */
+    }
+
+    .print-schedule-day h1 {
+        padding: 0;
+    }
+
+    .print-schedule-week {
+        gap: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .campus-brand {
+        display: none;
+    }
+}
+
+@page {
+    margin: 12mm;
+}
