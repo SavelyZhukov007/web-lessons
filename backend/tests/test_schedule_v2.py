@@ -474,3 +474,23 @@ def test_update_session_extra_rooms_are_checked(admin_client):
         assert ce.check_change(db, "update_session", other["session"]["id"], {"room_ids": [other["room"]["id"]]}, today=TODAY) == []
         found = ce.check_change(db, "update_session", other["session"]["id"], {"room_ids": [other["room"]["id"], w["room"]["id"]]}, today=TODAY)
     assert found and {c.resource for c in found} == {"room"}
+
+
+def test_public_schedule_keeps_moved_away_class_for_ghost_card(admin_client):
+    """«Перенесено»: неделя исходной даты получает событие moved с новой датой в другой неделе."""
+    w = make_world(admin_client, weekday=1)
+    move = {"session_id": w["session"]["id"], "original_date": "2026-11-09", "type": "moved", "new_date": "2026-11-18",
+            "new_start_time": "12:00", "new_end_time": "13:00", "new_room_id": w["room"]["id"], "comment": "перенос"}
+    assert admin_client.post("/api/admin/exceptions/moves", json=move).status_code == 201
+    old_week = admin_client.get("/api/schedule", params={"week": "2026-11-09"}).json()
+    moved = [e for e in old_week if e["status"] == "moved"]
+    assert len(moved) == 1
+    e = moved[0]
+    assert e["original_date"] == "2026-11-09" and e["date"] == "2026-11-18"
+    assert (e["original_start_time"], e["original_end_time"]) == ("10:00", "11:00")
+    assert (e["start_time"], e["end_time"]) == ("12:00", "13:00")
+    assert not [x for x in old_week if x["date"] == "2026-11-09" and x["status"] == "scheduled"]
+    new_week = admin_client.get("/api/schedule", params={"week": "2026-11-16"}).json()
+    assert [x["event_id"] for x in new_week if x["status"] == "moved"] == [e["event_id"]]
+    # внутренние потребители (экспорт календаря, конфликты) событие «уехавшей» недели не получают
+    assert not [x for x in occ.week_events(snap(), date(2026, 11, 9)) if x["status"] == "moved"]

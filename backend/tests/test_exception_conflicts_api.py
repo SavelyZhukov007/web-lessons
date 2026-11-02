@@ -272,7 +272,10 @@ def test_move_between_weeks(admin_client):
     assert resp.status_code == 201, resp.text
 
     src = get_week(admin_client, "2026-10-19")
-    assert events_for_session(src, w["session"]["id"]) == []
+    # исходная неделя получает событие «перенесено» с новой датой (для карточки «Перенесено» в старом слоте)
+    away = events_for_session(src, w["session"]["id"])
+    assert [(e["status"], e["date"], e["original_date"], e["original_start_time"]) for e in away] == [
+        ("moved", "2026-10-26", "2026-10-19", "10:00")]
 
     dst = get_week(admin_client, "2026-10-26")
     same = events_for_session(dst, w["session"]["id"])
@@ -303,7 +306,7 @@ def test_move_cross_month(admin_client):
     )
     assert resp.status_code == 201, resp.text
     src = get_week(admin_client, "2026-10-26")
-    assert events_for_session(src, w["session"]["id"]) == []
+    assert [e["status"] for e in events_for_session(src, w["session"]["id"])] == ["moved"]  # «Перенесено» в старом слоте
     dst = get_week(admin_client, "2026-11-02")
     same = events_for_session(dst, w["session"]["id"])
     moved = [e for e in same if e["original_date"] == "2026-10-26"]

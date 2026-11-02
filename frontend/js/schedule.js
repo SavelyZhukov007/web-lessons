@@ -79,7 +79,50 @@ function safeEvents(data) {
   }
   const first = dateKey(state.week);
   const last = dateKey(addDays(state.week, 5));
-  return data.filter(event => event.date >= first && event.date <= last);
+  // перенесённое на другую неделю занятие остаётся: в старом слоте рисуется «Перенесено»
+  return data.filter(event => (event.date >= first && event.date <= last)
+    || (event.status === 'moved' && event.original_date >= first && event.original_date <= last));
+}
+
+// «Перенесено»: перенесённое занятие оставляет в старом слоте приглушённую карточку со ссылкой «Актуальное время»
+function ghostEvents(events) {
+  return events.filter(e => e.status === 'moved' && parseDate(e.original_date)
+    && (e.date !== e.original_date || (e.original_start_time && e.original_start_time !== e.start_time)))
+    .map(e => ({ ...e, ghost: true, moved: e, date: e.original_date,
+      start_time: e.original_start_time || e.start_time, end_time: e.original_end_time || e.end_time }));
+}
+
+function ghostCard(ghost, compact = false) {
+  const e = ghost.moved, nd = parseDate(e.date);
+  const box = node('div', `calendar-event itc-ghost${compact ? ' compact' : ''}`);
+  box.setAttribute('role', 'group');
+  box.setAttribute('aria-label', `${e.club_name}: перенесено на ${formatDate(nd)}, ${e.start_time}`);
+  const time = node('span', 'event-time itc-ghost-time');
+  time.append(node('s', '', `${ghost.start_time}–${ghost.end_time}`));
+  const go = node('button', 'itc-ghost-link', `Актуальное время: ${formatDate(nd, { weekday: 'short', day: 'numeric', month: 'long' })}, ${e.start_time}`);
+  go.type = 'button';
+  go.addEventListener('click', () => jumpTo(e));
+  box.append(time, node('strong', 'event-name', e.club_name), node('span', 'event-badge', 'Перенесено'), go);
+  return box;
+}
+
+let pendingJump = null;
+function jumpTo(e) {
+  const nd = parseDate(e.date);
+  state.day = Math.min((nd.getDay() + 6) % 7, 5);
+  if (fields.weekday.value) fields.weekday.value = String(state.day + 1);
+  pendingJump = e.event_id;
+  if (dateKey(monday(nd)) === dateKey(state.week)) { render(); flashPending(); } else showWeek(nd);
+}
+function flashPending() {
+  if (!pendingJump) return;
+  const el = [...content.querySelectorAll('.calendar-event[data-event-id]')].find(x => x.dataset.eventId === pendingJump);
+  if (!el) return;
+  pendingJump = null;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.focus({ preventScroll: true });
+  el.classList.add('itc-flash');
+  setTimeout(() => el.classList.remove('itc-flash'), 1800);
 }
 
 async function loadSchedule() {
@@ -200,6 +243,7 @@ function details(event) {
 }
 
 function eventCard(event, compact = false) {
+  if (event.ghost) return ghostCard(event, compact);
   const button = node('button', `calendar-event ${event.status}${event.status !== 'scheduled' ? ' has-status' : ''}${compact ? ' compact' : ''}`);
   button.type = 'button';
   button.dataset.eventId = event.event_id;
@@ -358,14 +402,17 @@ function render() {
     return;
   }
   const days = mobile.matches ? [state.day] : visibleDays();
-  const events = state.events.filter(event => days.some(day => event.date === dateKey(addDays(state.week, day))));
-  const active = events.filter(event => event.status !== 'cancelled').length;
-  const cancelled = events.length - active;
+  const inDays = list => list.filter(event => days.some(day => event.date === dateKey(addDays(state.week, day))));
+  const real = inDays(state.events);
+  const events = real.concat(inDays(ghostEvents(state.events)));
+  const active = real.filter(event => event.status !== 'cancelled').length;
+  const cancelled = real.length - active;
   $('#result-status').textContent = `${mobile.matches ? 'За день' : 'За выбранные дни'}: ${active} · отменено: ${cancelled}${hasFilters() ? ' · фильтры включены' : ''}`;
   if (events.length === 0) {
     content.append(emptyState(hasFilters() ? 'Ничего не нашлось' : 'Занятий пока нет', hasFilters() ? 'Попробуй другое сочетание фильтров или сбрось их.' : 'Выбери другой день или неделю. Здесь появятся занятия, добавленные в расписание.', hasFilters() ? { label: 'Сбросить фильтры', run: resetFilters } : undefined));
   } else if (mobile.matches || state.view === 'list') renderList(events, days);
   else renderGrid(events, days);
+  flashPending();
 }
 
 for (let day = 0; day < 6; day++) {

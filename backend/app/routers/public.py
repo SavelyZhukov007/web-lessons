@@ -213,7 +213,7 @@ def schedule(
     db: Session = Depends(get_db),
 ):
     week_start = _parse_week_start(week)
-    events = occ_src.week_events(occ_src.load_snapshot(db), week_start)
+    events = occ_src.week_events(occ_src.load_snapshot(db), week_start, include_moved_away=True)
     return _filter_events(events, category_id, weekday, leader_id, room_id, search)
 
 

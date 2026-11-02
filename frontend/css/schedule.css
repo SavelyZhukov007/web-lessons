@@ -1033,3 +1033,10 @@
 #event-dialog .event-badge.cancelled {
     color: var(--status-cancelled-fg);
 }
+
+/* «Перенесено»: приглушённая карточка в старом слоте со ссылкой на актуальное время */
+.calendar-event.itc-ghost { opacity: .8; background: transparent; border: 1px dashed var(--line, #8886); box-shadow: none; cursor: default; display: grid; align-content: start; gap: 2px; overflow: hidden; }
+.calendar-event.itc-ghost .event-name, .calendar-event.itc-ghost .itc-ghost-time { color: var(--muted, #666); }
+.calendar-event.itc-ghost .itc-ghost-time s { text-decoration-thickness: 1.5px; }
+.itc-ghost-link { justify-self: start; padding: 2px 0; border: 0; background: none; color: var(--primary, #1a56db); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-align: left; cursor: pointer; }
+.calendar-event.itc-flash { outline: 3px solid var(--primary, #1a56db); outline-offset: 2px; }

@@ -102,7 +102,8 @@ function safeEvents(data, week) {
     throw new Error('Сервер вернул расписание в неожиданном формате. Попробуй обновить данные.');
   }
   const first = dateKey(week), last = dateKey(addDays(week, 5));
-  return data.filter(e => e.date >= first && e.date <= last);
+  // перенесённое на другую неделю занятие остаётся: в старом слоте рисуется «Перенесено»
+  return data.filter(e => (e.date >= first && e.date <= last) || (e.status === 'moved' && e.original_date >= first && e.original_date <= last));
 }
 
 // ---------- загрузка: кэш сразу, сеть потом ----------

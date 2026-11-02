@@ -187,6 +187,7 @@
         '<label class="itc-sw itc-sw-custom" role="radio" aria-label="Свой цвет" aria-checked="' + custom + '"><input type="color" data-custom-accent value="' + esc(pr.customAccent || '#e0a800') + '" aria-label="Свой цвет акцента"><i></i></label>' +
         '</div></div></div>' +
       '<h2>Уведомления</h2><div class="itc-group"><label class="itc-row itc-row-sw"><span class="itc-row-tx"><span>Вибрация</span><small>Короткий отклик на нажатия</small></span><input type="checkbox" role="switch" class="itc-switch" data-haptics' + (Haptics.on() ? ' checked' : '') + '></label><div data-ext="notify"></div></div>' + adminAcc +
+      '<h2>Помощь</h2><div class="itc-group">' + row('Обратная связь', { act: 'feedback' }) + '</div>' +
       '<h2>О приложении</h2><div class="itc-group">' + row('Проверить обновления', { act: 'update' }) +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Версия</span></span><span class="itc-row-val">' + esc(window.ITC_VERSION || '—') + '</span></div>' +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Разработчик</span></span><span class="itc-row-val">ИТС КИПФИН</span></div></div>' +
@@ -241,6 +242,7 @@
       else if (a === 'schedule') location.href = '/?from=admin';
       else if (a === 'password') { if (window.ClubsAdmin) window.ClubsAdmin.changePassword(); else location.href = '/admin/index.html#/account/password'; }
       else if (a === 'admin') location.href = '/admin/index.html';
+      else if (a === 'feedback') import('/js/feedback.js').then(function (m) { m.openFeedback(); }).catch(function () { toast('Не удалось открыть форму обратной связи'); });
       else if (a === 'update') { if (window.ItcAppUpdate) window.ItcAppUpdate.check({ manual: true }); else toast('Обновления проверяются только в приложении'); }
     });
   }

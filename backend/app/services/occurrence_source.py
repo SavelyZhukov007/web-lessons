@@ -549,18 +549,40 @@ def has_upcoming(snap: Snapshot, session_id: int, *, today: date | None = None) 
     return bool(next_dates(snap, session_id, limit=1, today=today))
 
 
-def week_events(snap: Snapshot, week_start: date) -> list[dict]:
-    """События недели в формате ScheduleEvent (совместимо с build_week + поля v2)."""
+def week_events(snap: Snapshot, week_start: date, *, include_moved_away: bool = False) -> list[dict]:
+    """События недели в формате ScheduleEvent (совместимо с build_week + поля v2).
+
+    include_moved_away=True (публичное расписание): занятие, перенесённое из этой недели на другую,
+    тоже возвращается (status="moved", date = новая дата вне недели, original_date — в этой неделе),
+    чтобы клиент нарисовал в старом слоте карточку «Перенесено» со ссылкой «Актуальное время».
+    """
     week_end = week_start + timedelta(days=6)
     events: list[dict] = []
-    for occ in snapshot_occurrences(snap, week_start, week_end):
+    occs = snapshot_occurrences(snap, week_start, week_end)
+    present = {o.key for o in occs if o.status == "moved_in"}
+    for occ in occs:
         if occ.status == "moved_out":
+            if include_moved_away and occ.key not in present:
+                event = _moved_away_event(snap, occ)
+                if event is not None:
+                    events.append(event)
             continue
         event = occurrence_event(snap, occ)
         if event is not None:
             events.append(event)
     events.sort(key=lambda e: (e["date"], e["start_time"], e["club_name"]))
     return events
+
+
+def _moved_away_event(snap: Snapshot, occ: Occurrence) -> dict | None:
+    exc = next((e for e in snap.exceptions if getattr(e, "id", None) == occ.exception_id), None)
+    if exc is None or getattr(exc, "type", None) != "moved" or not getattr(exc, "new_date", None):
+        return None
+    new_day = _d(exc.new_date)
+    for moved in snapshot_occurrences(snap, new_day, new_day, session_ids=[occ.source_session_id]):
+        if moved.status == "moved_in" and moved.key == occ.key:
+            return occurrence_event(snap, moved)
+    return None
 
 
 def occurrence_event(snap: Snapshot, occ: Occurrence) -> dict | None:

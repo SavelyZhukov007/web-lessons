@@ -3,7 +3,13 @@
 #   SITE_ADDRESS=clubs.lan              — внутренний адрес: сертификат от внутреннего CA Caddy (tls internal), см. docs/DEPLOY_COLLEGE.md
 {$SITE_ADDRESS} {
 	encode zstd gzip
-	request_body {
+	# «Обратная связь»: скриншоты + логи (до 30 МБ), остальное — 1 МБ
+	@feedback path /api/feedback*
+	request_body @feedback {
+		max_size 30MB
+	}
+	@notfeedback not path /api/feedback*
+	request_body @notfeedback {
 		max_size 1MB
 	}
 	{$CADDY_TLS:}
