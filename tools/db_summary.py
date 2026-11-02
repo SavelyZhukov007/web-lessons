@@ -1,4 +1,5 @@
 import sqlite3
+import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -8,7 +9,7 @@ def get_db_summary(path_to_db: str) -> None | dict[str, int]:
     активных и неактивных кружков, регулярных занятий и исключений"""
     db_path = Path(path_to_db).resolve()
     if not db_path.is_file():
-        print(f"База данных не найдена по пути: {db_path}")
+        print(f"База данных не найдена по пути: {db_path}", file=sys.stderr)
         return None
 
     conn = None
@@ -55,18 +56,23 @@ def get_db_summary(path_to_db: str) -> None | dict[str, int]:
         print(f"  Кол-во исключений:         {session_exceptions_num}")
         return res
     except sqlite3.Error as error:
-        print(f"Ошибка при работе с бд: {error}")
+        print(f"Ошибка при работе с бд: {error}", file=sys.stderr)
+        return None
     finally:
         if conn is not None:
             conn.close()
 
 
-if __name__ == "__main__":
+def main(argv=None) -> int:
     parser = ArgumentParser(
         description="Утилита для краткой сводки по базе данных (sqlite)"
     )
     parser.add_argument(
         "-p", "--path", required=True, help="Путь к дб (sqlite)", type=str
     )
-    args = parser.parse_args()
-    get_db_summary(args.path)
+    args = parser.parse_args(argv)
+    return 0 if get_db_summary(args.path) is not None else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

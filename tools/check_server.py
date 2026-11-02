@@ -1,53 +1,53 @@
 #!/usr/bin/env python3
+"""Проверка доступности сервера KipClub: GET /healthz и /readyz (только стандартная библиотека)."""
 import sys
-import requests
-from urllib.parse import urljoin
+import urllib.error
+import urllib.request
+
+PATHS = ("/healthz", "/readyz")
 
 
-def check_endpoint(session, base_url, path, timeout):
-    full_url = urljoin(base_url.rstrip("/"), path)
+def endpoint_url(base_url: str, path: str) -> str:
+    """Склеивает адрес, сохраняя префикс пути базы: http://h/clubs + /healthz → http://h/clubs/healthz."""
+    return base_url.rstrip("/") + "/" + path.lstrip("/")
+
+
+def check_endpoint(base_url, path, timeout, opener=urllib.request.urlopen):
+    full_url = endpoint_url(base_url, path)
     try:
-        resp = session.get(full_url, timeout=timeout)
-        if 200 <= resp.status_code < 300:
-            print(f"OK: {path} — status {resp.status_code}")
-            return True
-        else:
-            print(f"FAIL: {path} — status {resp.status_code}")
-            return False
-    except requests.exceptions.Timeout:
+        with opener(urllib.request.Request(full_url, method="GET"), timeout=timeout) as resp:
+            status = resp.status
+    except urllib.error.HTTPError as e:
+        status = e.code
+    except TimeoutError:
         print(f"FAIL: {path} — timeout")
         return False
-    except requests.exceptions.ConnectionError:
-        print(f"FAIL: {path} — connection failed")
+    except (urllib.error.URLError, OSError) as e:
+        reason = getattr(e, "reason", e)
+        if isinstance(reason, TimeoutError):
+            print(f"FAIL: {path} — timeout")
+        else:
+            print(f"FAIL: {path} — connection failed")
         return False
-    except requests.exceptions.RequestException as e:
-        print(f"FAIL: {path} — error: {e}")
-        return False
+    if 200 <= status < 300:
+        print(f"OK: {path} — status {status}")
+        return True
+    print(f"FAIL: {path} — status {status}")
+    return False
 
 
-def main():
-    if len(sys.argv) != 2:
+def main(argv=None, opener=urllib.request.urlopen) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if len(argv) != 1:
         print("Usage: python tools/check_server.py <server_address>")
-        sys.exit(1)
-
-    base_url = sys.argv[1]
-    timeout = 5
-    paths = ["/healthz", "/readyz"]
-    all_ok = True
-    with requests.Session() as session:
-        for path in paths:
-            ok = check_endpoint(session, base_url, path, timeout)
-            if not ok:
-                all_ok = False
-
-    if all_ok:
+        return 1
+    results = [check_endpoint(argv[0], path, 5, opener) for path in PATHS]
+    if all(results):
         print("Server is available, application is ready to work")
-        sys.exit(0)
-    else:
-        print("Check failed: there are problems with one or more endpoints")
-        sys.exit(1)
+        return 0
+    print("Check failed: there are problems with one or more endpoints")
+    return 1
 
 
 if __name__ == "__main__":
-    main()
-
+    sys.exit(main())
