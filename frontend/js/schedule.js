@@ -273,6 +273,15 @@ function openEventGroup(events) {
     button.style.setProperty('--event-color', clubColor(event.club_id, event.category_color, event.category_name));
     button.append(node('span', 'parallel-dialog-time', `${event.start_time}–${event.end_time}`),
       node('strong', '', event.club_name), node('span', 'parallel-dialog-room', eventRoom(event, rooms)));
+    if (event.ghost) {
+      const nd = parseDate(event.moved.date);
+      button.classList.add('itc-ghost');
+      button.append(node('span', 'event-badge', 'Перенесено'),
+        node('span', 'itc-ghost-link', `Актуальное время: ${formatDate(nd, { weekday: 'short', day: 'numeric', month: 'long' })}, ${event.moved.start_time}`));
+      button.addEventListener('click', () => { $('#event-dialog').close(); jumpTo(event.moved); });
+      list.append(button);
+      continue;
+    }
     if (event.status !== 'scheduled') button.append(node('span', 'event-badge', statusNames[event.status]));
     button.addEventListener('click', () => { $('#event-dialog').close(); details(event); });
     list.append(button);
@@ -294,7 +303,7 @@ function groupCard(group) {
     const line = node('span', 'parallel-group-line');
     const dot = node('span', 'parallel-group-dot');
     dot.style.backgroundColor = clubColor(event.club_id, event.category_color, event.category_name);
-    line.append(dot, node('span', '', event.club_name));
+    line.append(dot, node('span', '', event.ghost ? `${event.club_name} · перенесено` : event.club_name));
     preview.append(line);
   }
   button.append(preview);
