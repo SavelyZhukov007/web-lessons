@@ -70,7 +70,7 @@ async function loadSchedule() {
         state.phase = 'loading';
     }
     state.error = '';
-    
+
     render();
     try {
         const data = await getSchedule(
@@ -113,6 +113,7 @@ function render() {
         headerBrandNode.replaceChildren();
         assembleUpdating(false);
         assembleSchedule();
+        updateToolbar();
     } else if (state.phase === 'updating') {
         headerBrandNode.replaceChildren();
         assembleUpdating(true);
@@ -243,9 +244,9 @@ async function loadWeek(date) {
     state.weekStart = weekStart;
     state.weekEnd = addDays(weekStart, 5);
 
-    updateToolbar();
     await loadSchedule();
 }
+
 
 prevButton.addEventListener('click', () => { loadWeek(addDays(state.weekStart, -7)); });
 nextButton.addEventListener('click', () => { loadWeek(addDays(state.weekStart, 7)); });
