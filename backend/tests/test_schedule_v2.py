@@ -7,7 +7,8 @@ from datetime import date, timedelta
 import pytest
 from sqlalchemy import text
 
-from backend.app.database import SessionLocal, engine as db_engine
+from backend.app.database import SessionLocal
+from backend.app.database import engine as db_engine
 from backend.app.services import calendar_export, import_publish
 from backend.app.services import conflicts as ce
 from backend.app.services import occurrence_source as occ
@@ -494,3 +495,18 @@ def test_public_schedule_keeps_moved_away_class_for_ghost_card(admin_client):
     assert [x["event_id"] for x in new_week if x["status"] == "moved"] == [e["event_id"]]
     # внутренние потребители (экспорт календаря, конфликты) событие «уехавшей» недели не получают
     assert not [x for x in occ.week_events(snap(), date(2026, 11, 9)) if x["status"] == "moved"]
+
+
+def test_weekday_filter_keeps_ghost_of_class_moved_to_another_week(admin_client):
+    """Фильтр по дню недели: призрак уехавшего занятия остаётся в дне исходного слота."""
+    w = make_world(admin_client, weekday=1)
+    move = {"session_id": w["session"]["id"], "original_date": "2026-11-09", "type": "moved", "new_date": "2026-11-18",
+            "new_start_time": "12:00", "new_end_time": "13:00", "new_room_id": w["room"]["id"], "comment": "перенос"}
+    assert admin_client.post("/api/admin/exceptions/moves", json=move).status_code == 201
+    mon = admin_client.get("/api/schedule", params={"week": "2026-11-09", "weekday": 1}).json()
+    assert [e["date"] for e in mon if e["status"] == "moved"] == ["2026-11-18"]
+    wed = admin_client.get("/api/schedule", params={"week": "2026-11-09", "weekday": 3}).json()
+    assert not [e for e in wed if e["status"] == "moved"]
+    # в неделе новой даты — по фактическому дню (среда)
+    new_wed = admin_client.get("/api/schedule", params={"week": "2026-11-16", "weekday": 3}).json()
+    assert [e["date"] for e in new_wed if e["status"] == "moved"] == ["2026-11-18"]

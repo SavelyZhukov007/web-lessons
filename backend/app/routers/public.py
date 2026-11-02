@@ -29,7 +29,6 @@ from ..services import occurrence_source as occ_src
 from ..services.calendar_export import build_calendar, build_club_calendar
 from ..services.clock import now_msk
 from ..services.occurrences import occurrences_for_range
-from ..services.schedule import build_week
 
 router = APIRouter(prefix="/api", tags=["public"])
 
@@ -214,17 +213,28 @@ def schedule(
 ):
     week_start = _parse_week_start(week)
     events = occ_src.week_events(occ_src.load_snapshot(db), week_start, include_moved_away=True)
-    return _filter_events(events, category_id, weekday, leader_id, room_id, search)
+    return _filter_events(events, category_id, weekday, leader_id, room_id, search, week_start)
 
 
-def _filter_events(events, category_id, weekday, leader_id, room_id, search):
+def _display_weekday(event, week_start: date | None) -> int:
+    """День недели, в который событие видно на сетке этой недели.
+
+    Перенесённое в другую неделю занятие (призрак) стоит в исходном слоте — original_date."""
+    day = date.fromisoformat(event["date"])
+    original = event.get("original_date")
+    if week_start is not None and original and not (week_start <= day < week_start + timedelta(days=7)):
+        return date.fromisoformat(original).isoweekday()
+    return day.isoweekday()
+
+
+def _filter_events(events, category_id, weekday, leader_id, room_id, search, week_start: date | None = None):
     if category_id is not None:
         events = [event for event in events if event["category_id"] == category_id]
     if weekday is not None:
         events = [
             event
             for event in events
-            if date.fromisoformat(event["date"]).isoweekday() == weekday
+            if _display_weekday(event, week_start) == weekday
         ]
     if leader_id is not None:
         events = [event for event in events if leader_id in (event.get("leader_ids") or [event["leader_id"]])]
