@@ -97,7 +97,7 @@ body {
 } 
  
 .schedule-week-caption {
-    min-width: 170px;
+    min-width: 230px;
     text-align: center;
 }
 
@@ -150,7 +150,7 @@ body {
     min-height: 100dvh;
 }
 
-@media (max-width: 930px) {
+@media (max-width: 999px) {
     .campus-brand .brand-mark { 
         width: calc(40px * var(--text-scale, 1)); 
         height: calc(40px * var(--text-scale, 1));
@@ -176,7 +176,7 @@ body {
     }
 }
 
-@media (max-width: 700px) { 
+@media (max-width: 794px) { 
     #print-button {
         font: unset;
         font-size: 0;
@@ -188,7 +188,7 @@ body {
     }
 }
 
-@media (max-width: 666px) {
+@media (max-width: 723px) {
     .print-schedule-header {
         grid-template-columns: auto;
         gap: 8px 12px;
@@ -228,7 +228,7 @@ body {
     }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 425px) {
     .print-schedule-toolbar {
         display: grid;
         grid-template-columns: auto auto;
