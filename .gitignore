@@ -36,3 +36,5 @@ fcm-key*.json
 QA/
 
 py.py
+py.py.before-fast.bak
+py.py.before-tuning.bak
