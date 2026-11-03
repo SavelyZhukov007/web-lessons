@@ -14,7 +14,7 @@ export function openFeedback(opener) {
   dialog?.remove();
   dialog = h('dialog', { class: 'sheet sheet--bottom feedback-sheet', 'aria-labelledby': 'feedback-title' });
   dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
-  dialog.addEventListener('close', () => opener?.focus?.());
+  dialog.addEventListener('close', () => { state.files.forEach(f => { if (f.url) URL.revokeObjectURL(f.url); }); opener?.focus?.(); });
   const err = name => h('p', { class: 'field-error', role: 'alert', hidden: true, dataset: { err: name } });
   const errors = { type: err('type'), description: err('description'), contact: err('contact'), files: err('files') };
 
@@ -34,22 +34,30 @@ export function openFeedback(opener) {
   const picker = h('input', { type: 'file', accept: MIME.join(','), multiple: true, hidden: true });
   const addBtn = h('button', { type: 'button', class: 'btn btn--small btn--tonal' }, icon('plus'), ' Скриншот');
   addBtn.addEventListener('click', () => picker.click());
+  const fmtSize = n => n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`;
+  const revoke = f => { if (f.url) { URL.revokeObjectURL(f.url); f.url = ''; } };
+  const removeShot = i => { const [f] = state.files.splice(i, 1); if (f) revoke(f); renderThumbs(); check(); };
   const renderThumbs = () => {
-    thumbs.replaceChildren(...state.files.map((f, i) => h('figure', { class: 'fb-thumb' }, f.url ? h('img', { src: f.url, alt: `Скриншот ${i + 1}` }) : h('span', { class: 'fb-thumb-name' }, f.file.name),
-      h('button', { type: 'button', class: 'fb-thumb-remove', 'aria-label': `Убрать скриншот ${i + 1}`, onclick: () => { state.files.splice(i, 1); renderThumbs(); check(); } }, icon('close')))));
+    thumbs.replaceChildren(...state.files.map((f, i) => {
+      const fig = h('figure', { class: 'fb-thumb', title: `${f.file.name} · ${fmtSize(f.size)}` });
+      if (f.url) {
+        const img = h('img', { src: f.url, alt: `Скриншот ${i + 1}`, decoding: 'async' });
+        img.addEventListener('error', () => { fig.classList.add('fb-thumb--noimg'); img.remove(); });
+        fig.append(img);
+      } else fig.classList.add('fb-thumb--noimg');
+      fig.append(h('figcaption', { class: 'fb-thumb-caption' }, h('span', { class: 'fb-thumb-name' }, f.file.name), h('span', { class: 'fb-thumb-size' }, fmtSize(f.size))),
+        h('button', { type: 'button', class: 'fb-thumb-remove', 'aria-label': `Убрать скриншот ${i + 1}`, onclick: () => removeShot(i) }, icon('close')));
+      return fig;
+    }));
     addBtn.disabled = state.files.length >= MAX_SHOTS;
   };
   picker.addEventListener('change', () => {
     const picked = [...picker.files];
     picker.value = '';
-    Promise.all(picked.map(file => new Promise(resolve => {
-      const entry = { file, type: file.type, size: file.size, url: '' };
-      if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) return resolve(entry);
-      const reader = new FileReader();
-      reader.onload = () => { entry.url = String(reader.result); resolve(entry); };
-      reader.onerror = () => resolve(entry);
-      reader.readAsDataURL(file);
-    }))).then(entries => { state.files.push(...entries); renderThumbs(); check(); });
+    // Превью через object URL (быстрее data URL, без чтения файла в память); освобождается при удалении/закрытии.
+    const entries = picked.map(file => ({ file, type: file.type, size: file.size,
+      url: (!file.type || file.type.startsWith('image/')) ? URL.createObjectURL(file) : '' }));
+    state.files.push(...entries); renderThumbs(); check();
   });
 
   let info = null;
@@ -89,7 +97,7 @@ export function openFeedback(opener) {
     h('label', { class: 'field', for: 'fb-desc' }, h('span', { class: 'field-label' }, 'Описание'), desc, h('span', { class: 'fb-under' }, errors.description, counter)),
     h('label', { class: 'field', for: 'fb-contact' }, h('span', { class: 'field-label' }, 'Контакт для ответа (необязательно)'), contact, errors.contact),
     honeypot,
-    h('section', { class: 'sheet-section' }, h('h3', {}, 'Скриншоты'), thumbs, picker, addBtn, errors.files),
+    h('section', { class: 'sheet-section' }, h('h3', {}, 'Скриншоты'), thumbs, picker, h('div', { class: 'fb-shots-row' }, addBtn, h('span', { class: 'fb-hint' }, 'Каждый скриншот — до 5 МБ')), errors.files),
     status, h('p', { class: 'fb-tech' }, 'К обращению автоматически прикладываются технические данные (версия, устройство, журнал ошибок) — без паролей и личных данных.'),
     h('div', { class: 'sheet-foot' }, cancel, submit));
   form.addEventListener('submit', e => { e.preventDefault(); send(); });
