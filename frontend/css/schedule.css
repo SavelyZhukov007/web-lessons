@@ -29,7 +29,15 @@
 .week-caption {
     display: flex;
     align-items: baseline;
+    justify-content: center;
     gap: 6px;
+    /* Фиксированная ширина под самую длинную подпись («28 декабря — 2 января 2026 / 2027»),
+       чтобы кнопки справа не прыгали при смене недели. */
+    width: calc(256px * var(--text-scale, 1));
+    max-width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .week-caption h2 {
@@ -646,6 +654,10 @@
         font-size: calc(18px * var(--text-scale, 1));
     }
 
+    .week-caption {
+        width: calc(288px * var(--text-scale, 1));
+    }
+
     .event-name {
         font-size: calc(14px * var(--text-scale, 1));
     }
@@ -872,6 +884,10 @@
     .week-caption {
         flex-wrap: nowrap;
         gap: 5px;
+        /* На телефоне подпись занимает место между стрелками, стрелки прижаты к краям */
+        flex: 1 1 auto;
+        width: auto;
+        min-width: 0;
     }
 
     .week-caption h2 {
@@ -1056,3 +1072,74 @@
 .print-week-link:hover { background: var(--surface-2, var(--surface-1)); }
 .print-week-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 @media (max-width: 720px) { .print-week-link { display: none; } }
+
+/* Очень узкие экраны: год всегда второй строкой — высота и ширина подписи постоянны */
+@media (max-width: 379px) {
+    .week-caption {
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+    }
+}
+
+/* ===== Скелетон загрузки и каскад в расписание (js/skeleton-cascade.js) ===== */
+.schedule-page #content {
+    position: relative;
+}
+
+.campus-page .calendar-event.skel {
+    gap: 7px;
+    border-left-color: var(--primary-container);
+    background: var(--surface-1);
+    pointer-events: none;
+}
+
+.skel-bar {
+    display: block;
+    height: 10px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 300% 100%;
+    animation: skel-shimmer 1.3s ease-in-out infinite;
+}
+
+.skel-time { width: 46%; height: 9px; }
+.skel-name { width: 80%; height: 13px; }
+.skel-room { width: 55%; }
+
+@keyframes skel-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: 0 0; }
+}
+
+.campus-page .schedule-list .calendar-event.skel {
+    display: grid;
+    background: transparent;
+}
+
+.schedule-list .calendar-event.skel::before {
+    background: var(--primary-container);
+}
+
+.schedule-list .skel-time { grid-column: 1; grid-row: 1 / span 3; width: 56px; height: 14px; }
+.schedule-list .skel-name,
+.schedule-list .skel-room { grid-column: 2; }
+.schedule-list .skel-name { width: 70%; height: 18px; }
+
+/* Уходящий скелетон лежит поверх нового расписания; видны только плашки */
+.schedule-skeleton.is-leaving {
+    position: absolute;
+    z-index: 1;
+    margin: 0;
+    overflow: hidden;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+.schedule-skeleton.is-leaving .skel {
+    visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skel-bar { animation: none; }
+}

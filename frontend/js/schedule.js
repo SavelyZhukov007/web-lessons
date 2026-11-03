@@ -4,6 +4,7 @@ import { clubColor } from './event-colors.js';
 import { icon } from './icons.js';
 import { eventRoom } from './public-display.js';
 import { latestRequest } from './latest-request.js';
+import { runCascade } from './skeleton-cascade.js';
 
 const $ = selector => document.querySelector(selector);
 const content = $('#content');
@@ -19,6 +20,8 @@ const scheduleRequest = latestRequest();
 let searchTimer;
 let referencesId = 0;
 const rooms = new Map();
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+let activeCascade = null;
 
 function node(tag, className, text) {
   const item = document.createElement(tag);
@@ -325,7 +328,50 @@ function emptyState(title, description, action) {
   return card;
 }
 
-function renderList(events, days) {
+// Заглушки загрузки: та же сетка/список, вместо карточек — мерцающие плашки (по две на день: 10:00 и 15:00)
+function skeletonCard() {
+  const card = node('div', 'calendar-event skel');
+  card.append(node('span', 'skel-bar skel-time'), node('span', 'skel-bar skel-name'), node('span', 'skel-bar skel-room'));
+  return card;
+}
+
+function renderSkeleton(days) {
+  const slots = [['10:00', '11:30'], ['15:00', '16:30']];
+  const events = days.flatMap(day => slots.map(([start_time, end_time], i) => ({ event_id: `skel-${day}-${i}`, date: dateKey(addDays(state.week, day)), start_time, end_time, club_id: 0, club_name: '' })));
+  if (mobile.matches || state.view === 'list') renderList(events, days, { skeleton: true });
+  else renderGrid(events, days, { skeleton: true });
+  const shell = content.lastElementChild;
+  shell.classList.add('schedule-skeleton', 'is-loading');
+  shell.setAttribute('aria-hidden', 'true');
+  shell.removeAttribute('role');
+  shell.removeAttribute('tabindex');
+  shell.removeAttribute('aria-label');
+}
+
+// Снимаем скелетон с потока и кладём поверх: под ним рендерится настоящее расписание, затем каскад (skeleton-cascade.js)
+function detachSkeleton() {
+  const shell = content.querySelector(':scope > .schedule-skeleton');
+  if (!shell) return null;
+  const box = content.getBoundingClientRect(), rect = shell.getBoundingClientRect();
+  const scrollLeft = shell.scrollLeft;
+  shell.classList.add('is-leaving');
+  Object.assign(shell.style, { top: `${rect.top - box.top}px`, left: `${rect.left - box.left}px`, width: `${rect.width}px`, height: `${rect.height}px` });
+  shell.remove();
+  return { shell, scrollLeft };
+}
+
+function startCascade(leaving) {
+  content.append(leaving.shell);
+  leaving.shell.scrollLeft = leaving.scrollLeft;
+  const items = [...content.querySelectorAll('.calendar-event, .track-empty, .day-empty, :scope > .schedule-state')].filter(el => !leaving.shell.contains(el));
+  const cascade = runCascade([...leaving.shell.querySelectorAll('.skel')], items, { reduced: reducedMotion.matches });
+  const done = () => { leaving.shell.remove(); if (activeCascade === handle) activeCascade = null; };
+  const handle = { cancel() { cascade.cancel(); done(); } };
+  cascade.finished.then(done);
+  activeCascade = handle;
+}
+
+function renderList(events, days, { skeleton = false } = {}) {
   const list = node('div', 'schedule-list');
   for (const day of days) {
     const date = addDays(state.week, day);
@@ -333,14 +379,14 @@ function renderList(events, days) {
     const heading = node('h3', '', `${DAY_NAMES[day]}, ${formatDate(date)}`);
     group.append(heading);
     const daily = events.filter(event => event.date === dateKey(date)).sort((a, b) => a.start_time.localeCompare(b.start_time) || a.club_name.localeCompare(b.club_name, 'ru'));
-    if (daily.length === 0) group.append(node('p', 'day-empty', 'Занятий нет'));
-    for (const event of daily) group.append(eventCard(event));
+    if (daily.length === 0 && !skeleton) group.append(node('p', 'day-empty', 'Занятий нет'));
+    for (const event of daily) group.append(skeleton ? skeletonCard() : eventCard(event));
     list.append(group);
   }
   content.append(list);
 }
 
-function renderGrid(events, days) {
+function renderGrid(events, days, { skeleton = false } = {}) {
   const dayWidths = days.map(() => 155);
   const earliest = Math.floor(Math.min(...events.map(event => minutes(event.start_time))) / 60);
   const latest = Math.ceil(Math.max(...events.map(event => minutes(event.end_time))) / 60);
@@ -381,10 +427,10 @@ function renderGrid(events, days) {
     track.style.height = `${height}px`;
     track.classList.toggle('is-today', dateKey(date) === dateKey(today));
     const daily = events.filter(event => event.date === dateKey(date));
-    if (daily.length === 0) track.append(node('span', 'track-empty', 'Нет занятий'));
+    if (daily.length === 0 && !skeleton) track.append(node('span', 'track-empty', 'Нет занятий'));
     for (const group of eventGroups(daily)) {
       const duration = (group.end - group.start) / 60 * hourHeight;
-      const card = group.events.length === 1 ? eventCard(group.events[0], duration < 110) : groupCard(group);
+      const card = skeleton ? skeletonCard() : group.events.length === 1 ? eventCard(group.events[0], duration < 110) : groupCard(group);
       card.style.top = `${(group.start / 60 - start) * hourHeight + 2}px`;
       card.style.height = `${Math.max(4, duration - 4)}px`;
       card.style.left = '3px';
@@ -399,14 +445,19 @@ function renderGrid(events, days) {
 
 function render() {
   updateControls();
+  activeCascade?.cancel();
+  const leaving = state.phase !== 'loading' ? detachSkeleton() : null;
   content.replaceChildren();
   content.setAttribute('aria-busy', String(state.phase === 'loading'));
   if (state.phase === 'loading') {
     $('#result-status').textContent = 'Загружаем расписание…';
-    content.append(emptyState('Загружаем занятия', 'Получаем актуальное расписание с сервера.'));
-    content.firstElementChild.classList.add('is-loading');
+    renderSkeleton(mobile.matches ? [state.day] : visibleDays());
     return;
   }
+  try { renderContent(); } finally { if (leaving) startCascade(leaving); }
+}
+
+function renderContent() {
   if (state.phase === 'error') {
     $('#result-status').textContent = 'Расписание не загружено';
     content.append(emptyState('Не получилось загрузить расписание', state.error, { label: 'Повторить попытку', run: loadSchedule }));

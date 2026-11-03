@@ -97,8 +97,12 @@ body {
 } 
  
 .schedule-week-caption {
-    min-width: 170px;
+    /* Фиксированная ширина: стрелки не прыгают при смене недели */
+    width: 17em;
+    max-width: 100%;
     text-align: center;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .print-schedule-day {
