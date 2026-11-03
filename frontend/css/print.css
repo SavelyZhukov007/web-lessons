@@ -97,8 +97,9 @@ body {
 } 
  
 .schedule-week-caption {
-    /* Фиксированная ширина: стрелки не прыгают при смене недели */
+    /* Фиксированная ширина: стрелки не прыгают при смене недели (min-width — из fix_print_css) */
     width: 17em;
+    min-width: min(230px, 100%);
     max-width: 100%;
     text-align: center;
     white-space: nowrap;
@@ -154,7 +155,7 @@ body {
     min-height: 100dvh;
 }
 
-@media (max-width: 930px) {
+@media (max-width: 999px) {
     .campus-brand .brand-mark { 
         width: calc(40px * var(--text-scale, 1)); 
         height: calc(40px * var(--text-scale, 1));
@@ -180,7 +181,7 @@ body {
     }
 }
 
-@media (max-width: 700px) { 
+@media (max-width: 794px) { 
     #print-button {
         font: unset;
         font-size: 0;
@@ -192,7 +193,7 @@ body {
     }
 }
 
-@media (max-width: 666px) {
+@media (max-width: 723px) {
     .print-schedule-header {
         grid-template-columns: auto;
         gap: 8px 12px;
@@ -232,7 +233,12 @@ body {
     }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 425px) {
+    #prev-button,
+    #next-button {
+        width: 80px;
+    }
+
     .print-schedule-toolbar {
         display: grid;
         grid-template-columns: auto auto;
