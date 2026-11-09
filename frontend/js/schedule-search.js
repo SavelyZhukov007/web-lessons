@@ -1,4 +1,4 @@
-import { bindGlassIndicator } from './glass.js';
+import { bindGlassIndicator, mountGlassOptics } from './glass.js';
 import { prefersReducedMotion } from './motion-preferences.js';
 import { addDays, dateKey, formatDate, parseDate } from './schedule-dates.js';
 
@@ -34,6 +34,7 @@ export function mountScheduleSearch({ state, filters, jumpTo }) {
   const results = $('search-results');
   const scopes = $('search-scope');
   const updateScope = bindGlassIndicator(scopes, () => scopes.querySelector('[aria-pressed="true"]'));
+  mountGlassOptics(scopes);
   let scope = 'day';
   let opened = false;
   let composing = false;

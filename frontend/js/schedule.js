@@ -5,6 +5,7 @@ import { clubColor } from './event-colors.js';
 import { icon } from './icons.js';
 import { eventRoom } from './public-display.js';
 import { runCascade } from './skeleton-cascade.js';
+import { prefersReducedMotion } from './motion-preferences.js';
 
 const $ = selector => document.querySelector(selector);
 const content = $('#content');
@@ -12,7 +13,6 @@ const mobile = window.matchMedia('(max-width: 999px)');
 const state = { ...scheduleLocation(location.search, currentStudyDay()), view: 'grid', events: [], phase: 'loading', error: '' };
 const statusNames = { scheduled: 'По расписанию', moved: 'Перенос', cancelled: 'Отменено' };
 const rooms = new Map();
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let activeCascade = null;
 
 function node(tag, className, text) {
@@ -188,7 +188,7 @@ function startCascade(leaving) {
   content.append(leaving.shell);
   leaving.shell.scrollLeft = leaving.scrollLeft;
   const items = [...content.querySelectorAll('.calendar-event, .track-empty, .day-empty, :scope > .schedule-state')].filter(el => !leaving.shell.contains(el));
-  const cascade = runCascade([...leaving.shell.querySelectorAll('.skel')], items, { reduced: reducedMotion.matches });
+  const cascade = runCascade([...leaving.shell.querySelectorAll('.skel')], items, { reduced: prefersReducedMotion() });
   const done = () => { leaving.shell.remove(); if (activeCascade === handle) activeCascade = null; };
   const handle = { cancel() { cascade.cancel(); done(); } };
   cascade.finished.then(done);
@@ -280,7 +280,7 @@ function render(direction = 0) {
     return;
   }
   try { renderContent(); } finally { if (leaving) startCascade(leaving); }
-  const animation = direction && mobile.matches && !reducedMotion.matches && content.firstElementChild?.animate?.(
+  const animation = direction && mobile.matches && !prefersReducedMotion() && content.firstElementChild?.animate?.(
     [{ opacity: .45, transform: 'translateX(' + direction * 14 + 'px)' }, { opacity: 1, transform: 'none' }],
     { duration: 190, easing: 'ease-out' });
   ui.focusPending(content, animation);
@@ -302,6 +302,10 @@ function renderContent() {
   $('#result-status').textContent = `${mobile.matches ? DAY_NAMES[state.day] : 'За выбранные дни'}: ${active} · отменено: ${cancelled}${ui.hasFilters() ? ' · фильтры включены' : ''}`;
   if (events.length === 0) {
     const label = mobile.matches ? ` · ${DAY_NAMES[state.day]}, ${formatDate(addDays(state.week, state.day))}` : '';
+    if (ui.inMyMode() && !ui.hasFilters()) {
+      content.append(emptyState('В «Моих кружках» занятий нет' + label, 'Выбери другой день или выключи «Мои кружки».'));
+      return;
+    }
     const title = (ui.hasFilters() ? 'Ничего не нашлось' : 'Занятий пока нет') + label;
     const help = ui.hasFilters()
       ? (mobile.matches ? 'Выбери другой день или поменяй фильтры.' : 'Попробуй другое сочетание фильтров или сбрось их.')

@@ -117,7 +117,16 @@
     var s = el('<section class="itc-ob ' + (cls || '') + '" role="dialog" aria-modal="true">' + html + '</section>');
     document.body.appendChild(s); document.documentElement.classList.add('itc-ob-open');
     requestAnimationFrame(function () { s.classList.add('in'); });
-    s.close = function () { s.classList.remove('in'); s.classList.add('out'); document.documentElement.classList.remove('itc-ob-open'); setTimeout(function () { s.remove(); }, 260); };
+    var opener = document.activeElement;
+    s.close = function (after) {
+      if (s.classList.contains('out')) return;
+      s.classList.remove('in'); s.classList.add('out'); document.documentElement.classList.remove('itc-ob-open');
+      setTimeout(function () {
+        s.remove();
+        if (opener && opener.isConnected) opener.focus({ preventScroll: true });
+        if (typeof after === 'function') after();
+      }, 260);
+    };
     var f = s.querySelector('input'); if (f) setTimeout(function () { f.focus({ preventScroll: true }); }, 300);
     return s;
   }
@@ -156,6 +165,7 @@
   }
   var ACC = [['brick', 'Кирпичный'], ['blue', 'Синий'], ['green', 'Зелёный'], ['violet', 'Фиолетовый']];
   function settingsScreen() {
+    if (document.querySelector('.itc-settings')) return;
     var T = window.ClubsTheme, pr = T ? T.get() : { theme: 'system', accent: 'brick', textSize: 'normal' };
     var ses = Session.get() || { role: 'guest' }, r = ses.role, DEV = window.ITC_CHANNEL && window.ITC_CHANNEL !== 'p';
     var isAdmin = r === 'admin', inAdmin = /^\/admin\//.test(location.pathname);
@@ -186,24 +196,26 @@
         return '<button type="button" role="radio" class="itc-sw" data-accent="' + a[0] + '" data-v="' + a[0] + '" aria-label="' + a[1] + '" aria-checked="' + (a[0] === pr.accent) + '"></button>'; }).join('') +
         '<label class="itc-sw itc-sw-custom" role="radio" aria-label="Свой цвет" aria-checked="' + custom + '"><input type="color" data-custom-accent value="' + esc(pr.customAccent || '#e0a800') + '" aria-label="Свой цвет акцента"><i></i></label>' +
         '</div></div></div>' +
-      '<h2>Уведомления</h2><div class="itc-group"><label class="itc-row itc-row-sw"><span class="itc-row-tx"><span>Вибрация</span><small>Короткий отклик на нажатия</small></span><input type="checkbox" role="switch" class="itc-switch" data-haptics' + (Haptics.on() ? ' checked' : '') + '></label><div data-ext="notify"></div></div>' + adminAcc +
+      '<div data-interface-settings></div>' +
+      '<h2>Уведомления</h2><div class="itc-group">' + row('Настроить уведомления', { act: 'notifications', sub: 'Отмены, переносы, объявления и напоминания' }) + '</div>' + adminAcc +
       '<h2>Помощь</h2><div class="itc-group">' + row('Обратная связь', { act: 'feedback' }) + '</div>' +
       '<h2>О приложении</h2><div class="itc-group">' + row('Проверить обновления', { act: 'update' }) +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Версия</span></span><span class="itc-row-val">' + esc(window.ITC_VERSION || '—') + '</span></div>' +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Разработчик</span></span><span class="itc-row-val">ИТС КИПФИН</span></div></div>' +
       (DEV ? '<h2>Для разработчиков</h2><div class="itc-group" data-ext="dev"></div>' : '') +
       '</div></div>', 'itc-ob-scroll itc-settings');
-    import('/js/sheet-gesture.js').then(function (module) {
+    var interfaceLifetime = new AbortController();
+    Promise.all([import('/js/sheet-gesture.js'), import('/js/interface-settings.js')]).then(function (modules) {
       if (!s.isConnected) return;
+      if (T && !interfaceLifetime.signal.aborted) s.querySelector('[data-interface-settings]').replaceChildren(modules[1].interfaceSettings(T, interfaceLifetime.signal));
       var panel = s.querySelector('.itc-set');
-      module.bindSheetDismiss(panel, {
+      modules[0].bindSheetDismiss(panel, {
         scrollBody: function () { return s; },
         close: function () { s.close(); },
         isOpen: function () { return s.classList.contains('in'); },
       });
     }).catch(function () { /* кнопка «Назад» работает независимо от жеста */ });
     exts.forEach(function (fn) { try { fn(s.querySelector('[data-ext="dev"]'), { row: row, close: s.close, section: 'dev', screen: s }); } catch (e) { console.warn(e); } });
-    s.querySelector('[data-haptics]').addEventListener('change', function () { Haptics.set(this.checked); if (this.checked) Haptics.tap(); });
     // Тема: тумблер «Системная тема» + кнопка-иконка (светлая ⇄ тёмная), видна при выключенном тумблере
     var sw = s.querySelector('[data-sys-theme]'), flip = s.querySelector('[data-theme-flip]'), th = s.querySelector('[data-theme-hint]'), ava = s.querySelector('.itc-acc-ava');
     function syncTheme() {
@@ -222,7 +234,7 @@
     if (T) {
       sw.addEventListener('click', function () { T.set({ theme: T.themeFromToggle(T.get().theme !== 'system', T.resolved()) }); Haptics.tap(); });
       flip.addEventListener('click', function () { T.set({ theme: T.nextManualTheme(T.resolved()) }); Haptics.tap(); });
-      var off = T.onChange(syncTheme); var oc = s.close; s.close = function () { off(); return oc.apply(this, arguments); };
+      var off = T.onChange(syncTheme); var oc = s.close; s.close = function () { off(); interfaceLifetime.abort(); return oc.apply(this, arguments); };
       syncTheme();
       // Размер текста: ползунок с тремя точками, живой предпросмотр
       var rg = s.querySelector('[data-size]'), nm = s.querySelector('[data-size-name]');
@@ -242,6 +254,7 @@
       var b = e.target.closest('[data-act]'); if (!b) return;
       var a = b.getAttribute('data-act'); Haptics.tap();
       if (a === 'close') { s.close(); return; }
+      if (a === 'notifications') { s.close(function () { window.ItcFeatures?.openSheet(); }); return; }
       if (a === 'logout') {
         if (!confirm('Выйти из аккаунта сотрудника?')) return;
         await Session.logout(); s.close(); toast('Вы вышли'); location.href = '/'; return;

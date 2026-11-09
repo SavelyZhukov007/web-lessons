@@ -6,10 +6,10 @@ import { eventShareControls } from './schedule-share.js';
 import { openScheduleFilters } from './app-schedule-filters.js';
 import { icon } from './icons.js';
 import { clubColor } from './event-colors.js';
+import { prefersReducedMotion } from './motion-preferences.js';
 
 const $ = s => document.querySelector(s);
 const statusNames = { scheduled: 'По расписанию', moved: 'Перенос', cancelled: 'Отменено' };
-const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const splash = window.ItcSplash || { progress() {}, done() {} };
 
 const state = { ...scheduleLocation(location.search, currentStudyDay()), events: [], phase: 'loading', error: '' };
@@ -76,8 +76,8 @@ function dayChildren() {
     .sort((a, b) => a.start_time.localeCompare(b.start_time) || a.end_time.localeCompare(b.end_time) || a.club_name.localeCompare(b.club_name, 'ru'));
   if (!daily.length) {
     if (ui.hasFilters()) return [emptyState(`Ничего не нашлось · ${DAY_NAMES[state.day]}, ${formatDate(parseDate(key))}`, 'Выбери другой день или поменяй фильтры.', { label: 'Сбросить фильтры', run: () => $('#reset-filters').click() })];
-    if (window.ItcFeatures?.isMyMode()) return [emptyState('В «Моих кружках» занятий нет', 'В этот день у отмеченных кружков ничего нет. Смахни влево — следующий день, или выключи «Мои кружки».')];
-    return [emptyState('Занятий нет', 'В этот день кружков нет. Смахни влево или вправо, чтобы посмотреть соседние дни.')];
+    if (window.ItcFeatures?.isMyMode()) return [emptyState('В «Моих кружках» занятий нет', 'Выбери другой день или выключи «Мои кружки».')];
+    return [emptyState('Занятий нет', 'Посмотри соседние дни на полосе расписания.')];
   }
   const out = [];
   for (let i = 0; i < daily.length;) {
@@ -89,7 +89,9 @@ function dayChildren() {
       const ends = new Set(daily.slice(i, j).map(e => e.end_time));
       slot.setAttribute('aria-label', `Параллельно в ${daily[i].start_time}: ${j - i} занятия`);
       const head = node('header', 'app-slot-head');
-      head.append(node('span', 'app-slot-time', ends.size === 1 ? `${daily[i].start_time}–${daily[i].end_time}` : `с ${daily[i].start_time}`), node('span', 'app-slot-count', `параллельно · ${j - i}`));
+      const time = node('span', 'app-slot-time', ends.size === 1 ? daily[i].start_time : `с ${daily[i].start_time}`);
+      if (ends.size === 1) time.append(node('span', 'app-slot-end', `–${daily[i].end_time}`));
+      head.append(time, node('span', 'app-slot-count', `параллельно · ${j - i}`));
       const list = node('div', 'app-slot-cards');
       list.append(...daily.slice(i, j).map(anyCard));
       slot.append(head, list); out.push(slot);
@@ -113,7 +115,7 @@ function render(dir = 0) {
   const kids = dayChildren();
   if (!pane || !pane.isConnected) { pane = node('div', 'app-pane'); content.replaceChildren(pane); }
   let transition;
-  if (dir && !reduced.matches && pane.childElementCount) transition = slide(kids, dir);
+  if (dir && !prefersReducedMotion() && pane.childElementCount) transition = slide(kids, dir);
   else {
     // по ключу: те же узлы карточек переиспользуются, меняется только то, что изменилось
     const same = kids.length === pane.children.length && kids.every((k, i) => k === pane.children[i]);

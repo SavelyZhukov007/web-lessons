@@ -113,12 +113,16 @@
 
   // ---------- нативный плагин ----------
   function N() { return P.ItcNative; }
-  function settings() { return Object.assign({ reminderMinutes: 15, notifyChanges: true, notifyAnnouncements: true }, jget(SETTINGS, {})); }
+  function settings() {
+    var saved = jget(SETTINGS, {}), changes = saved.notifyChanges !== false;
+    return Object.assign({ reminderMinutes: 15, notifyCancellations: changes, notifyMoves: changes, notifyAnnouncements: true }, saved);
+  }
   function configureNative() {
     if (!N()) return Promise.resolve(null);
     var s = settings();
     return N().configure({ follows: Follows.all(), server: DEMO ? '' : ((window.AppServer && window.AppServer.get()) || ''),
-      demo: DEMO, reminderMinutes: s.reminderMinutes, notifyChanges: s.notifyChanges, notifyAnnouncements: s.notifyAnnouncements !== false }).catch(function () { return null; });
+      demo: DEMO, reminderMinutes: s.reminderMinutes, notifyChanges: s.notifyCancellations || s.notifyMoves,
+      notifyCancellations: s.notifyCancellations, notifyMoves: s.notifyMoves, notifyAnnouncements: s.notifyAnnouncements !== false }).catch(function () { return null; });
   }
   function mskMonday(offsetWeeks) {
     var d = new Date(Date.now() + 3 * 3600e3); // Москва UTC+3
@@ -144,7 +148,7 @@
 
   // ---------- UI ----------
   var STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
-  var BELL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.5-2.5h-5A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>';
+  var BELL = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg>';
   function el(tag, attrs, html) { var e = document.createElement(tag); for (var k in attrs || {}) e.setAttribute(k, attrs[k]); if (html != null) e.innerHTML = html; return e; }
   function toast(text) {
     if (window.ItcHuman) text = window.ItcHuman.clean(text) || 'Что-то пошло не так. Попробуйте ещё раз';
@@ -202,10 +206,12 @@
   }
   function pageSchedule() {
     var row = document.getElementById('schedule-actions');
-    if (!row || document.getElementById('itc-my-toggle')) return;
+    var header = document.querySelector('.schedule-page > .campus-header');
+    if (!row || !header || document.getElementById('itc-my-toggle')) return;
     var q = new URLSearchParams(location.search);
     if (q.get('my') === '1') LS.setItem(MODE_KEY, '1');
-    var s = el('button', { type: 'button', id: 'itc-notify-open', class: 'glass-action', 'aria-label': PWA ? 'Уведомления' : 'Напоминания и виджеты' }, BELL);
+    var s = el('button', { type: 'button', id: 'itc-notify-open', class: 'settings-button',
+      'aria-label': 'Уведомления', 'aria-haspopup': 'dialog' }, BELL);
     s.addEventListener('click', openSheet);
     var t = el('button', { type: 'button', id: 'itc-my-toggle', class: 'glass-action' });
     function paint() {
@@ -219,7 +225,7 @@
     }
     t.addEventListener('click', toggleMine);
     row.insertBefore(t, document.getElementById('toggle-filters'));
-    row.insertBefore(s, document.getElementById('today'));
+    header.insertBefore(s, header.querySelector('.app-gear, [data-settings-button]'));
     document.addEventListener('itc:follows', function () { paint(); if (myMode()) reload(); });
     paint();
     if (myMode()) reload();
@@ -233,40 +239,59 @@
   function openSheet() {
     if (PWA) { if (window.ItcPwaFeatures) window.ItcPwaFeatures.openSheet(); return; }
     if (document.getElementById('itc-sheet')) return;
-    var s = settings();
+    var s = settings(), opener = document.activeElement;
     var wrap = el('div', { id: 'itc-sheet', class: 'itc-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'itc-sheet-title' });
     wrap.innerHTML = '<div class="itc-sheet-card">' +
-      '<h2 id="itc-sheet-title">Напоминания и виджеты</h2>' +
-      '<p class="itc-muted">Работают для «Моих кружков» (если ничего не отмечено — для всех). Без интернета и без Google-сервисов.</p>' +
+      '<h2 id="itc-sheet-title">Уведомления</h2>' +
+      '<p class="itc-muted">Отмены и переносы приходят по «Моим кружкам». Напоминания работают с сохранённым расписанием.</p>' +
       '<label class="itc-row"><span>Напоминать до начала</span><select id="itc-remind">' +
       [['0', 'Не напоминать'], ['15', 'За 15 минут'], ['30', 'За 30 минут'], ['60', 'За 1 час'], ['120', 'За 2 часа']].map(function (o) {
         return '<option value="' + o[0] + '"' + (String(s.reminderMinutes) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
       '</select></label>' +
-      '<label class="itc-row"><span>Сообщать об отмене и переносе</span><input type="checkbox" id="itc-changes"' + (s.notifyChanges ? ' checked' : '') + '></label>' +
+      '<label class="itc-row"><span>Отмены занятий</span><input type="checkbox" id="itc-cancellations"' + (s.notifyCancellations ? ' checked' : '') + '></label>' +
+      '<label class="itc-row"><span>Переносы занятий</span><input type="checkbox" id="itc-moves"' + (s.notifyMoves ? ' checked' : '') + '></label>' +
       '<label class="itc-row"><span>Объявления от администрации</span><input type="checkbox" id="itc-ann"' + (s.notifyAnnouncements !== false ? ' checked' : '') + '></label>' +
       '<p id="itc-perm" class="itc-warn" hidden>Уведомления запрещены в настройках. <button type="button" class="text-button" id="itc-perm-open">Открыть настройки</button></p>' +
+      '<div id="itc-channel-settings" hidden><h3>Звук и вибрация</h3>' +
+      '<p class="itc-muted small">Каждая кнопка открывает настройки своей категории в Android.</p>' +
+      '<div class="itc-actions"><button type="button" data-channel="cancelled">Отмены занятий</button><button type="button" data-channel="moved">Переносы занятий</button></div></div>' +
       '<h3>Виджеты на рабочий стол</h3>' +
       '<div class="itc-actions"><button type="button" data-pin="next">Следующее занятие</button><button type="button" data-pin="today">Сегодня (4×2)</button></div>' +
       '<p class="itc-muted small">Если кнопка не сработала: долгое нажатие на рабочем столе → Виджеты → «KipClub».</p>' +
       '<button type="button" class="itc-close">Готово</button></div>';
     document.body.appendChild(wrap);
     function save() {
-      jset(SETTINGS, { reminderMinutes: parseInt(wrap.querySelector('#itc-remind').value, 10), notifyChanges: wrap.querySelector('#itc-changes').checked,
+      jset(SETTINGS, { reminderMinutes: parseInt(wrap.querySelector('#itc-remind').value, 10),
+        notifyCancellations: wrap.querySelector('#itc-cancellations').checked, notifyMoves: wrap.querySelector('#itc-moves').checked,
         notifyAnnouncements: wrap.querySelector('#itc-ann').checked });
       configureNative().then(checkPerm);
     }
-    function checkPerm(st) { wrap.querySelector('#itc-perm').hidden = !st || st.notificationsAllowed !== false; }
-    wrap.querySelector('#itc-remind').addEventListener('change', function () { save(); if (N()) N().requestNotifications().then(checkPerm, function () {}); });
-    wrap.querySelector('#itc-changes').addEventListener('change', save);
-    wrap.querySelector('#itc-ann').addEventListener('change', function () { save(); if (this.checked && N()) N().requestNotifications().then(checkPerm, function () {}); });
+    function checkPerm(st) {
+      wrap.querySelector('#itc-perm').hidden = !st || st.notificationsAllowed !== false;
+      wrap.querySelector('#itc-channel-settings').hidden = !st || !st.changeChannels;
+    }
+    wrap.querySelectorAll('input, select').forEach(function (field) {
+      field.addEventListener('change', function () {
+        save();
+        if (N() && (field.checked || Number(field.value) > 0)) N().requestNotifications().then(checkPerm, function () {});
+      });
+    });
     wrap.querySelector('#itc-perm-open').addEventListener('click', function () { if (N()) N().openNotificationSettings(); });
+    wrap.querySelectorAll('[data-channel]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (N()) N().openNotificationSettings({ kind: b.dataset.channel }).catch(function () { toast('Откройте настройки уведомлений в Android'); });
+      });
+    });
     wrap.querySelectorAll('[data-pin]').forEach(function (b) {
       b.addEventListener('click', function () {
         if (!N()) return;
         N().pinWidget({ kind: b.getAttribute('data-pin') }).then(function (r) { if (!r || !r.requested) toast('Лаунчер не поддерживает добавление из приложения — добавьте виджет вручную'); });
       });
     });
-    function close() { wrap.remove(); }
+    function close() { wrap.remove(); if (opener && opener.isConnected) opener.focus({ preventScroll: true }); }
+    wrap.itcClose = close;
+    wrap.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    wrap.querySelector('.itc-close').focus({ preventScroll: true });
     wrap.querySelector('.itc-close').addEventListener('click', close);
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
     if (N()) N().getState().then(checkPerm, function () {});

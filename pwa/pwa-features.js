@@ -6,7 +6,11 @@
   var doc = document, root = doc.documentElement, LS = window.localStorage;
   var F = window.ItcFeatures; // native-features.js
   if (!F) return;
-  var ANN_KEY = 'itc.pwa.announcements', PUSH_KEY = 'itc.pwa.push', SUBS_KEY = 'itc.pwa.pushClubs', SEEN_KEY = 'itc.pwa.seen', ASKED_KEY = 'itc.pwa.asked';
+  var PUSH_KEY = 'itc.pwa.push', SUBS_KEY = 'itc.pwa.pushClubs', SEEN_KEY = 'itc.pwa.seen', ASKED_KEY = 'itc.pwa.asked';
+  var PUSH_OPTIONS = { cancellations: 'Отмены занятий', moves: 'Переносы занятий', announcements: 'Объявления от администрации' };
+  var pushFields = Object.keys(PUSH_OPTIONS);
+  function preference(field) { return LS.getItem('itc.pwa.' + field) !== '0'; }
+  function setPreference(field, value) { LS.setItem('itc.pwa.' + field, value ? '1' : '0'); }
   var ios = root.classList.contains('is-pwa-ios');
   function jget(k, d) { try { var v = JSON.parse(LS.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
   function jset(k, v) { try { LS.setItem(k, JSON.stringify(v)); } catch (e) { /* полон */ } }
@@ -56,39 +60,21 @@
       });
     });
   }
-  // приводим подписки сервера к списку «Моих кружков»
-  var syncFlight = null, syncAgain = false;
+  // Изменение состава кружков, настроек и отключение идут в порядке нажатий.
+  var pushQueue = Promise.resolve();
+  function queuePush(action) {
+    var work = pushQueue.then(action);
+    pushQueue = work.catch(function () {});
+    return work;
+  }
   function syncSubs() {
-    if (syncFlight) { syncAgain = true; return syncFlight; }
-    syncFlight = syncSubscriptions().finally(function () {
-      syncFlight = null;
-      if (syncAgain) { syncAgain = false; syncSubs().catch(function () {}); }
-    });
-    return syncFlight;
-  }
-  function syncSubscriptions() {
-    if (!enabled()) return Promise.resolve(null);
-    return subscription(true).then(function (s) {
-      var j = s.toJSON(), want = F.Follows.all();
-      // Endpoint мог смениться: localStorage не доказывает наличие подписки на сервере.
-      return api('/api/push/status', { endpoint: j.endpoint }).then(function (status) {
-        var have = status.club_ids || [];
-        var reset = status.all ? api('/api/push/unsubscribe', { endpoint: j.endpoint }) : Promise.resolve();
-        return reset.then(function () {
-          if (status.all) have = [];
-          var add = want.filter(function (id) { return have.indexOf(id) < 0; }), del = have.filter(function (id) { return want.indexOf(id) < 0; });
-          return Promise.all(add.map(function (id) { return api('/api/push/subscribe', { endpoint: j.endpoint, keys: j.keys, club_id: id }); }))
-            .then(function () { return Promise.all(del.map(function (id) { return api('/api/push/unsubscribe', { endpoint: j.endpoint, club_id: id }); })); })
-            .then(function () { jset(SUBS_KEY, want); return applyAnnouncements().then(function () { return want; }); });
-        });
+    return queuePush(function () {
+      if (!enabled()) return null;
+      return subscription(true).then(function (s) {
+        var j = s.toJSON(), body = { endpoint: j.endpoint, keys: j.keys, club_ids: F.Follows.all() };
+        pushFields.forEach(function (field) { body[field] = preference(field); });
+        return api('/api/push/sync', body).then(function (status) { jset(SUBS_KEY, status.club_ids); return status; });
       });
-    });
-  }
-  // «Объявления» (рассылки админа) — выбор хранится локально и отправляется серверу для всех подписок этого браузера
-  function applyAnnouncements() {
-    if (!enabled()) return Promise.resolve(null);
-    return subscription(false).then(function (s) {
-      return s ? api('/api/push/preferences', { endpoint: s.endpoint, announcements: LS.getItem(ANN_KEY) !== '0' }) : null;
     });
   }
   // ВАЖНО: Notification.requestPermission вызывается только отсюда — из обработчика нажатия пользователя
@@ -98,16 +84,17 @@
     return Notification.requestPermission().then(function (p) {
       if (p !== 'granted') { LS.setItem(PUSH_KEY, '0'); toast(ios ? 'Без разрешения уведомления не придут. Включить: Настройки → Уведомления → «KipClub».' : 'Разрешение на уведомления не выдано.'); return false; }
       LS.setItem(PUSH_KEY, '1');
-      return syncSubs().then(function () { toast('Готово: сообщим об отменах и переносах в «Моих кружках»'); refreshBadge(); return true; },
-        function (e) { toast('Не удалось подписаться: ' + (e && e.message || e)); return false; });
+      return syncSubs().then(function () { toast('Уведомления включены на этом устройстве'); refreshBadge(); return true; },
+        function () { LS.setItem(PUSH_KEY, '0'); toast('Не удалось включить уведомления. Проверьте соединение и повторите.'); return false; });
     });
   }
   function disable() {
     LS.setItem(PUSH_KEY, '0');
-    return subscription(false).then(function (s) {
-      if (!s) return;
-      var j = s.toJSON();
-      return api('/api/push/unsubscribe', { endpoint: j.endpoint }).finally(function () { return s.unsubscribe(); });
+    return queuePush(function () {
+      return subscription(false).then(function (s) {
+        if (!s) return;
+        return api('/api/push/unsubscribe', { endpoint: s.endpoint }).finally(function () { return s.unsubscribe(); });
+      });
     }).then(function () { jset(SUBS_KEY, []); toast('Уведомления отключены'); }, function () {
       jset(SUBS_KEY, []); toast('Не удалось подтвердить отключение на сервере. Повторите при подключении.');
     });
@@ -139,35 +126,53 @@
   function openSheet() {
     if (doc.getElementById('itc-sheet')) return;
     var a = availability(), on = enabled(), n = F.Follows.all().length;
+    var opener = doc.activeElement;
     var wrap = el('div', { id: 'itc-sheet', class: 'itc-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'itc-sheet-title' });
     wrap.innerHTML = '<div class="itc-sheet-card">' +
       '<h2 id="itc-sheet-title">Уведомления</h2>' +
-      '<p class="itc-muted">' + (n ? 'Для «Моих кружков» (' + n + ').' : 'Сначала отметьте кружки звёздочкой ☆ в каталоге.') + ' Придут, даже когда приложение закрыто.</p>' +
-      '<label class="itc-row"><span>Сообщать об отмене и переносе</span><input type="checkbox" id="itc-push"' + (on ? ' checked' : '') + (a.ok || on ? '' : ' disabled') + '></label>' +
+      '<p class="itc-muted">' + (n ? 'Изменения расписания для «Моих кружков» (' + n + ').' : 'Отметьте кружки звёздочкой, чтобы получать их отмены и переносы. Общие объявления доступны без избранного.') + '</p>' +
+      '<label class="itc-row"><span>Пуш-уведомления на этом устройстве</span><input type="checkbox" id="itc-push"' + (on ? ' checked' : '') + (a.ok || on ? '' : ' disabled') + '></label>' +
       '<p id="itc-push-msg" class="itc-warn"' + (a.ok ? ' hidden' : '') + '>' + a.msg + '</p>' +
-      '<label class="itc-row"><span>Объявления от администрации</span><input type="checkbox" id="itc-ann"' + (LS.getItem(ANN_KEY) !== '0' ? ' checked' : '') + (on ? '' : ' disabled') + '></label>' +
+      '<h3>Какие уведомления получать</h3>' +
+      pushFields.map(function (field) {
+        return '<label class="itc-row"><span>' + PUSH_OPTIONS[field] + '</span><input type="checkbox" id="' + (field === 'announcements' ? 'itc-ann' : 'itc-' + field) +
+          '" data-push-field="' + field + '"' + (preference(field) ? ' checked' : '') + (a.ok ? '' : ' disabled') + '></label>';
+      }).join('') +
+      '<p class="itc-muted small">' + (ios ? 'Звук и вибрация: Настройки iPhone → Уведомления → KipClub.' :
+        'Звук и вибрация зависят от настроек браузера и телефона.') + '</p>' +
       '<label class="itc-row"><span>Значок с числом изменений на иконке</span><input type="checkbox" id="itc-badge"' + (LS.getItem('itc.pwa.badge') !== '0' ? ' checked' : '') + ('setAppBadge' in navigator ? '' : ' disabled') + '></label>' +
       ('setAppBadge' in navigator ? '' : '<p class="itc-muted small">Значок на иконке это устройство не поддерживает.</p>') +
-      '<p class="itc-muted small">Напоминания перед занятием и виджеты есть в Android-приложении. В календарь: страница кружка → «Добавить в календарь».</p>' +
       '<button type="button" class="itc-close">Готово</button></div>';
     doc.body.appendChild(wrap);
-    var box = wrap.querySelector('#itc-push');
+    var box = wrap.querySelector('#itc-push'), fields = Array.from(wrap.querySelectorAll('[data-push-field]'));
+    function busy(value) {
+      var current = availability();
+      box.disabled = value || (!current.ok && !enabled());
+      fields.forEach(function (field) { field.disabled = value || !current.ok; });
+      wrap.querySelector('#itc-push-msg').hidden = current.ok;
+      wrap.querySelector('#itc-push-msg').textContent = current.msg;
+    }
     box.addEventListener('change', function () {
-      if (box.checked) enableFromGesture().then(function (ok) { box.checked = ok; var m = wrap.querySelector('#itc-push-msg'); var av = availability(); m.hidden = av.ok; m.textContent = av.msg; });
-      else disable();
+      busy(true);
+      (box.checked ? enableFromGesture() : disable()).finally(function () { box.checked = enabled(); busy(false); });
     });
-    var ann = wrap.querySelector('#itc-ann');
-    box.addEventListener('change', function () { setTimeout(function () { ann.disabled = !enabled(); }, 0); });
-    ann.addEventListener('change', function () {
-      LS.setItem(ANN_KEY, ann.checked ? '1' : '0');
-      applyAnnouncements().then(function () { toast(ann.checked ? 'Объявления включены' : 'Объявления отключены'); }, function () { toast('Не удалось сохранить — повторим при следующем запуске'); });
+    fields.forEach(function (input) {
+      input.addEventListener('change', function () {
+        var field = input.dataset.pushField, previous = preference(field);
+        setPreference(field, input.checked);
+        if (!enabled()) return;
+        busy(true);
+        syncSubs().catch(function () {
+          setPreference(field, previous); input.checked = previous;
+          toast('Не удалось сохранить настройку. Проверьте соединение.');
+        }).finally(function () { busy(false); });
+      });
     });
     wrap.querySelector('#itc-badge').addEventListener('change', function (e) { LS.setItem('itc.pwa.badge', e.target.checked ? '1' : '0'); refreshBadge(); });
-    var opener = doc.activeElement;
-    function escape(e) { if (e.key === 'Escape') close(); }
-    function close() { wrap.remove(); doc.removeEventListener('keydown', escape); if (opener && opener.isConnected) opener.focus(); }
-    doc.addEventListener('keydown', escape);
-    wrap.querySelector('.itc-close').focus();
+    function close() { wrap.remove(); if (opener && opener.isConnected) opener.focus({ preventScroll: true }); }
+    wrap.itcClose = close;
+    wrap.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    wrap.querySelector('.itc-close').focus({ preventScroll: true });
     wrap.querySelector('.itc-close').addEventListener('click', close);
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
   }
@@ -192,7 +197,9 @@
       if (on && n > 0 && navigator.setAppBadge) navigator.setAppBadge(n).catch(function () {});
       else if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function () {});
     } catch (e) { /* нет Badging API */ }
-    if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({ type: 'itc-badge', count: on ? n : 0 });
+    navigator.serviceWorker?.getRegistration('/').then(function (r) {
+      r?.active?.postMessage({ type: 'itc-badge', count: on ? n : 0, enabled: on });
+    }).catch(function () {});
   }
   var lastKeys = [];
   function refreshBadge() {

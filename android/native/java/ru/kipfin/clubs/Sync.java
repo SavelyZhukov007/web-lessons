@@ -14,14 +14,14 @@ final class Sync {
         List<Store.Event> events = Store.parse(eventsJson);
         int notified = 0;
         ChangeDetector.Result r = ChangeDetector.diff(p.getString("snapshot", "{}"), events, Store.follows(c), System.currentTimeMillis());
-        if (Store.notifyChanges(c)) {
-            for (ChangeDetector.Change ch : r.changes) {
-                String key = Push.changeKey(ch);
-                if (!Push.claim(c, key)) continue; // уже показано через FCM
-                String[] t = ChangeDetector.text(ch);
-                Notifier.post(c, Notifier.CH_CHANGES, key.hashCode(), t[0], t[1], "/club?id=" + ch.event.clubId);
-                notified++;
-            }
+        for (ChangeDetector.Change ch : r.changes) {
+            String channel = Notifier.changeChannel(ch.kind);
+            if (!Store.notifyChange(c, channel)) continue;
+            String key = Push.changeKey(ch);
+            if (!Push.claim(c, key)) continue; // уже показано через FCM
+            String[] t = ChangeDetector.text(ch);
+            Notifier.post(c, channel, key.hashCode(), t[0], t[1], "/club?id=" + ch.event.clubId);
+            notified++;
         }
         p.edit().putString("events", eventsJson).putString("snapshot", r.snapshot).putLong("updated", System.currentTimeMillis()).apply();
         Reminders.reschedule(c);

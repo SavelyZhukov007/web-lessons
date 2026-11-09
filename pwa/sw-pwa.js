@@ -3,6 +3,7 @@
 'use strict';
 const ITC_BADGE_CACHE = 'itc-badge';
 const ITC_BADGE_KEY = '/__itc/badge';
+const ITC_BADGE_PREF = '/__itc/badge-enabled';
 async function itcBadgeGet() {
   try { const r = await (await caches.open(ITC_BADGE_CACHE)).match(ITC_BADGE_KEY); return r ? (parseInt(await r.text(), 10) || 0) : 0; } catch { return 0; }
 }
@@ -17,9 +18,16 @@ self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { /* текстовый push — тоже изменение */ }
   if (data && data.badge === false) return;
-  event.waitUntil(itcBadgeGet().then(n => itcBadgeSet(n + 1)));
+  event.waitUntil((async () => {
+    const pref = await (await caches.open(ITC_BADGE_CACHE)).match(ITC_BADGE_PREF);
+    if (!pref || await pref.text() !== '0') await itcBadgeSet(await itcBadgeGet() + 1);
+  })());
 });
 self.addEventListener('message', event => {
   const d = event.data || {};
-  if (d.type === 'itc-badge' && Number.isInteger(d.count) && d.count >= 0) event.waitUntil(itcBadgeSet(d.count));
+  if (d.type !== 'itc-badge' || !Number.isInteger(d.count) || d.count < 0) return;
+  event.waitUntil((async () => {
+    if (typeof d.enabled === 'boolean') await (await caches.open(ITC_BADGE_CACHE)).put(ITC_BADGE_PREF, new Response(d.enabled ? '1' : '0'));
+    await itcBadgeSet(d.count);
+  })());
 });

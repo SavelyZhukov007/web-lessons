@@ -9,7 +9,11 @@
   var THEMES = ['system', 'light', 'dark'];
   var ACCENTS = ['brick', 'blue', 'green', 'violet', 'custom'];
   var SIZES = ['normal', 'large', 'xlarge'];
-  var DEFAULTS = { theme: 'system', accent: 'brick', textSize: 'normal', customAccent: '#e0a800' };
+  var DISPLAY_OPTIONS = {
+    daySwipe: true, compactSchedule: false, showRoom: true, showLeader: true, showEndTime: true,
+    showDayMarks: true, showNextClass: true, reduceMotion: false, solidGlass: false
+  };
+  var DEFAULTS = Object.freeze(Object.assign({ theme: 'system', accent: 'brick', textSize: 'normal', customAccent: '#e0a800', dayNavigation: 'centered' }, DISPLAY_OPTIONS));
   var HEX = /^#[0-9a-f]{6}$/i;
   var THEME_COLOR = { light: '#ffffff', dark: '#111412' };
   var doc = root.document;
@@ -18,12 +22,15 @@
   function pick(value, allowed, fallback) { return allowed.indexOf(value) >= 0 ? value : fallback; }
   function normalize(raw) {
     raw = raw && typeof raw === 'object' ? raw : {};
-    return {
+    var next = {
       theme: pick(raw.theme, THEMES, DEFAULTS.theme),
       accent: pick(raw.accent, ACCENTS, DEFAULTS.accent),
       textSize: pick(raw.textSize, SIZES, DEFAULTS.textSize),
-      customAccent: HEX.test(raw.customAccent || '') ? String(raw.customAccent).toLowerCase() : DEFAULTS.customAccent
+      customAccent: HEX.test(raw.customAccent || '') ? String(raw.customAccent).toLowerCase() : DEFAULTS.customAccent,
+      dayNavigation: raw.dayNavigation === 'week' ? 'week' : DEFAULTS.dayNavigation
     };
+    Object.keys(DISPLAY_OPTIONS).forEach(function (key) { next[key] = typeof raw[key] === 'boolean' ? raw[key] : DISPLAY_OPTIONS[key]; });
+    return next;
   }
   function load() {
     try { return normalize(JSON.parse(root.localStorage.getItem(KEY))); } catch (e) { return normalize(null); }
@@ -48,8 +55,12 @@
     // в тёмной теме слишком тёмный акцент осветляем, в светлой слишком светлый — затемняем (для текста/ссылок)
     if (dark) { for (var i = 0; i < 10 && contrast(primary, '#111412') < 4.5; i++) primary = mix(primary, '#ffffff', 0.18); }
     else { for (var j = 0; j < 10 && contrast(primary, '#ffffff') < 3; j++) primary = mix(primary, '#000000', 0.15); }
+    var dayFill = primary;
+    if (!dark) {
+      for (var k = 0; k < 10 && contrast(dayFill, '#ffffff') < 4.5; k++) dayFill = mix(dayFill, '#000000', 0.1);
+    }
     var container = dark ? mix(hex, '#111412', 0.6) : mix(hex, '#ffffff', 0.8);
-    return { primary: primary, onPrimary: readableOn(primary), container: container, onContainer: readableOn(container), logo: hex, logoMark: readableOn(hex) };
+    return { primary: primary, onPrimary: readableOn(primary), container: container, onContainer: readableOn(container), logo: hex, logoMark: readableOn(hex), dayFill: dayFill };
   }
   // Тумблер «Системная тема»: при выключении стартуем с текущей фактической темы; кнопка-иконка переключает light ⇄ dark
   function themeFromToggle(on, current) { return on ? 'system' : (current === 'dark' ? 'dark' : 'light'); }
@@ -105,12 +116,17 @@
     el.setAttribute('data-theme-pref', prefs.theme);
     el.setAttribute('data-accent', prefs.accent);
     el.setAttribute('data-text-size', prefs.textSize);
+    el.setAttribute('data-day-navigation', prefs.dayNavigation);
+    Object.keys(DISPLAY_OPTIONS).forEach(function (key) {
+      var attr = 'data-' + key.replace(/[A-Z]/g, function (letter) { return '-' + letter.toLowerCase(); });
+      el.setAttribute(attr, String(prefs[key]));
+    });
     var st = el.style;
     if (st && st.setProperty) {
-      var V = ['--primary', '--on-primary', '--primary-container', '--on-primary-container', '--logo-fill', '--logo-mark'];
+      var V = ['--primary', '--on-primary', '--primary-container', '--on-primary-container', '--logo-fill', '--logo-mark', '--day-pill'];
       if (prefs.accent === 'custom') {
         var d = deriveAccent(prefs.customAccent, resolved);
-        [d.primary, d.onPrimary, d.container, d.onContainer, d.logo, d.logoMark].forEach(function (v, i) { st.setProperty(V[i], v); });
+        [d.primary, d.onPrimary, d.container, d.onContainer, d.logo, d.logoMark, d.dayFill].forEach(function (v, i) { st.setProperty(V[i], v); });
         st.setProperty('--custom-accent', prefs.customAccent);
       } else { V.concat('--custom-accent').forEach(function (k) { st.removeProperty(k); }); }
     }
@@ -135,7 +151,7 @@
     listeners.slice().forEach(function (fn) { try { fn(snapshot); } catch (e) {} });
     try { root.dispatchEvent(new root.CustomEvent('clubs:themechange', { detail: snapshot })); } catch (e) {}
   }
-  function get() { return { theme: prefs.theme, accent: prefs.accent, textSize: prefs.textSize, customAccent: prefs.customAccent }; }
+  function get() { return Object.assign({}, prefs); }
   function set(partial) {
     prefs = normalize(Object.assign({}, prefs, partial));
     save(prefs); apply(); emit();

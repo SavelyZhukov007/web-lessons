@@ -9,12 +9,13 @@ export function openScheduleFilters({ fields, changeFilters, resetFilters, trigg
   if (document.getElementById('itc-filter-sheet')) return;
   const body = h('div', { class: 'sheet-body itc-fsheet-body' });
   const close = h('button', { type: 'button', class: 'glass-action' }, 'Закрыть');
-  const reset = h('button', { type: 'button', class: 'glass-action' }, 'Сбросить');
+  const reset = h('button', { type: 'button', class: 'text-button' }, 'Сбросить');
   const apply = h('button', { type: 'button', class: 'btn btn--primary' }, 'Показать');
   const title = h('h2', { id: 'itc-filter-title' }, 'Фильтры');
   const sheet = h('dialog', {
     id: 'itc-filter-sheet', class: 'sheet sheet--bottom itc-filter-sheet', 'aria-labelledby': title.id, dataset: { swipeDismiss: 'filters' },
-  }, h('div', { class: 'sheet-head' }, title, close), body, h('div', { class: 'sheet-foot' }, reset, apply));
+  }, h('div', { class: 'sheet-head' }, title, h('div', { class: 'filter-sheet-actions' }, reset, close)),
+  body, h('div', { class: 'sheet-foot' }, apply));
   const choices = new Map();
   for (const [key, label] of groups) {
     const options = [...fields[key].options];

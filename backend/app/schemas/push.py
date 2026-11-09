@@ -68,4 +68,21 @@ class PushStatusRequest(InputSchema):
 
 class PushPreferencesRequest(InputSchema):
     endpoint: Endpoint
+    announcements: bool | None = None
+    cancellations: bool | None = None
+    moves: bool | None = None
+
+    @model_validator(mode="after")
+    def require_preference(self):
+        if self.announcements is None and self.cancellations is None and self.moves is None:
+            raise ValueError("Нужна хотя бы одна настройка уведомлений")
+        return self
+
+
+class PushSyncRequest(InputSchema):
+    endpoint: Endpoint
+    keys: PushKeys
+    club_ids: list[PositiveId] = Field(max_length=60)
     announcements: bool
+    cancellations: bool
+    moves: bool

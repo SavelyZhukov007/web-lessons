@@ -120,7 +120,18 @@ public final class Store {
     }
 
     static int reminderMinutes(Context c) { return prefs(c).getInt("reminder_minutes", 15); }
-    static boolean notifyChanges(Context c) { return prefs(c).getBoolean("notify_changes", true); }
+    static boolean notifyCancellations(Context c) {
+        return prefs(c).getBoolean("notify_cancellations", prefs(c).getBoolean("notify_changes", true));
+    }
+    static boolean notifyMoves(Context c) {
+        return prefs(c).getBoolean("notify_moves", prefs(c).getBoolean("notify_changes", true));
+    }
+    static boolean notifyChanges(Context c) { return notifyCancellations(c) || notifyMoves(c); }
+    static boolean notifyChange(Context c, String channel) {
+        if (Notifier.CH_CANCEL.equals(channel)) return notifyCancellations(c);
+        if (Notifier.CH_MOVE.equals(channel)) return notifyMoves(c);
+        return notifyChanges(c);
+    }
     static boolean notifyAnnouncements(Context c) { return prefs(c).getBoolean("notify_announcements", true); }
     static String server(Context c) { return prefs(c).getString("server", ""); }
     static boolean demo(Context c) { return prefs(c).getBoolean("demo", false); }

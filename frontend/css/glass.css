@@ -2,32 +2,35 @@
 .glass-tabs,
 .glass-action,
 .glass-trigger {
-    --glass-fill: color-mix(in srgb, var(--surface-1) 86%, transparent);
+    --glass-fill: color-mix(in srgb, var(--surface-1) 70%, transparent);
     --glass-stroke: color-mix(in srgb, var(--outline) 36%, transparent);
-    --glass-rim: rgb(255 255 255 / .52);
-    --glass-ease: cubic-bezier(.22, .68, .24, 1);
+    --glass-rim: rgb(255 255 255 / .82);
+    --glass-sheen: rgb(255 255 255 / .42);
+    --glass-ease: var(--glass-spring, cubic-bezier(.2, .76, .26, 1));
 }
 
 [data-theme="dark"] :is(.glass-surface, .glass-tabs, .glass-action, .glass-trigger) {
-    --glass-rim: rgb(255 255 255 / .12);
+    --glass-rim: rgb(255 255 255 / .25);
+    --glass-sheen: rgb(255 255 255 / .07);
 }
 
 .glass-surface,
 .glass-tabs {
     position: relative;
     background: var(--surface-1);
-    background: var(--glass-fill, var(--surface-1));
+    background: linear-gradient(155deg, var(--glass-sheen), transparent 62%), var(--glass-fill, var(--surface-1));
     border: 1px solid var(--glass-stroke, var(--line));
-    box-shadow: inset 0 1px 0 var(--glass-rim), 0 4px 14px rgb(0 0 0 / .08);
+    box-shadow: inset 0 1px 0 var(--glass-rim), inset 0 -1px 0 color-mix(in srgb, var(--outline) 20%, transparent), 0 4px 14px rgb(0 0 0 / .1);
     border-radius: 18px;
 }
 
 .glass-surface {
-    -webkit-backdrop-filter: blur(12px) saturate(1.25);
-    backdrop-filter: blur(12px) saturate(1.25);
+    isolation: isolate;
+    -webkit-backdrop-filter: blur(7px) saturate(1.35);
+    backdrop-filter: blur(7px) saturate(1.35);
 }
 
-.glass-surface[data-glass-backend="css-svg"] {
+:is(.glass-surface, .glass-tabs)[data-glass-backend="css-svg"] {
     background: transparent;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -68,13 +71,17 @@
     z-index: -1;
     border-radius: 14px;
     opacity: 0;
-    background: var(--glass-active-fill);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent), inset 0 1px 0 rgb(255 255 255 / .28);
-    transition: transform 240ms var(--glass-ease), width 240ms var(--glass-ease),
-        height 240ms var(--glass-ease), opacity 130ms ease;
+    background: linear-gradient(165deg, var(--glass-active-sheen, rgb(255 255 255 / .12)), transparent 68%), var(--glass-active-fill);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent), inset 0 1px 0 rgb(255 255 255 / .38);
 }
 
-.glass-indicator.is-visible { opacity: 1; }
+.glass-indicator.is-visible {
+    opacity: 1;
+    transition: transform 330ms var(--glass-ease), width 330ms var(--glass-ease), height 330ms var(--glass-ease),
+        scale 250ms var(--glass-ease), opacity 130ms ease;
+}
+
+.glass-tabs:has(> :is(button, a, label):active) > .glass-indicator { scale: .95; }
 
 .glass-tabs > :is(button, a, label),
 .glass-tabs > label > span {
@@ -94,7 +101,7 @@
 .campus-page .segmented.glass-tabs {
     border: 1px solid var(--glass-stroke, var(--line));
     border-radius: 18px;
-    background: var(--glass-fill, var(--surface-1));
+    background: linear-gradient(155deg, var(--glass-sheen), transparent 62%), var(--glass-fill, var(--surface-1));
     padding: 3px;
 }
 
@@ -130,12 +137,14 @@
     border: 1px solid var(--glass-stroke, var(--line));
     border-radius: 14px;
     background: var(--surface-1);
-    background: var(--glass-fill, var(--surface-1));
+    background: linear-gradient(155deg, var(--glass-sheen), transparent 62%), var(--glass-fill, var(--surface-1));
     color: var(--ink);
     box-shadow: inset 0 1px 0 var(--glass-rim);
     text-decoration: none;
-    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+    transition: scale 250ms var(--glass-ease), background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
+
+:is(.glass-action, .glass-trigger):active:not(:disabled) { scale: .97; }
 
 :is(.campus-page, .admin-page) .glass-action:is([aria-expanded="true"], [aria-pressed="true"]),
 .glass-trigger[aria-expanded="true"],
@@ -201,17 +210,37 @@ details[open] > .glass-trigger {
 }
 
 .campus-page details > summary.glass-trigger { cursor: pointer; min-height: 44px; }
-.campus-page details[open]:has(> .glass-trigger) > :not(summary) { animation: glass-appear 180ms var(--glass-ease) both; }
+.campus-page details[open]:has(> .glass-trigger) > :not(summary) { animation: glass-appear 260ms var(--glass-ease) both; }
 @keyframes glass-appear { from { opacity: 0; transform: translateY(-5px); } }
 
 @media (prefers-reduced-motion: reduce) {
-    .glass-indicator, .glass-action, .glass-trigger, .glass-tabs > :is(button, a, label), .campus-page select.glass-select { transition: none; }
+    .glass-indicator.is-visible, .glass-action, .glass-trigger, .glass-tabs > :is(button, a, label), .campus-page select.glass-select { transition: none; }
+    .glass-tabs > .glass-indicator, .glass-action, .glass-trigger { scale: none !important; }
     .campus-page details[open]:has(> .glass-trigger) > :not(summary) { animation: none; }
 }
 
-@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+:root[data-reduce-motion="true"] :is(.glass-indicator, .glass-action, .glass-trigger, .glass-tabs > :is(button, a, label), select.glass-select) {
+    transition: none;
+    scale: none !important;
+}
+:root[data-reduce-motion="true"] details[open]:has(> .glass-trigger) > :not(summary) { animation: none; }
+
+:root[data-solid-glass="true"] :is(.glass-surface, .glass-tabs, .glass-action, .glass-trigger) {
+    --glass-fill: var(--surface-1);
+    --glass-sheen: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+:root[data-solid-glass="true"] .glass-optics { display: none; }
+@supports (appearance: base-select) {
+    :root[data-solid-glass="true"] select.glass-select::picker(select) { background: var(--surface-1); backdrop-filter: none; }
+    :root[data-reduce-motion="true"] select.glass-select::picker(select) { animation: none; }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
     .glass-surface, .glass-tabs, .glass-action, .glass-trigger {
         --glass-fill: var(--surface-1);
+        --glass-sheen: transparent;
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
     }

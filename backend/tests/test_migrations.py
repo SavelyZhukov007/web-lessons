@@ -24,7 +24,7 @@ def real_migrations(monkeypatch):
 
 def test_empty_db_upgrades_to_head_and_matches_models(real_migrations):
     migrations.prepare_database()
-    assert migrations.current_revision() == migrations.head_revision() == "0013"
+    assert migrations.current_revision() == migrations.head_revision() == "0014"
     command.check(migrations.alembic_config())  # «No new upgrade operations detected»
     tables = set(inspect(engine).get_table_names())
     assert {"clubs", "sessions", "push_subscriptions", "login_attempts", "admin_sessions"} <= tables
@@ -37,7 +37,7 @@ def test_existing_db_without_alembic_version_is_stamped_and_keeps_data(real_migr
         c.execute(text("INSERT INTO categories (name, color) VALUES ('Спорт', '#112233')"))
         c.execute(text("DROP TABLE alembic_version"))
     migrations.prepare_database()
-    assert migrations.current_revision() == "0013"
+    assert migrations.current_revision() == "0014"
     with engine.connect() as c:
         assert c.execute(text("SELECT name FROM categories")).scalar() == "Спорт"
 
@@ -45,7 +45,7 @@ def test_existing_db_without_alembic_version_is_stamped_and_keeps_data(real_migr
 def test_prepare_database_is_idempotent(real_migrations):
     migrations.prepare_database()
     migrations.prepare_database()
-    assert migrations.current_revision() == "0013"
+    assert migrations.current_revision() == "0014"
 
 
 def test_upgrade_preserves_session_exceptions_and_assignments(real_migrations):
@@ -95,7 +95,7 @@ def test_downgrade_and_upgrade_roundtrip(real_migrations):
     command.downgrade(cfg, "0001")
     assert "push_subscriptions" not in inspect(engine).get_table_names()
     command.upgrade(cfg, "head")
-    assert migrations.current_revision() == "0013"
+    assert migrations.current_revision() == "0014"
 
 
 def test_0007_drops_attendance_and_downgrade_recreates_it(real_migrations):
@@ -111,7 +111,7 @@ def test_0007_drops_attendance_and_downgrade_recreates_it(real_migrations):
     assert "announcements" not in {c["name"] for c in insp.get_columns("push_subscriptions")}
     assert {c["name"] for c in insp.get_columns("attendance")} == {"id", "session_id", "occurrence_date", "student_id", "method", "created_at"}
     command.upgrade(cfg, "head")
-    assert migrations.current_revision() == "0013"
+    assert migrations.current_revision() == "0014"
 
 
 
@@ -128,3 +128,17 @@ def test_0012_to_0013_preserves_schedule_and_tracks_edits(real_migrations):
             "SELECT revision FROM schedule_row_revisions WHERE table_name = 'categories' AND row_key = '[1]'"
         ).scalar()
         assert not c.exec_driver_sql("PRAGMA foreign_key_check").all()
+
+
+def test_0013_to_0014_preserves_legacy_notification_consent(real_migrations):
+    cfg = migrations.alembic_config()
+    command.upgrade(cfg, "0013")
+    with engine.begin() as c:
+        c.exec_driver_sql("""
+            INSERT INTO push_subscriptions (endpoint, p256dh, auth, created_at, announcements)
+            VALUES ('https://example.test/legacy', 'key', 'auth', '2026-11-09', 0)
+        """)
+    command.upgrade(cfg, "0014")
+    with engine.connect() as c:
+        row = c.exec_driver_sql("SELECT club_id, announcements, announcements_only, cancellations, moves FROM push_subscriptions").one()
+        assert row == (None, 0, 0, 1, 1)

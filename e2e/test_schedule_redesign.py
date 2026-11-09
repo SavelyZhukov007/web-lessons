@@ -78,8 +78,14 @@ def test_ribbon_swipe_crosses_sunday_and_keeps_the_header(new_page):
 def test_settings_dismiss_requires_a_new_drag_at_the_top(new_page):
     page = new_page(390, 620, is_mobile=True, has_touch=True)
     page.goto("/")
-    page.get_by_role("button", name="Настройки", exact=True).click()
+    page.locator("#content").evaluate("(el) => { el.style.minHeight = '1500px'; }")
+    page.evaluate("window.scrollTo(0, 220)")
+    previous = page.locator("#schedule-filters").bounding_box()["y"]
+    page.evaluate("window.ClubsSettings.open()")
     sheet = page.locator("#settings-dialog")
+    expect(page.locator("html")).to_have_attribute("data-modal-scroll-lock", "")
+    page.evaluate("window.scrollTo(0, 800)")
+    assert abs(page.locator("#schedule-filters").bounding_box()["y"] - previous) <= 1
     body = sheet.locator(".sheet-body")
     top = body.evaluate("(el) => { el.scrollTop = el.scrollHeight; return el.scrollTop; }")
     assert top > 0
@@ -94,9 +100,71 @@ def test_settings_dismiss_requires_a_new_drag_at_the_top(new_page):
     x, y = head["x"] + head["width"] / 2, head["y"] + head["height"] / 2
     _drag(cdp, (x, y), (x, y + 165))
     expect(sheet).to_be_hidden()
+    assert page.evaluate("scrollY") == 220
     page.get_by_role("button", name="Настройки", exact=True).click()
     page.get_by_role("button", name="Закрыть настройки").click()
     expect(sheet).to_be_hidden()
+    assert not page.errors, page.errors
+
+
+def test_schedule_preferences_keep_day_and_change_card_density(new_page):
+    page = new_page(390, 844, is_mobile=True, has_touch=True, color_scheme="light")
+    page.goto("/?week=2026-11-09&day=2026-11-10")
+    page.locator(".storage-notice button").click()
+    active = page.locator('#day-buttons [aria-pressed="true"]')
+    expect(active.locator("strong")).to_have_css("color", "rgb(255, 255, 255)")
+    expect(active.locator(".ribbon-weekday")).to_have_css("color", "rgb(255, 255, 255)")
+    card = page.locator("#content button[data-event-id]").first
+    card.wait_for()
+    page.locator(".schedule-skeleton").wait_for(state="detached")
+    original_height = card.bounding_box()["height"]
+    page.get_by_role("button", name="Настройки", exact=True).click()
+    sheet = page.locator("#settings-dialog")
+    sheet.get_by_text("По неделям", exact=True).click()
+    sheet.get_by_text("Карточки занятий", exact=True).click()
+    sheet.get_by_text("Компактный список", exact=True).click()
+    sheet.get_by_text("Аудитории", exact=True).click()
+    sheet.get_by_text("Эффекты и доступность", exact=True).click()
+    sheet.get_by_text("Непрозрачные панели", exact=True).click()
+    page.get_by_role("button", name="Закрыть настройки").click()
+    expect(page.locator("#day-buttons [data-day-date]")).to_have_count(6)
+    expect(active).to_have_attribute("data-day-date", "2026-11-10")
+    expect(card.locator(".event-room")).to_be_hidden()
+    assert card.bounding_box()["height"] < original_height
+    expect(page.locator(".mobile-days")).to_have_css("backdrop-filter", "none")
+    rail = page.locator("#day-buttons").bounding_box()
+    middle = rail["y"] + rail["height"] / 2
+    cdp = page.context.new_cdp_session(page.page)
+    _drag(cdp, (300, middle), (65, middle))
+    expect(active).to_have_attribute("data-day-date", "2026-11-17")
+    _drag(cdp, (65, middle), (300, middle))
+    expect(active).to_have_attribute("data-day-date", "2026-11-10")
+    page.reload()
+    expect(page.locator("#day-buttons [data-day-date]")).to_have_count(6)
+    expect(card.locator(".event-room")).to_be_hidden()
+    card.click()
+    expect(page.locator("#event-dialog").get_by_text("Аудитория", exact=True)).to_be_visible()
+    assert not page.errors, page.errors
+
+
+def test_dark_desktop_segment_uses_a_single_contrasting_pill(new_page):
+    page = new_page(1366, 900, color_scheme="dark")
+    page.goto("/?week=2026-11-09&day=2026-11-10")
+    page.locator("#view-list").click()
+    choice = page.locator("#view-list")
+    expect(choice).to_have_css("background-color", "rgba(0, 0, 0, 0)")
+    pill = page.locator(".desktop-view .glass-indicator")
+    expect(pill).to_have_class("glass-indicator is-visible")
+    contrast = choice.evaluate("""button => {
+        const hex = color => '#' + color.match(/\\d+/g).slice(0, 3).map(v => Number(v).toString(16).padStart(2, '0')).join('');
+        const color = el => getComputedStyle(el).color;
+        const fill = getComputedStyle(button.parentElement.querySelector('.glass-indicator')).backgroundColor;
+        return ClubsTheme.contrast(hex(color(button)), hex(fill));
+    }""")
+    assert contrast >= 4.5
+    page.locator(".storage-notice button").click()
+    pill.evaluate("el => Promise.allSettled(el.getAnimations().map(a => a.finished))")
+    shot(page, "kipclub-desktop-list-dark.png")
     assert not page.errors, page.errors
 
 

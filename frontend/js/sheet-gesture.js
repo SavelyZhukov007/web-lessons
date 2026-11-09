@@ -21,7 +21,7 @@ export function bindSheetDismiss(sheet, { scrollBody, close = () => sheet.close(
     reset();
     const body = scrollBody();
     if (event.touches.length !== 1 ||
-        body?.scrollTop > 1 || event.target.closest('button, a, input, select, textarea, label, [role="slider"]')) return;
+        body?.scrollTop > 1 || event.target.closest('button, a, input, select, textarea, label, summary, [role="slider"]')) return;
     const touch = event.touches[0];
     drag = { x: touch.clientX, y: touch.clientY, start: event.timeStamp, distance: 0, locked: false };
   }, { passive: true });

@@ -124,7 +124,8 @@ def test_unsubscribe_one_and_all(admin_client):
     admin_client.post("/api/push/subscribe", json=sub_body())
     admin_client.post("/api/push/subscribe", json=sub_body(club_id=w["club"]["id"]))
     st = admin_client.post("/api/push/status", json={"endpoint": ENDPOINT}).json()
-    assert st == {"all": True, "club_ids": [w["club"]["id"]], "announcements": True}
+    assert st == {"all": True, "general": False, "club_ids": [w["club"]["id"]],
+                  "announcements": True, "cancellations": True, "moves": True}
     r = admin_client.post("/api/push/unsubscribe", json={"endpoint": ENDPOINT, "club_id": w["club"]["id"]})
     assert r.status_code == 200 and r.json() == {"removed": 1, "remaining": 1}
     assert admin_client.post("/api/push/unsubscribe", json={"endpoint": ENDPOINT}).json() == {"removed": 1, "remaining": 0}
@@ -149,6 +150,34 @@ def test_deleting_club_cascades_subscriptions(admin_client):
     admin_client.delete(f"/api/admin/clubs/{w['club']['id']}")
     with SessionLocal() as db:
         assert db.scalar(select(PushSubscription)) is None
+
+
+def test_push_sync_preserves_independent_delivery_preferences(admin_client):
+    from backend.app.services.delivery import Event, web_targets
+
+    club_id = make_world(admin_client)["club"]["id"]
+    endpoint = "https://web.push.apple.com/sync-test"
+    payload = {**sub_body(endpoint), "club_ids": [], "announcements": True, "cancellations": False, "moves": True}
+    assert admin_client.post("/api/push/sync", json=payload).json()["general"]
+
+    def target_counts():
+        with SessionLocal() as db:
+            return [len(web_targets(db, Event(kind, audience, [club_id], {}))) for kind, audience in (
+                ("announcement", "all"), ("announcement", "clubs"), ("cancel", "clubs"), ("reschedule", "clubs"),
+            )]
+
+    assert target_counts() == [1, 0, 0, 0]
+    payload["club_ids"] = [club_id, club_id, 999999]
+    expected = {"all": False, "general": True, "club_ids": [club_id], "announcements": True,
+                "cancellations": False, "moves": True}
+    for _ in range(2):
+        assert admin_client.post("/api/push/sync", json=payload).json() == expected
+    assert target_counts() == [1, 1, 0, 1]
+
+    assert admin_client.post("/api/push/preferences", json={"endpoint": endpoint, "moves": False}).json() == {
+        "updated": 2, "moves": False,
+    }
+    assert target_counts() == [1, 1, 0, 0]
 
 
 # ---------- хук уведомлений (отправщик подменён) ----------

@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat;
 final class Notifier {
     static final String CH_REMIND = "itc_reminders";
     static final String CH_CHANGES = "itc_changes";
+    static final String CH_CANCEL = "itc_cancellations";
+    static final String CH_MOVE = "itc_moves";
     static final String CH_ANN = "itc_announcements";
 
     private Notifier() {}
@@ -25,15 +27,41 @@ final class Notifier {
     static void channels(Context c) {
         if (Build.VERSION.SDK_INT < 26) return;
         NotificationManager nm = c.getSystemService(NotificationManager.class);
+        NotificationChannel previous = nm.getNotificationChannel(CH_CHANGES);
         NotificationChannel r = new NotificationChannel(CH_REMIND, "Напоминания о занятиях", NotificationManager.IMPORTANCE_DEFAULT);
         r.setDescription("Перед началом занятий отмеченных кружков");
-        NotificationChannel ch = new NotificationChannel(CH_CHANGES, "Переносы и отмены", NotificationManager.IMPORTANCE_HIGH);
-        ch.setDescription("Когда занятие отмечённого кружка отменили или перенесли");
+        NotificationChannel ch = new NotificationChannel(CH_CHANGES, "Возврат в расписание", NotificationManager.IMPORTANCE_HIGH);
+        ch.setDescription("Когда отменённое занятие снова появилось в расписании");
         NotificationChannel an = new NotificationChannel(CH_ANN, "Объявления", NotificationManager.IMPORTANCE_DEFAULT);
         an.setDescription("Сообщения от администрации кружков");
         nm.createNotificationChannel(r);
         nm.createNotificationChannel(ch);
         nm.createNotificationChannel(an);
+        addChangeChannel(nm, previous, CH_CANCEL, "Отмены занятий");
+        addChangeChannel(nm, previous, CH_MOVE, "Переносы занятий");
+    }
+
+    private static void addChangeChannel(NotificationManager nm, NotificationChannel previous, String id, String title) {
+        if (nm.getNotificationChannel(id) != null) return;
+        int importance = previous == null ? NotificationManager.IMPORTANCE_HIGH : previous.getImportance();
+        NotificationChannel channel = new NotificationChannel(id, title, importance);
+        if (previous != null) {
+            channel.setSound(previous.getSound(), previous.getAudioAttributes());
+            channel.setVibrationPattern(previous.getVibrationPattern());
+            channel.enableVibration(previous.shouldVibrate());
+            channel.setShowBadge(previous.canShowBadge());
+        }
+        nm.createNotificationChannel(channel);
+    }
+
+    static String changeChannel(String kind) {
+        if ("cancelled".equals(kind)) return CH_CANCEL;
+        if ("moved".equals(kind)) return CH_MOVE;
+        return CH_CHANGES;
+    }
+
+    static boolean isChangeChannel(String channel) {
+        return CH_CANCEL.equals(channel) || CH_MOVE.equals(channel) || CH_CHANGES.equals(channel);
     }
 
     static boolean allowed(Context c) {
@@ -59,7 +87,7 @@ final class Notifier {
             .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
             .setAutoCancel(true)
             .setCategory(CH_REMIND.equals(channel) ? NotificationCompat.CATEGORY_REMINDER : NotificationCompat.CATEGORY_EVENT)
-            .setPriority(CH_CHANGES.equals(channel) ? NotificationCompat.PRIORITY_HIGH : NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(isChangeChannel(channel) ? NotificationCompat.PRIORITY_HIGH : NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(open(c, path, id));
         NotificationManagerCompat.from(c).notify(id, b.build());
     }

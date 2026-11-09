@@ -10,6 +10,12 @@
 @media (prefers-reduced-motion: reduce) {
   :root { --m-shift: 0px; --m-scale-from: 1; --m-stagger: 0ms; --m-dur-medium: 150ms; --m-dur-long: 150ms; }
 }
+:root[data-reduce-motion="true"] {
+  --m-shift: 0px; --m-scale-from: 1; --m-stagger: 0ms;
+  --m-dur-short: 100ms; --m-dur-medium: 100ms; --m-dur-long: 100ms;
+}
+:root[data-reduce-motion="true"] .itc-ob,
+:root[data-reduce-motion="true"] .app-skel-card::after { animation-duration: 0s; transition-duration: 0s; }
 
 /* тапы блокируются, пока идёт переход */
 html.m-busy body { pointer-events: none; }

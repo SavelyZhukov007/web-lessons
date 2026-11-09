@@ -1,5 +1,6 @@
 // Мелкие общие помощники UI: hyperscript без innerHTML, snackbar, ripple (Android), фокус.
 import { icon } from './icons.js';
+import { prefersReducedMotion } from './motion-preferences.js';
 
 /** h('div', {class:'x', onclick(){}}, 'text', child) — только textContent/узлы, XSS через разметку невозможен. */
 export function h(tag, props = {}, ...children) {
@@ -41,8 +42,8 @@ export function toast(message, { kind = 'info', timeout = 5000, action } = {}) {
 /** Material-ripple для кнопок на Android. Включается только при class="platform-android" и без reduced-motion. */
 export function installRipple() {
   if (!document.documentElement.classList.contains('platform-android')) return;
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   document.addEventListener('pointerdown', event => {
+    if (prefersReducedMotion()) return;
     const target = event.target.closest?.('.btn, .campus-page button, .settings-button');
     if (!target || target.disabled) return;
     const rect = target.getBoundingClientRect();

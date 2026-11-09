@@ -6,7 +6,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent.parent
-WWW = HERE / "www"
+WWW = Path(os.environ.get("WWW_DIR") or HERE / "www")
 CHROME = os.environ.get("CHROME_PATH", "/usr/bin/google-chrome")
 SHOTS = Path(os.environ.get("SHOTS_DIR", "/workspace/itc/shots_c")); SHOTS.mkdir(parents=True, exist_ok=True)
 PORT = int(os.environ.get("STATIC_PORT", "9131"))
@@ -25,8 +25,10 @@ B = f"http://127.0.0.1:{PORT}"
 
 MOCK = """
 window.__calls = [];
+localStorage.setItem('kipclub.release.seen.v1.9.015', '1');
+localStorage.setItem('itc.role', 'guest');
 const rec = (name) => (arg) => { window.__calls.push([name, JSON.parse(JSON.stringify(arg || {}))]);
-  return Promise.resolve({ notificationsAllowed: true, reminderMinutes: 30, notifyChanges: true, requested: true, notified: 0 }); };
+  return Promise.resolve({ notificationsAllowed: true, changeChannels: true, reminderMinutes: 30, notifyChanges: true, requested: true, notified: 0 }); };
 window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {
   ItcNative: { configure: rec('configure'), sync: rec('sync'), getState: rec('getState'), requestNotifications: rec('requestNotifications'),
                openNotificationSettings: rec('openNotificationSettings'), pinWidget: rec('pinWidget') },
@@ -82,8 +84,14 @@ with sync_playwright() as p:
     pg.screenshot(path=str(SHOTS / "sheet-reminders-light.png"))
     pg.select_option("#itc-remind", "60"); pg.wait_for_timeout(200)
     check("настройка напоминаний уходит в плагин", any(a.get("reminderMinutes") == 60 for a in calls(pg, "configure")))
-    pg.uncheck("#itc-changes"); pg.wait_for_timeout(200)
-    check("выключение уведомлений об изменениях", calls(pg, "configure")[-1].get("notifyChanges") is False)
+    pg.uncheck("#itc-cancellations"); pg.wait_for_timeout(200)
+    check("отмены выключаются отдельно от переносов", calls(pg, "configure")[-1].get("notifyCancellations") is False
+          and calls(pg, "configure")[-1].get("notifyMoves") is True)
+    pg.click('[data-channel="cancelled"]')
+    pg.click('[data-channel="moved"]')
+    check("открываются разные системные категории", calls(pg, "openNotificationSettings")[-2:] == [
+        {"kind": "cancelled"}, {"kind": "moved"},
+    ])
     pg.click('[data-pin="today"]'); pg.wait_for_timeout(200)
     check("кнопка «виджет Сегодня»", calls(pg, "pinWidget")[-1] == {"kind": "today"})
     pg.click(".itc-close"); pg.wait_for_timeout(500)

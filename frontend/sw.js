@@ -55,7 +55,7 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (request.method === 'POST' && /^\/api\/push\/(subscribe|unsubscribe|preferences|status)$/.test(url.pathname)) {
+  if (request.method === 'POST' && /^\/api\/push\/(subscribe|unsubscribe|preferences|status|sync)$/.test(url.pathname)) {
     event.respondWith((async () => {
       const copy = request.clone();
       const response = await fetch(request);
@@ -64,7 +64,10 @@ self.addEventListener('fetch', event => {
           const { endpoint } = await copy.json();
           // Успешная операция могла сузить согласие. Старая копия больше не основание для восстановления.
           if (!url.pathname.endsWith('/status')) await (await caches.open(PUSH_PREFS_CACHE)).delete(new Request(new URL(PUSH_PREFS_KEY, self.location.origin)));
-          if (endpoint) await savePushPreferences(endpoint, url.pathname.endsWith('/status') ? await response.clone().json() : await pushStatus(endpoint));
+          if (endpoint) {
+            const status = /\/(status|sync)$/.test(url.pathname) ? await response.clone().json() : await pushStatus(endpoint);
+            await savePushPreferences(endpoint, status);
+          }
         } catch { /* API-операция выполнена; отсутствие копии не расширяет подписку при восстановлении. */ }
       }
       return response;
@@ -178,7 +181,7 @@ self.addEventListener('pushsubscriptionchange', event => {
       const previous = event.oldSubscription?.endpoint;
       let prefs = saved ? await saved.json() : null;
       if (!prefs || (previous && prefs.endpoint !== previous)) prefs = previous ? { endpoint: previous, ...await pushStatus(previous) } : null;
-      if (!prefs || (!prefs.all && !prefs.club_ids?.length)) return; // нет согласия — не подписываем на всё
+      if (!prefs || (!prefs.general && !prefs.all && !prefs.club_ids?.length)) return; // нет согласия — не подписываем на всё
       const { publicKey } = await (await fetch('/api/push/vapid-public-key')).json();
       const pad = '='.repeat((4 - (publicKey.length % 4)) % 4);
       const raw = atob((publicKey + pad).replace(/-/g, '+').replace(/_/g, '/'));
@@ -189,9 +192,14 @@ self.addEventListener('pushsubscriptionchange', event => {
         const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!response.ok) throw new Error('push restore failed');
       };
-      for (const club_id of prefs.all ? [null] : prefs.club_ids) await post('/api/push/subscribe', { endpoint: json.endpoint, keys: json.keys, club_id });
-      await post('/api/push/preferences', { endpoint: json.endpoint, announcements: prefs.announcements !== false });
-      await savePushPreferences(json.endpoint, { all: !!prefs.all, club_ids: prefs.club_ids || [], announcements: prefs.announcements !== false });
+      const flags = { announcements: prefs.announcements !== false, cancellations: prefs.cancellations !== false, moves: prefs.moves !== false };
+      if (prefs.general && !prefs.all) {
+        await post('/api/push/sync', { endpoint: json.endpoint, keys: json.keys, club_ids: prefs.club_ids || [], ...flags });
+      } else {
+        for (const club_id of prefs.all ? [null] : prefs.club_ids) await post('/api/push/subscribe', { endpoint: json.endpoint, keys: json.keys, club_id });
+        await post('/api/push/preferences', { endpoint: json.endpoint, ...flags });
+      }
+      await savePushPreferences(json.endpoint, await pushStatus(json.endpoint));
       if (previous && previous !== json.endpoint) await post('/api/push/unsubscribe', { endpoint: previous });
     } catch { /* повторно предложим подписаться на странице кружка */ }
   })());

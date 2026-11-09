@@ -35,11 +35,13 @@ public class PushTest {
         e.key = "12:2026-11-02"; e.date = "2026-11-03"; e.start = "12:00";
         Push.Msg cancel = Push.parse(data("type", "cancel", "session_id", "12", "original_date", "2026-11-02", "title", "Отменено", "club_id", "5"));
         assertEquals(Push.changeKey(new ChangeDetector.Change(e, "cancelled")), cancel.key);
+        assertEquals(Notifier.CH_CANCEL, cancel.channel);
         assertEquals(5, cancel.clubId);
         assertTrue(cancel.sync);
         Push.Msg moved = Push.parse(data("type", "reschedule", "session_id", "12", "original_date", "2026-11-02",
             "new_date", "2026-11-03", "new_start", "12:00", "title", "Перенесено"));
         assertEquals(Push.changeKey(new ChangeDetector.Change(e, "moved")), moved.key);
+        assertEquals(Notifier.CH_MOVE, moved.channel);
         assertEquals("c12:2026-11-02moved|2026-11-03|12:00", moved.key);
         assertNull(Push.parse(data("type", "cancel", "title", "x")));
     }

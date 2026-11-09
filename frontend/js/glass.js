@@ -1,6 +1,27 @@
 import { prefersReducedMotion } from './motion-preferences.js';
 
+const loadEngine = () => import('../vendor/liquidglass/index.js');
+let springMotion;
+
+function enableSpringMotion() {
+  if (springMotion || !CSS.supports('transition-timing-function', 'linear(0, 1)')) return;
+  // Sample the vendored LiquidGlassJS spring once. CSS handles interruption
+  // and interpolation without a JavaScript animation loop per control.
+  springMotion = loadEngine().then(({ Spring }) => {
+    const spring = new Spring(0, { stiffness: 500, damping: 30, mass: 1 });
+    spring.target = 1;
+    const samples = ['0'];
+    for (let frame = 1; frame < 20; frame++) {
+      spring.step(1 / 120);
+      spring.step(1 / 120);
+      samples.push(spring.value.toFixed(4));
+    }
+    document.documentElement.style.setProperty('--glass-spring', `linear(${samples.join(', ')}, 1)`);
+  }).catch(() => {});
+}
+
 export function bindGlassIndicator(group, selected, { signal } = {}) {
+  enableSpringMotion();
   const pill = document.createElement('span');
   pill.className = 'glass-indicator';
   pill.setAttribute('aria-hidden', 'true');
@@ -31,6 +52,7 @@ export function bindGlassIndicator(group, selected, { signal } = {}) {
 export async function mountGlassOptics(host, { signal } = {}) {
   const reduced = matchMedia('(prefers-reduced-transparency: reduce)');
   const forced = matchMedia('(forced-colors: active)');
+  const contrast = matchMedia('(prefers-contrast: more)');
   const layer = document.createElement('span');
   layer.className = 'glass-optics';
   layer.setAttribute('aria-hidden', 'true');
@@ -38,23 +60,24 @@ export async function mountGlassOptics(host, { signal } = {}) {
 
   let instance;
   let starting = false;
+  const disabled = () => reduced.matches || forced.matches || contrast.matches || document.documentElement.dataset.solidGlass === 'true';
   const stop = () => {
     instance?.destroy();
     instance = null;
     host.removeAttribute('data-glass-backend');
   };
   async function update() {
-    if (reduced.matches || forced.matches || signal?.aborted || !host.isConnected || !host.offsetWidth) { stop(); return; }
+    if (disabled() || signal?.aborted || !host.isConnected || !host.offsetWidth) { stop(); return; }
     if (instance || starting) return;
     starting = true;
     try {
-      const { attach, probeCapabilities } = await import('../vendor/liquidglass/index.js');
+      const { attach, probeCapabilities } = await loadEngine();
       // An actual backdrop is sampled on Blink. On other engines the same
       // controls use native CSS blur without cloning the surrounding DOM.
-      if (signal?.aborted || reduced.matches || forced.matches || !host.offsetWidth || !probeCapabilities().backdropFilterUrl) return;
+      if (signal?.aborted || disabled() || !host.offsetWidth || !probeCapabilities().backdropFilterUrl) return;
       instance = attach(layer, {
-        preset: 'regular', backend: 'css-svg', physics: false, adaptive: true,
-        blur: 7, frost: 0.15, refraction: 0.55, dispersion: 0,
+        preset: 'clear', backend: 'css-svg', physics: false, adaptive: true,
+        blur: 4, frost: 0.08, refraction: 0.82, specular: 0.7, dispersion: 0,
         shadow: false, quality: { mapSide: 192, caPasses: 0, maxDpr: 1 },
       });
       const showBackend = () => { host.dataset.glassBackend = instance.backend; };
@@ -68,15 +91,17 @@ export async function mountGlassOptics(host, { signal } = {}) {
   }
   const resize = new ResizeObserver(update);
   resize.observe(host);
-  for (const mode of [reduced, forced]) mode.addEventListener('change', update, { signal });
+  for (const mode of [reduced, forced, contrast]) mode.addEventListener('change', update, { signal });
+  window.addEventListener('clubs:themechange', update, { signal });
   signal?.addEventListener('abort', () => { stop(); resize.disconnect(); layer.remove(); }, { once: true });
 }
 
 export function animatePanel(panel, open) {
   for (const animation of panel.getAnimations?.() || []) animation.cancel();
   if (open && !prefersReducedMotion()) {
-    panel.animate?.([{ opacity: 0, transform: 'translateY(-5px)' }, { opacity: 1, transform: 'none' }],
-      { duration: 180, easing: 'cubic-bezier(.2,.7,.2,1)' });
+    const easing = document.documentElement.style.getPropertyValue('--glass-spring') || 'cubic-bezier(.2,.8,.2,1)';
+    panel.animate?.([{ opacity: 0, transform: 'translateY(-5px) scale(.985)' }, { opacity: 1, transform: 'none' }],
+      { duration: 260, easing });
   }
 }
 

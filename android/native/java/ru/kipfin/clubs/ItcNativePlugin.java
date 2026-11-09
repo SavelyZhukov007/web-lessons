@@ -40,6 +40,8 @@ public class ItcNativePlugin extends Plugin {
         if (call.hasOption("demo")) e.putBoolean("demo", Boolean.TRUE.equals(call.getBoolean("demo", false)));
         if (call.hasOption("reminderMinutes")) e.putInt("reminder_minutes", call.getInt("reminderMinutes", 30));
         if (call.hasOption("notifyChanges")) e.putBoolean("notify_changes", Boolean.TRUE.equals(call.getBoolean("notifyChanges", true)));
+        if (call.hasOption("notifyCancellations")) e.putBoolean("notify_cancellations", Boolean.TRUE.equals(call.getBoolean("notifyCancellations", true)));
+        if (call.hasOption("notifyMoves")) e.putBoolean("notify_moves", Boolean.TRUE.equals(call.getBoolean("notifyMoves", true)));
         if (call.hasOption("notifyAnnouncements")) e.putBoolean("notify_announcements", Boolean.TRUE.equals(call.getBoolean("notifyAnnouncements", true)));
         e.apply();
         Reminders.reschedule(getContext());
@@ -80,6 +82,9 @@ public class ItcNativePlugin extends Plugin {
         r.put("updated", Store.prefs(getContext()).getLong("updated", 0));
         r.put("reminderMinutes", Store.reminderMinutes(getContext()));
         r.put("notifyChanges", Store.notifyChanges(getContext()));
+        r.put("notifyCancellations", Store.notifyCancellations(getContext()));
+        r.put("notifyMoves", Store.notifyMoves(getContext()));
+        r.put("changeChannels", Build.VERSION.SDK_INT >= 26);
         r.put("notifyAnnouncements", Store.notifyAnnouncements(getContext()));
         r.put("exactAlarms", Build.VERSION.SDK_INT < 31 || ((android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE)).canScheduleExactAlarms());
         return r;
@@ -94,15 +99,25 @@ public class ItcNativePlugin extends Plugin {
     @PermissionCallback
     private void onNotifPermission(PluginCall call) { call.resolve(state()); }
 
-    /** Системные настройки уведомлений приложения (если пользователь запретил). */
+    /** Системные настройки приложения или звук и вибрация отдельной категории. */
     @PluginMethod
     public void openNotificationSettings(PluginCall call) {
-        Intent i;
-        if (Build.VERSION.SDK_INT >= 26) i = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
-        else i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+        String kind = call.getString("kind", "");
+        String channel = Notifier.changeChannel(kind);
+        Intent i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+        if (Build.VERSION.SDK_INT >= 26) {
+            boolean specific = Notifier.CH_CANCEL.equals(channel) || Notifier.CH_MOVE.equals(channel);
+            i = new Intent(specific ? android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS : android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
+            if (specific) i.putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, channel);
+        }
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getContext().startActivity(i);
-        call.resolve();
+        try {
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (android.content.ActivityNotFoundException e) {
+            call.reject("Не удалось открыть системные настройки уведомлений", e);
+        }
     }
 
     /** Предложить закрепить виджет на рабочем столе (Android 8+, если лаунчер поддерживает). */

@@ -10,7 +10,7 @@
   var doc = document, root = doc.documentElement;
   (function () { if (doc.querySelector('link[href="/css/native-motion.css"]')) return; var l = doc.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/native-motion.css'; doc.head.appendChild(l); })();
 
-  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
   var DUR = { s: 180, m: 240, l: 280 };
   var EASE = { std: 'cubic-bezier(.2,0,0,1)', dec: 'cubic-bezier(.05,.7,.1,1)', acc: 'cubic-bezier(.3,0,.8,.15)' };
   var crossDocVT = !!(window.CSS && CSS.supports && CSS.supports('selector(:active-view-transition-type(a))'));
@@ -18,7 +18,10 @@
   function busy(ms) { busyN++; root.classList.add('m-busy'); setTimeout(function () { if (--busyN <= 0) { busyN = 0; root.classList.remove('m-busy'); } }, ms); }
   function anim(el, frames, ms, easing) {
     if (!el || !el.animate) return Promise.resolve();
-    if (reduced) frames = frames.map(function (f) { return { opacity: f.opacity == null ? 1 : f.opacity }; });
+    if ((reduced && reduced.matches) || doc.documentElement.dataset.reduceMotion === 'true') {
+      frames = frames.map(function (f) { return { opacity: f.opacity == null ? 1 : f.opacity }; });
+      ms = Math.min(ms, 100);
+    }
     return el.animate(frames, { duration: ms, easing: easing || EASE.std, fill: 'none' }).finished.catch(function () {});
   }
   window.ItcMotion = { anim: anim, busy: busy, DUR: DUR, EASE: EASE };
@@ -109,24 +112,14 @@
   }
   function swipeToDismiss(sheet, close) {
     if (sheet.dataset.mSwipe) return; sheet.dataset.mSwipe = '1';
-    var y0 = null, dy = 0, t0 = 0;
-    sheet.addEventListener('touchstart', function (e) {
-      if ((sheet.querySelector('.sheet-body') || sheet).scrollTop > 1 || e.touches.length !== 1) { y0 = null; return; }
-      y0 = e.touches[0].clientY; dy = 0; t0 = Date.now();
-    }, { passive: true });
-    sheet.addEventListener('touchmove', function (e) {
-      if (y0 == null) return;
-      dy = Math.max(0, e.touches[0].clientY - y0);
-      sheet.style.transform = dy ? 'translateY(' + dy + 'px)' : '';
-    }, { passive: true });
-    sheet.addEventListener('touchcancel', function () { y0 = null; sheet.style.transform = ''; });
-    sheet.addEventListener('touchend', function () {
-      if (y0 == null) return; y0 = null;
-      var fast = dy > 40 && dy / Math.max(1, Date.now() - t0) > 0.5;
-      if (dy > sheet.offsetHeight * 0.3 || fast) close();
-      else if (dy) anim(sheet, [{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], DUR.s, EASE.dec).then(function () { sheet.style.transform = ''; });
-      else sheet.style.transform = '';
-    });
+    import('/js/sheet-gesture.js').then(function (module) {
+      if (!sheet.isConnected) return;
+      module.bindSheetDismiss(sheet, {
+        scrollBody: function () { return sheet.querySelector('.sheet-body') || sheet; },
+        close: close,
+        isOpen: function () { return sheet.isConnected && (sheet.tagName !== 'DIALOG' || sheet.open); },
+      });
+    }).catch(function () { /* кнопка закрытия доступна */ });
   }
   function wireSheets() {
     doc.querySelectorAll('dialog.sheet--bottom[open]:not([data-swipe-dismiss])').forEach(function (d) { swipeToDismiss(d, function () { d.close(); }); });
@@ -134,9 +127,13 @@
       var wrap = card.parentElement;
       if (wrap.dataset.mPatched) return; wrap.dataset.mPatched = '1';
       var close = function () {
+        if (card.classList.contains('m-closing')) return;
+        card.classList.add('m-closing');
         busy(DUR.s);
         Promise.all([anim(card, [{ transform: card.style.transform || 'none' }, { transform: 'translateY(100%)' }], DUR.s, EASE.acc),
-          anim(wrap, [{ opacity: 1 }, { opacity: 0 }], DUR.s)]).then(function () { wrap.remove(); });
+          anim(wrap, [{ opacity: 1 }, { opacity: 0 }], DUR.s)]).then(function () {
+            if (wrap.itcClose) wrap.itcClose(); else wrap.remove();
+          });
       };
       // перехватываем «Готово» и тап по фону
       wrap.addEventListener('click', function (e) {

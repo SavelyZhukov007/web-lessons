@@ -34,15 +34,19 @@ export function dayMarkers(events) {
 
 // Keep a rolling set of buttons mounted, so keyboard focus and an animated
 // selection survive the Saturday–Monday transition.
-export function createDayRibbon(rail, selectDate) {
+export function createDayRibbon(rail, selectDate, shiftWeek) {
   const buttons = new Map();
   const indicator = bindGlassIndicator(rail, () => rail.querySelector('[aria-pressed="true"]'));
   mountGlassOptics(rail.parentElement);
   let selected;
   let first;
   let recenterFrame;
+  let fixed;
+  let lastRender;
+  const fixedWeek = () => document.documentElement.dataset.dayNavigation === 'week';
 
   function center(smooth) {
+    if (fixed) { rail.scrollLeft = 0; return; }
     const button = buttons.get(selected);
     const slot = rail.clientWidth / 6;
     if (!button || !slot) return;
@@ -51,19 +55,23 @@ export function createDayRibbon(rail, selectDate) {
   }
 
   function update(date, today, events) {
+    lastRender = [date, today, events];
     const key = dateKey(date);
     const changed = key !== selected;
+    const modeChanged = fixed !== fixedWeek();
+    fixed = fixedWeek();
     const markers = dayMarkers(events);
     const focusInRail = rail.contains(document.activeElement);
     let rebuilt = false;
-    const windowStart = first ? stepStudyDay(first, 5) : null;
-    const windowEnd = first ? stepStudyDay(first, 24) : null;
-    if (!first || date < windowStart || date > windowEnd) {
-      first = stepStudyDay(date, -14);
+    const week = monday(date);
+    const sameWindow = first && (fixed ? dateKey(first) === dateKey(week)
+      : date >= stepStudyDay(first, 5) && date <= stepStudyDay(first, 24));
+    if (modeChanged || !sameWindow) {
+      first = fixed ? week : stepStudyDay(date, -14);
       rebuilt = true;
       const next = new Set();
       const list = [];
-      for (let offset = 0; offset < 30; offset++) {
+      for (let offset = 0; offset < (fixed ? 6 : 30); offset++) {
         const current = stepStudyDay(first, offset);
         const id = dateKey(current);
         next.add(id);
@@ -120,7 +128,7 @@ export function createDayRibbon(rail, selectDate) {
       }
     }
     indicator();
-    if (changed) {
+    if (changed || modeChanged) {
       if (focusInRail) buttons.get(key)?.focus({ preventScroll: true });
       center(!rebuilt);
     }
@@ -136,6 +144,10 @@ export function createDayRibbon(rail, selectDate) {
     const date = parseDate(button.dataset.dayDate);
     const target = offset ? stepStudyDay(date, offset) : addDays(monday(date), key === 'Home' ? 0 : 5);
     if (weekInRange(target)) selectDate(target);
+  });
+  bindDaySwipe(rail, shiftWeek, fixedWeek);
+  window.addEventListener('clubs:themechange', () => {
+    if (lastRender && fixed !== fixedWeek()) update(...lastRender);
   });
   new ResizeObserver(() => {
     cancelAnimationFrame(recenterFrame);

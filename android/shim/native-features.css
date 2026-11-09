@@ -52,7 +52,6 @@ a.club-card.itc-has-follow { position: relative; }
 /* F: чипы в строке «Сегодня … фильтры» экрана расписания APK */
 html.is-native .app-row2 .itc-mybar { display: flex; gap: 6px; }
 html.is-native .app-row2 .itc-chip { min-height: 40px; white-space: nowrap; flex: 0 0 auto; }
-html.is-native .app-row2 #itc-notify-open { width: 40px; min-width: 40px; padding: 0; justify-content: center; }
 /* F15: шторка обновления */
 .app-update-log { margin: 4px 0 12px; padding-left: 20px; display: grid; gap: 4px; }
 .app-update-progress { display: grid; gap: 6px; margin: 8px 0 12px; font-size: 13px; color: var(--muted); }
@@ -63,4 +62,3 @@ html.is-native .app-row2 #itc-notify-open { width: 40px; min-width: 40px; paddin
 /* t99: карточка «Сканировать», полноэкранный видоискатель, компактный ID */
   background: var(--primary-container, #fde4df); color: var(--ink, #222); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 1px 2px #0002; }
 .itc-copy { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--ink, #222); }
-@media (prefers-reduced-motion: reduce) { 

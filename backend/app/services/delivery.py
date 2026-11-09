@@ -60,8 +60,13 @@ def web_targets(db: Session, ev: Event) -> list[PushSubscription]:
     stmt = select(PushSubscription)
     if ev.kind == "announcement":
         stmt = stmt.where(PushSubscription.announcements.is_(True))
+    elif ev.kind == "cancel":
+        stmt = stmt.where(PushSubscription.cancellations.is_(True))
+    elif ev.kind == "reschedule":
+        stmt = stmt.where(PushSubscription.moves.is_(True))
     if ev.audience != "all":
-        stmt = stmt.where(or_(PushSubscription.club_id.in_(ev.club_ids), PushSubscription.club_id.is_(None)))
+        stmt = stmt.where(PushSubscription.announcements_only.is_(False),
+                          or_(PushSubscription.club_id.in_(ev.club_ids), PushSubscription.club_id.is_(None)))
     seen: set[str] = set()
     out = []
     for sub in db.scalars(stmt.order_by(PushSubscription.id)):

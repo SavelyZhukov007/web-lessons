@@ -1,10 +1,11 @@
 import { getCategories, getLeaders, getRooms } from './api.js';
 import { addDays, dateKey, DAY_NAMES, formatDate, monday, moscowToday, parseDate, scheduleLocation } from './schedule-dates.js';
 import { bindDaySwipe, createDayRibbon, stepStudyDay, weekInRange } from './schedule-navigation.js';
-import { bindGlassIndicator, toggleGlassPanel } from './glass.js';
+import { bindGlassIndicator, mountGlassOptics, toggleGlassPanel } from './glass.js';
 import { createScheduleFeed, filteredEvents } from './schedule-feed.js';
 import { mountScheduleSearch } from './schedule-search.js';
 import { prefersReducedMotion } from './motion-preferences.js';
+import { tapFeedback } from './interaction-feedback.js';
 
 const $ = id => document.getElementById(id);
 const FILTERS = [
@@ -35,9 +36,11 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
   const stage = $('schedule-stage');
   const chips = $('filter-chips');
   const next = $('my-next');
-  const updateRibbon = createDayRibbon($('day-buttons'), date => goto(date));
-  const viewIndicator = bindGlassIndicator(document.querySelector('.desktop-view'),
-    () => document.querySelector('.desktop-view [aria-pressed="true"]'));
+  const updateRibbon = createDayRibbon($('day-buttons'), date => goto(date), delta => shiftWeek(delta));
+  const view = document.querySelector('.desktop-view');
+  const viewIndicator = bindGlassIndicator(view, () => view.querySelector('[aria-pressed="true"]'));
+  mountGlassOptics(view);
+  mountGlassOptics(panel);
   const search = mountScheduleSearch({ state, filters: fields, jumpTo });
   let linkedEvent = eventFromUrl();
   let pending = linkedEvent;
@@ -51,7 +54,7 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
 
   const selectedDate = () => addDays(state.week, state.day);
   const myIds = () => inMyMode() ? new Set(window.ItcFeatures.Follows.all()) : null;
-  const hasFilters = () => Object.values(fields).some(input => input.value) || !!inMyMode();
+  const hasFilters = () => Object.values(fields).some(input => input.value);
   if (linkedEvent && 'view' in state) state.view = 'list';
 
   function applyFilters() {
@@ -85,7 +88,10 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
     linkedEvent = pending = event;
     if (event && 'view' in state) state.view = 'list';
     if (fields.weekday.value) fields.weekday.value = String(state.day + 1);
-    if (writeHistory) remember({ withDay, event });
+    if (writeHistory) {
+      remember({ withDay, event });
+      if (dateKey(date) !== dateKey(previous)) tapFeedback();
+    }
     const dir = Math.sign(date - previous);
     if (changed) load({ dir });
     else { applyFilters(); render(dir); }
@@ -137,14 +143,13 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
 
   function resetFilters() {
     for (const field of Object.values(fields)) field.value = '';
-    if (inMyMode()) $('itc-my-toggle')?.click();
-    else { applyFilters(); render(); }
+    applyFilters();
+    render();
   }
 
   function showChips() {
     const active = Object.entries(fields).filter(([, input]) => input.value);
-    const mine = inMyMode();
-    const signature = JSON.stringify([active.map(([key, input]) => [key, input.value, input.selectedOptions[0]?.textContent]), mine]);
+    const signature = JSON.stringify(active.map(([key, input]) => [key, input.value, input.selectedOptions[0]?.textContent]));
     if (signature === chipSignature) return;
     chipSignature = signature;
     const focused = chips.contains(document.activeElement);
@@ -156,7 +161,6 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
         render();
       });
     });
-    if (mine) buttons.unshift(removableChip('Мои кружки', () => $('itc-my-toggle')?.click()));
     chips.hidden = !buttons.length;
     chips.replaceChildren(...buttons);
     if (focused) (buttons[0] || toggle).focus({ preventScroll: true });
@@ -235,6 +239,7 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
     $('selected-day-label').textContent = `${DAY_NAMES[state.day]}, ${formatDate(date)}`;
     todayButton.hidden = dateKey(date) === dateKey(currentStudyDay());
     const filterCount = Object.values(fields).filter(input => input.value).length;
+    $('reset-filters').disabled = filterCount === 0;
     toggle.querySelector('span').textContent = `Фильтры${filterCount ? ` · ${filterCount}` : ''}`;
     toggle.setAttribute('aria-label', filterCount ? `Фильтры, включено: ${filterCount}` : 'Фильтры');
     if (state.view) {
@@ -325,12 +330,12 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
     const { week, day } = scheduleLocation(location.search, currentStudyDay());
     goto(addDays(week, day), { history: false, event: eventFromUrl() });
   });
-  bindDaySwipe(content, shiftDay, dayView);
+  bindDaySwipe(content, shiftDay, () => dayView() && document.documentElement.dataset.daySwipe !== 'false');
   document.addEventListener('itc:refresh', event => {
     feed.invalidate();
     const result = load({ refresh: true });
     event.detail?.done?.(result);
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load({ refresh: true }); });
-  return { load, loadReferences, updateControls, focusPending, hasFilters, jumpTo, shiftDay, shiftWeek, goto };
+  return { load, loadReferences, updateControls, focusPending, hasFilters, inMyMode, jumpTo, shiftDay, shiftWeek, goto };
 }

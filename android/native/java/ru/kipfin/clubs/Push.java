@@ -117,7 +117,7 @@ final class Push {
                 if (sid.isEmpty() || od.isEmpty() || m.title.isEmpty()) return null;
                 boolean moved = "reschedule".equals(m.type);
                 m.key = changeKey(sid + ":" + od, moved ? "moved" : "cancelled", s(d, "new_date"), s(d, "new_start"));
-                m.channel = Notifier.CH_CHANGES;
+                m.channel = Notifier.changeChannel(moved ? "moved" : "cancelled");
                 m.sync = true;
                 return m;
             }
@@ -141,7 +141,7 @@ final class Push {
     /** Показывать ли с учётом настроек пользователя (как при опросе). */
     static boolean wanted(Msg m, boolean changesOn, boolean annOn, Set<Long> follows) {
         if (m.key == null) return false;
-        if (Notifier.CH_CHANGES.equals(m.channel)) return changesOn && follows.contains(m.clubId);
+        if (Notifier.isChangeChannel(m.channel)) return changesOn && follows.contains(m.clubId);
         if ("announcement".equals(m.type)) return annOn;
         return true;
     }
@@ -152,7 +152,7 @@ final class Push {
     static void handle(Context c, Map<String, String> data) {
         Msg m = parse(data);
         if (m == null || Store.demo(c)) return;
-        if (wanted(m, Store.notifyChanges(c), Store.notifyAnnouncements(c), Store.follows(c)) && claim(c, m.key)) {
+        if (wanted(m, Store.notifyChange(c, m.channel), Store.notifyAnnouncements(c), Store.follows(c)) && claim(c, m.key)) {
             Notifier.post(c, m.channel, m.key.hashCode(), m.title, m.body, m.url);
         }
         if (m.sync) {

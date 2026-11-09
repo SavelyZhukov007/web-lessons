@@ -129,11 +129,18 @@ try:
         # 2. шторка «Уведомления» (вместо «Напоминания и виджеты»)
         pg.goto("/")
         pg.wait_for_selector("#itc-notify-open")
+        check("колокольчик слева от настроек", pg.locator(".campus-header #itc-notify-open + .app-gear").count() == 1)
         pg.click("#itc-notify-open")
         pg.wait_for_selector("#itc-sheet")
+        check("фон шторки заблокирован", pg.locator("html[data-modal-scroll-lock]").count() == 1)
         check("шторка «Уведомления»", pg.inner_text("#itc-sheet-title") == "Уведомления")
         check("в шторке PWA нет виджетов APK", pg.locator("#itc-sheet [data-pin]").count() == 0)
         check("переключатель push включён", pg.is_checked("#itc-push"))
+        with pg.expect_response("**/api/push/sync") as changed:
+            pg.uncheck("#itc-cancellations")
+        prefs = changed.value.json()
+        check("отмены выключаются отдельно от переносов", not prefs["cancellations"] and prefs["moves"])
+        pg.check("#itc-cancellations")
         pg.wait_for_timeout(350)
         pg.screenshot(path=str(SHOTS / "d-sheet-notifications-iphone15-light.png"))
         pg.click("#itc-push")
@@ -146,6 +153,18 @@ try:
         status = pg.request.post("/api/push/status", data={"endpoint": ep}).json()
         check("повторное включение (по нажатию) -> подписка снова", status.get("club_ids") == [1], str(status))
         pg.click(".itc-close")
+        pg.locator("#itc-sheet").wait_for(state="detached")
+        check("после закрытия фон снова прокручивается", pg.locator("html[data-modal-scroll-lock]").count() == 0)
+
+        pg.goto("/?week=2026-11-09&day=2026-11-12")
+        pg.wait_for_selector("#itc-my-toggle")
+        pg.click("#itc-my-toggle")
+        pg.click("#toggle-filters")
+        pg.select_option("#weekday", "4")
+        check("активный фильтр «Мои кружки» не дублируется", not pg.locator("#filter-chips").inner_text().startswith("Мои кружки"))
+        pg.click("#reset-filters")
+        check("сброс полей сохраняет «Мои кружки»", pg.get_attribute("#itc-my-toggle", "aria-pressed") == "true")
+        pg.click("#itc-my-toggle")
 
         # 3. значок на иконке: отмена занятия «Моего кружка» -> setAppBadge(1); просмотр «Моих» -> 0
         api = c.request

@@ -1,25 +1,21 @@
 import { bindSheetDismiss } from './sheet-gesture.js';
-// Диалог «Настройки»: тема, акцент, размер текста, «Объявления» (если в браузере включены уведомления) (+ адрес сервера в Android-приложении).
+// Общие настройки для браузера и установленного PWA.
 // Подключается на каждой странице: <script type="module" src="/js/settings.js">. Кнопка-шестерёнка добавляется в шапку сама.
 import { h, icon, toast, installRipple } from './ui.js';
 import { request } from './api.js';
 import './log-collector.js'; // журнал устройства для «Обратной связи» — с первой загрузки страницы
+import './modal-scroll-lock.js';
+import { interfaceSettings } from './interface-settings.js';
+import { webNotificationPreferences } from './push.js';
 
 const theme = window.ClubsTheme;
 const ACCENTS = [['brick', 'Кирпичный'], ['blue', 'Синий'], ['green', 'Зелёный'], ['violet', 'Фиолетовый']];
 const SIZES = [['normal', 'Обычный'], ['large', 'Крупный'], ['xlarge', 'Очень крупный']];
 
 let dialog;
-
-function radioGroup(name, label, options, current, onPick, extra = '') {
-  const group = h('div', { class: `segmented ${extra}`.trim(), role: 'radiogroup', 'aria-label': label });
-  for (const [value, text] of options) {
-    const input = h('input', { type: 'radio', name, value, checked: value === current });
-    input.addEventListener('change', () => onPick(value));
-    group.append(h('label', {}, input, h('span', {}, text)));
-  }
-  return group;
-}
+let notifications;
+let stopThemeSync;
+let interfaceLifetime;
 
 function swatches(current, onPick) {
   const wrap = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Акцентный цвет' });
@@ -60,7 +56,7 @@ function themeControl() {
   };
   sw.addEventListener('click', () => { theme.set({ theme: theme.themeFromToggle(theme.get().theme !== 'system', theme.resolved()) }); sync(); });
   flip.addEventListener('click', () => { theme.set({ theme: theme.nextManualTheme(theme.resolved()) }); sync(); });
-  theme.onChange(sync);
+  stopThemeSync = theme.onChange(sync);
   sync();
   return h('div', {}, h('div', { class: 'setting-row' }, h('span', { id: 'settings-system-theme-label', class: 'setting-row-label' }, 'Системная тема'), flip, sw), hint);
 }
@@ -101,31 +97,33 @@ function serverSection() {
       h('div', { class: 'form-actions' }, test, save)));
 }
 
-// «Объявления от администрации» для этого браузера. Видно, только если уже есть push-подписка (на кружок или «Мои кружки»).
-// В приложении Android свой переключатель — в его настройках.
-function announcementsSection() {
-  if (window.Capacitor?.isNativePlatform?.() || !('serviceWorker' in navigator) || !('PushManager' in window)) return null;
-  const box = h('input', { type: 'checkbox', id: 'settings-announcements' });
-  const section = h('section', { class: 'sheet-section', hidden: true, dataset: { announcementsSection: '' } }, h('h3', {}, 'Уведомления'),
-    h('label', { class: 'checkbox', for: 'settings-announcements' }, box, 'Объявления'),
-    h('p', { class: 'field-hint' }, 'Важные сообщения от администрации. Уведомления об отменах и переносах не отключаются.'));
-  const post = (path, body) => request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  let endpoint;
-  navigator.serviceWorker.getRegistration('/').then(reg => reg?.pushManager.getSubscription()).then(async sub => {
-    if (!sub) return;
-    endpoint = sub.endpoint;
-    const st = await post('/api/push/status', { endpoint });
-    if (!st.all && !st.club_ids.length) return;
-    box.checked = st.announcements !== false;
-    section.hidden = false;
-  }).catch(() => { /* нет сети или push — секцию не показываем */ });
-  box.addEventListener('change', async () => {
-    box.disabled = true;
-    try { await post('/api/push/preferences', { endpoint, announcements: box.checked }); toast(box.checked ? 'Объявления включены' : 'Объявления отключены'); }
-    catch (e) { box.checked = !box.checked; toast(e.message || 'Не удалось сохранить', { kind: 'error' }); }
-    finally { box.disabled = false; }
-  });
-  return section;
+function openNotifications(opener) {
+  if (window.ItcFeatures?.openSheet) {
+    window.ItcFeatures.openSheet();
+    return;
+  }
+  if (!notifications) {
+    notifications = h('dialog', { class: 'sheet sheet--bottom', id: 'notification-settings', 'aria-labelledby': 'notification-settings-title' });
+    notifications.dataset.swipeDismiss = 'notifications';
+    bindSheetDismiss(notifications, { scrollBody: () => notifications.querySelector('.sheet-body') });
+    document.body.append(notifications);
+  }
+  if (notifications.open) return;
+  const close = h('button', { type: 'button', class: 'btn btn--text btn--small', 'aria-label': 'Закрыть уведомления', onclick: () => notifications.close() }, icon('close'));
+  notifications.replaceChildren(
+    h('div', { class: 'sheet-head' }, h('h2', { id: 'notification-settings-title' }, 'Уведомления'), close),
+    h('div', { class: 'sheet-body' }, webNotificationPreferences()));
+  notifications.showModal();
+  notifications.addEventListener('close', () => opener?.focus({ preventScroll: true }), { once: true });
+}
+
+function notificationsSection(opener) {
+  return h('section', { class: 'sheet-section' }, h('h3', {}, 'Уведомления'),
+    h('div', { class: 'list-group' }, h('button', { type: 'button', class: 'list-row', 'aria-haspopup': 'dialog',
+      onclick: () => {
+        dialog.addEventListener('close', () => openNotifications(opener), { once: true });
+        dialog.close();
+      } }, h('span', {}, 'Настроить уведомления'), icon('right'))));
 }
 
 // Демо/офлайн-сборка (window.DemoBackend из android/shim/demo-backend.js): сброс случайных данных и быстрый вход в админку.
@@ -175,7 +173,10 @@ function accountSection() {
   return h('section', { class: 'sheet-section' }, h('h3', {}, 'Аккаунт администратора'), h('div', { class: 'list-group' }, pw, out));
 }
 
-function build() {
+function build(opener) {
+  stopThemeSync?.();
+  interfaceLifetime?.abort();
+  interfaceLifetime = new AbortController();
   const prefs = theme.get();
   const title = h('h2', { id: 'settings-title' }, 'Настройки');
   const close = h('button', { type: 'button', class: 'btn btn--text btn--small', 'aria-label': 'Закрыть настройки', onclick: () => dialog.close() }, icon('close'));
@@ -185,8 +186,8 @@ function build() {
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Акцентный цвет'), swatches(prefs.accent, v => theme.set({ accent: v }))),
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Размер текста'),
       sizeSlider(prefs.textSize)),
-    announcementsSection(), accountSection(), serverSection(), demoSection());
-  const reset = h('button', { type: 'button', class: 'btn btn--text', onclick: () => { theme.set(theme.DEFAULTS); rebuild(); toast('Настройки сброшены'); } }, 'Сбросить');
+    interfaceSettings(theme, interfaceLifetime.signal), notificationsSection(opener), accountSection(), serverSection(), demoSection());
+  const reset = h('button', { type: 'button', class: 'btn btn--text', onclick: () => { theme.set(theme.DEFAULTS); rebuild(opener); toast('Вид сброшен'); } }, 'Сбросить вид');
   const done = h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово');
   const fb = h('button', { type: 'button', class: 'list-row', dataset: { feedbackOpen: '' } }, h('span', {}, 'Обратная связь'));
   fb.addEventListener('click', async () => { dialog.close(); (await import('./feedback.js')).openFeedback(document.querySelector('[data-settings-button]')); });
@@ -203,9 +204,9 @@ function build() {
   const foot = h('div', { class: 'sheet-foot' }, reset, done);
   dialog.replaceChildren(h('div', { class: 'sheet-head sheet-head--center' }, h('span', { 'aria-hidden': 'true' }), title, close), body, foot);
 }
-function rebuild() {
+function rebuild(opener) {
   const top = dialog.querySelector('.sheet-body')?.scrollTop || 0;
-  build();
+  build(opener);
   dialog.querySelector('.sheet-body').scrollTop = top;
 }
 
@@ -217,10 +218,14 @@ function open(opener) {
     document.body.append(dialog);
   }
   if (dialog.open) return;
-  build();
+  build(opener);
   dialog.showModal();
   dialog.querySelector('[aria-label="Закрыть настройки"]')?.focus({ preventScroll: true });
-  dialog.addEventListener('close', () => opener?.focus(), { once: true });
+  dialog.addEventListener('close', () => {
+    stopThemeSync?.();
+    interfaceLifetime.abort();
+    opener?.focus({ preventScroll: true });
+  }, { once: true });
 }
 
 function mount() {
@@ -230,7 +235,13 @@ function mount() {
   const button = h('button', { type: 'button', class: 'settings-button', 'aria-label': 'Настройки', 'aria-haspopup': 'dialog', dataset: { settingsButton: '' } }, icon('gear'));
   button.addEventListener('click', () => open(button));
   const header = document.querySelector('[data-settings-slot]') || document.querySelector('.campus-header');
+  if (header && document.body.classList.contains('schedule-page') && !window.ItcPwa && !window.Capacitor?.isNativePlatform?.()) {
+    const bell = h('button', { type: 'button', class: 'settings-button', id: 'itc-notify-open',
+      'aria-label': 'Уведомления', 'aria-haspopup': 'dialog' }, icon('bell'));
+    bell.addEventListener('click', () => openNotifications(bell));
+    header.append(bell);
+  }
   if (header) header.append(button); else document.body.prepend(button);
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
-window.ClubsSettings = { open: () => open(document.querySelector('[data-settings-button]')) };
+window.ClubsSettings = { open: () => open(document.activeElement) };

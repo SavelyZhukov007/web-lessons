@@ -3,6 +3,11 @@ import { request } from './api.js';
 import { h, icon, toast } from './ui.js';
 import { pushAvailability, urlBase64ToUint8Array, isStandalone } from './push-support.js';
 
+const post = (action, data) => request('/api/push/' + action, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+});
+const preferenceLabels = { cancellations: 'Отмены занятий', moves: 'Переносы занятий', announcements: 'Объявления от администрации' };
+
 function environment() {
   return {
     native: !!window.Capacitor?.isNativePlatform?.(),
@@ -28,26 +33,88 @@ async function currentSubscription() {
 async function isSubscribed(clubId) {
   const { sub } = await currentSubscription();
   if (!sub) return false;
-  const status = await request('/api/push/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) });
+  const status = await post('status', { endpoint: sub.endpoint });
   return status.all || status.club_ids.includes(clubId);
 }
 
-export async function subscribe(clubId) {
+async function subscriptionFromGesture() {
   // requestPermission обязан вызываться из обработчика клика (требование Safari/iOS)
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw Object.assign(new Error('Разрешение на уведомления не выдано.'), { code: 'permission' });
   const { publicKey } = await request('/api/push/vapid-public-key');
   const { reg, sub: existing } = await currentSubscription();
   const sub = existing || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
-  const json = sub.toJSON();
-  await request('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys, club_id: clubId }) });
+  return sub.toJSON();
+}
+
+export async function subscribe(clubId) {
+  const { endpoint, keys } = await subscriptionFromGesture();
+  await post('subscribe', { endpoint, keys, club_id: clubId });
 }
 
 export async function unsubscribe(clubId) {
   const { sub } = await currentSubscription();
   if (!sub) return;
-  const result = await request('/api/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint, club_id: clubId }) });
+  const result = await post('unsubscribe', { endpoint: sub.endpoint, club_id: clubId });
   if (result.remaining === 0) await sub.unsubscribe();
+}
+
+export function webNotificationPreferences() {
+  const note = h('p', { class: 'field-hint', role: 'status' });
+  const controls = h('div', {});
+  const root = h('div', {}, note, controls);
+  const env = environment();
+  const availability = pushAvailability(env);
+  if (availability.state !== 'ok') {
+    note.textContent = availability.message;
+    if (availability.state === 'ios-install') controls.append(h('a', { class: 'btn btn--tonal', href: '/install' }, 'Как установить на iPhone'));
+    return root;
+  }
+
+  function render(endpoint, status) {
+    note.textContent = 'Выберите, какие уведомления получать. Звук и вибрация зависят от настроек браузера и устройства.';
+    const fields = Object.entries(preferenceLabels).map(([key, label]) => {
+      const box = h('input', { type: 'checkbox', role: 'switch', checked: status[key] !== false });
+      box.addEventListener('change', async () => {
+        box.disabled = true;
+        try {
+          const result = await post('preferences', { endpoint, [key]: box.checked });
+          if (!result.updated) throw new Error('Подписка изменилась. Откройте уведомления снова.');
+          try { localStorage.setItem('itc.pwa.' + key, box.checked ? '1' : '0'); } catch { /* Safari private storage */ }
+        } catch (e) { box.checked = !box.checked; note.textContent = e.message || 'Не удалось сохранить настройку.'; }
+        finally { box.disabled = false; }
+      });
+      return h('label', { class: 'preference-toggle' }, h('span', {}, label), box);
+    });
+    controls.replaceChildren(...fields, h('p', { class: 'field-hint' }, 'Подписки на изменения отдельных кружков можно настроить в их карточках.'));
+  }
+
+  function offerAnnouncements() {
+    note.textContent = 'Общие объявления можно включить сразу. Чтобы следить за отменами и переносами, подпишитесь на нужные кружки в каталоге.';
+    const enable = h('button', { type: 'button', class: 'btn btn--tonal' }, 'Включить объявления');
+    controls.replaceChildren(enable);
+    enable.addEventListener('click', async () => {
+      enable.disabled = true;
+      try {
+        const { endpoint, keys } = await subscriptionFromGesture();
+        const status = await post('sync', { endpoint, keys, club_ids: [], announcements: true, cancellations: true, moves: true });
+        render(endpoint, status);
+      } catch (e) {
+        note.textContent = pushAvailability(environment()).message || e.message || 'Не удалось включить уведомления.';
+        enable.disabled = false;
+      }
+    });
+  }
+
+  note.textContent = 'Проверяем подписку…';
+  currentSubscription().then(async ({ sub }) => {
+    if (sub) {
+      const status = await post('status', { endpoint: sub.endpoint });
+      if (status.general || status.all || status.club_ids.length) { render(sub.endpoint, status); return; }
+    }
+    offerAnnouncements();
+  }).catch(() => { note.textContent = 'Не удалось проверить подписку. Проверьте соединение и откройте окно снова.'; });
+  return root;
 }
 
 /** Рисует блок «Уведомления» внутри container. Ничего не ломает, если push недоступен — показывает причину. */

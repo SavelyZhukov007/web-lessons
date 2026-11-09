@@ -87,9 +87,13 @@
                     </svg><span>Фильтры</span></button>
                 <button id="today" class="glass-action" type="button" hidden>Сегодня</button>
             </div>
-            <div id="filter-options" class="filter-options glass-surface" hidden>
+            <section id="filter-options" class="filter-options glass-surface" aria-labelledby="filter-options-title" hidden>
+                    <header class="filter-options-head">
+                        <h3 id="filter-options-title">Фильтры</h3>
+                        <button id="reset-filters" class="text-button" type="button" disabled>Сбросить</button>
+                    </header>
                     <label>Направление<select id="category" class="glass-select">
-                            <option value="">Все направления</option>
+                            <option value="">Любое</option>
                         </select></label>
                     <label>День<select id="weekday" class="glass-select">
                             <option value="">Все дни</option>
@@ -101,13 +105,12 @@
                             <option value="6">Суббота</option>
                         </select></label>
                     <label>Руководитель<select id="leader" class="glass-select">
-                            <option value="">Все руководители</option>
+                            <option value="">Любой</option>
                         </select></label>
                     <label>Аудитория<select id="room" class="glass-select">
-                            <option value="">Все аудитории</option>
+                            <option value="">Любая</option>
                         </select></label>
-                    <button id="reset-filters" class="text-button" type="button">Сбросить</button>
-            </div>
+            </section>
             <div id="filter-chips" class="filter-chips" aria-label="Активные фильтры" hidden></div>
             <div id="my-next" class="my-next" hidden></div>
             <div id="reference-error" class="reference-error" role="status" hidden><span></span><button

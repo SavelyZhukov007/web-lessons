@@ -73,10 +73,24 @@ test('set(): сохраняет в localStorage, обновляет атрибу
   assert.equal(attrs['data-theme'], 'dark');
   assert.equal(attrs['data-accent'], 'blue');
   assert.equal(attrs['data-text-size'], 'large');
-  assert.deepEqual(JSON.parse(store.get('clubs.prefs')), { theme: 'dark', accent: 'blue', textSize: 'large', customAccent: '#e0a800' });
+  assert.deepEqual(JSON.parse(store.get('clubs.prefs')), { ...theme.DEFAULTS, theme: 'dark', accent: 'blue', textSize: 'large' });
   assert.equal(metas['theme-color'].content, theme.THEME_COLOR.dark);
   assert.equal(seen.length, 1);
   assert.equal(seen[0].resolved, 'dark');
+});
+
+test('режим недели и вид карточек сохраняются, некорректные значения игнорируются', () => {
+  const { theme, store, attrs } = makeWindow({ stored: { dayNavigation: 'week', showRoom: false, showLeader: 'false' } });
+  assert.equal(attrs['data-day-navigation'], 'week');
+  assert.equal(attrs['data-show-room'], 'false');
+  assert.equal(attrs['data-show-leader'], 'true');
+  theme.set({ compactSchedule: true, reduceMotion: true, solidGlass: true, daySwipe: false });
+  const loaded = makeWindow({ stored: store.get('clubs.prefs') });
+  assert.equal(loaded.attrs['data-compact-schedule'], 'true');
+  assert.equal(loaded.attrs['data-reduce-motion'], 'true');
+  assert.equal(loaded.attrs['data-solid-glass'], 'true');
+  assert.equal(loaded.attrs['data-day-swipe'], 'false');
+  assert.ok(theme.contrast('#ffffff', theme.deriveAccent('#ffdd00', 'light').dayFill) >= 4.5);
 });
 
 test('мусор в localStorage и неизвестные значения → значения по умолчанию', () => {
