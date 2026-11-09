@@ -1,6 +1,6 @@
 {
   "_comment": "versionCode Android растёт на 1 при каждой сборке (иначе APK не встанет поверх). lastId — последний собранный идентификатор без буквы платформы. Схема версий — ../version.json → _scheme и README.",
-  "versionCode": 38,
-  "lastId": "v1.9.021pr",
+  "versionCode": 39,
+  "lastId": "v1.9.022pr",
   "minSupported": 1
 }

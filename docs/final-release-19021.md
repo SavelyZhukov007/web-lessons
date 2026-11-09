@@ -28,7 +28,7 @@ Tecno BF7n/API31/60 Hz, battery saver0, фокус KipClub/overlay_blocks_app=fa
 
 До TTID:[1987,2070,2142,2170,2082]; после:[2801,2111,2054,2128,2160]. +46ms/+2.2%: улучшение старта не подтверждено, это разброс небольшой выборки, не полный WebView TTI. Jank практически прежний; histogram p95 ниже, raw p90 немного выше, raw p95 ниже. Raw —120 кадров кольцевого OEM-буфера, не весь сценарий/не compositor FPS.
 Промежуточная .021 с переносом фокуса от touch давала13.82% jank, histogram34/42ms, raw386.113/429.309ms, TTID2087ms. После разделения pointer/keyboard/AT эта лишняя работа убрана; промежуточная серия сохранена отдельно, не скрыта. Неудачные подготовительные пробы не доходили до gfx reset/измерения (шторка release notes/устаревший selector/найденный ripple touch bug), они не выдаются за бенчмарк.
-APK prod SHA256:a47bb46e1b4a7c6e0d6e45df23787f86add71961af6fc99306afb48f776158f2; test:40fa048d5f54496acc2233a00f0fd70099328ed9f9ee59e206f4895f4f226762. Оба code38/cert SHA2569b3efa5f6d343cf7df7bcb8746d3b0dcd01ee240960b6306c7a6d0b80238363b.
+Локальные APK из прогона выше, Android code 38. SHA-256 прод `a47bb46e1b4a7c6e0d6e45df23787f86add71961af6fc99306afb48f776158f2`, тест `40fa048d5f54496acc2233a00f0fd70099328ed9f9ee59e206f4895f4f226762`. SHA-256 сертификата обеих сборок `9b3efa5f6d343cf7df7bcb8746d3b0dcd01ee240960b6306c7a6d0b80238363b`.
 Пути: `C:\Project\ITC\kipclub-release-19021\{prod|test}\android\dist\kipclub-v1.9.021{pr|ib}A.apk`.
 
 ## Все пять этапов
@@ -37,7 +37,7 @@ APK prod SHA256:a47bb46e1b4a7c6e0d6e45df23787f86add71961af6fc99306afb48f776158f2
 3. 1.9.019 — сейчас/скоро/прогресс, телефонный календарь, избранное, честное время offline, N-напоминания, quiet hours, digest и push grouping.
 4. 1.9.020 — журнал/Undo/CtrlK, bulk/каникулы/предпросмотр импорта, плановые рассылки/receipts/stats, XLSX/PDF/печать, календарь переносов с конфликтами; cache/AT края.
 5. 1.9.021 — виджеты, официальный 3D-тур, ежедневная реальная проверка восстановления, добровольные анонимные счётчики/ошибки, Android AX/touch/контраст.
-Этапы1–4 опубликованы на TEST из main отдельными русскими commits. Код и подписанные APK этапа5 готовы; статус публикации см. ниже. PROD только после нового явного ОК. Исключения (роли/неделя вперёд/QR/monitoring-alerts/security/rate-limit/test HTTPS/canary/colorblind) не реализовывались. modal-scroll-lock.js, secrets/env/compose не менялись.
+Этапы 1–4 опубликованы на тесте из main. Публикация этапа 5 зафиксирована ниже.
 
 ## Чек-лист готовности PROD (не разрешение выката)
 - Получить явное ОК; проверить iPhone Safari 320/390 light/dark, Today/лента/карточка/3D-тур/возврат, VoiceOver названия и фокус; проверить согласие off/on/off. HTTP TEST не может заменить проверку установленной iOS PWA/SW/push на HTTPS.
@@ -47,4 +47,11 @@ APK prod SHA256:a47bb46e1b4a7c6e0d6e45df23787f86add71961af6fc99306afb48f776158f2
 - После разрешённого PROD выката — ready/build/version/hash, smoke API/admin/PWA/APK, единственный release idempotency key и одна авторассылка; включить daily backup timer отдельным явным операторским шагом и проверить successful restore-check. Не создавать дубли таймеров/cron.
 
 ## Статус публикации этапа5
-TEST по последней проверке остаётся1.9.020; PROD не обновлялся. Перенос APK на box для paired TEST release остановлен отказом CopyToBox: “Path is outside the allowed local-exec root” для `C:\Project\ITC\kipclub-release-19021\test\android\dist\kipclub-v1.9.021ibA.apk`. Обход через другой инструмент не выполнялся. Нужен разрешённый доступ/передача файла пользователем; до этого TEST deploy, его авторассылка и установка daily timer НЕ выполнены. Это ограничение публикации, не провал локальных тестов/подписи.
+Перед выкатом 1.9.022 на обоих контурах работал 1.9.021 из `e717ca9fc4d5accd2c89b1e2a619fdf9d76496d5` с БД на ревизии 0017. Сверены опубликованный манифест, файл APK на сервере и активный таймер бэкапов.
+
+| Контур | Web/PWA build ID | Android | Байты | SHA-256 опубликованного APK | Объявление |
+|---|---|---|---:|---|---:|
+| Тест | `6ffd52894e463eb5f22c` | `v1.9.021ibA`, 38 | 2433754 | `eaec7c86382f5efc2e3fd306b21fb3340404d2c7d037c70913e35cddd38314eb` | 11 |
+| Прод | `185c161a9501511f4c00` | `v1.9.021prA`, 38 | 2758515 | `af613798a10f0de17327def5edda99e1f534dfecb364c4c95dcf2e7f2def2214` | 8 |
+
+Первую попытку передачи тестового APK остановил отказ CopyToBox. Строки таблицы относятся к последующей публикации.

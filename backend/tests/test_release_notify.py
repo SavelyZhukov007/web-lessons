@@ -6,8 +6,8 @@ import json
 import pytest
 
 from backend.app.database import SessionLocal
-from backend.app.models import AppDevice
-from backend.app.services import delivery, fcm
+from backend.app.models import AppDevice, Broadcast
+from backend.app.services import broadcast, delivery, fcm
 from backend.app.services import release_notify as rn
 
 
@@ -158,17 +158,55 @@ def test_auto_release_announces_once_to_web_and_apk(env, tmp_path, monkeypatch, 
     assert len(web) == 1 and len(sent) == 2
 
 
-def test_auto_release_skips_announcement_when_notes_do_not_match(env, tmp_path, monkeypatch):
+def test_auto_release_retries_after_notes_match(env, tmp_path, monkeypatch):
     publish, sent, state = env
     publish(32, "v1.9.015prA")
     run()
-    monkeypatch.setattr(delivery, "_send_web", lambda *a: pytest.fail("web push без совпадающего списка изменений"))
+    web = []
+    monkeypatch.setattr(delivery, "_send_web", lambda _, event, __: web.append(event.payload))
     notes = _auto_release(tmp_path, monkeypatch, publish, 33, "v1.9.016", ["Новое"])
     (tmp_path / "release-info.json").write_text(json.dumps({**notes, "changelog": ["Другое"]}))
-    result = run()
-    assert "announcement" not in result
-    # без объявления служебный push об обновлении получают все APK, как раньше
-    assert sorted(token for token, *_ in sent) == ["t1", "t2"]
+    assert run() is None
+    assert not sent and not web
+    assert json.loads(state.read_text())["versionCode"] == 32
+    (tmp_path / "release-info.json").write_text(json.dumps(notes))
+    assert run()["announcement"]["dispatch"] == "recorded"
+    assert len(web) == 1 and len(sent) == 2
+    assert run() is None
+
+
+def test_auto_release_keeps_reservation_on_uncertain_dispatch(env, tmp_path, monkeypatch):
+    publish, sent, state = env
+    publish(32, "v1.9.015prA")
+    run()
+    _auto_release(tmp_path, monkeypatch, publish, 33, "v1.9.016", ["Новое"])
+    dispatches = []
+
+    def dispatch(db, row):
+        dispatches.append(row.id)
+        assert db.get(Broadcast, row.id).idempotency_key == "release:v1.9.016"
+        raise OSError("Provider may already have accepted the push")
+
+    monkeypatch.setattr(broadcast, "dispatch", dispatch)
+    assert run() is None and not sent
+    assert json.loads(state.read_text())["versionCode"] == 32
+    retry = run()["announcement"]
+    assert retry["duplicate"] and retry["dispatch"] == "unconfirmed"
+    assert len(dispatches) == 1 and [token for token, *_ in sent] == ["t1"]
+    assert run() is None
+
+
+def test_release_watcher_waits_for_deployment(env, tmp_path, monkeypatch):
+    publish, sent, state = env
+    publish(32, "v1.9.015prA")
+    run()
+    _auto_release(tmp_path, monkeypatch, publish, 33, "v1.9.016", ["Новое"])
+    hold = rn.hold_file()
+    hold.touch()
+    assert run() is None and not sent
+    assert json.loads(state.read_text())["versionCode"] == 32
+    hold.unlink()
+    assert run()["announcement"]["dispatch"] == "recorded"
 
 
 def test_announcement_text_fits_and_marks_rest():

@@ -32,6 +32,11 @@ async def lifespan(app):
     if problems:
         raise RuntimeError("Небезопасная конфигурация production:\n - " + "\n - ".join(problems))
     prepare_database()
+    if os.getenv("CLUBS_DEPLOY_CHECK") == "1":
+        # Compose runs this candidate without service ports or network aliases.
+        # It may migrate the stopped database, but must not send notifications.
+        yield
+        return
     import asyncio
 
     from .services import client_logs, mdns

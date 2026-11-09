@@ -13,16 +13,55 @@ export function eventShareControls(event, clubLink) {
   const actions = document.createElement('div');
   actions.className = 'schedule-event-actions';
   actions.append(clubLink);
-  const calendar=document.createElement('button');calendar.type='button';calendar.className='glass-action';calendar.textContent='В календарь телефона';calendar.disabled=event.status==='cancelled';
-  calendar.addEventListener('click',async()=>{
+  const calendar = document.createElement('button');
+  calendar.type = 'button';
+  calendar.className = 'glass-action';
+  calendar.textContent = 'В календарь телефона';
+  calendar.disabled = event.status === 'cancelled';
+  const calendarStatus = document.createElement('span');
+  calendarStatus.setAttribute('role', 'status');
+  calendarStatus.className = 'field-hint';
+  calendarStatus.hidden = true;
+  calendar.addEventListener('click', async () => {
+    calendar.disabled = true;
+    calendarStatus.hidden = true;
     try {
-      const native=window.Capacitor?.Plugins?.ItcNative;
-      if(native?.addToCalendar){await native.addToCalendar({title:event.club_name,location:(event.room_names||[event.room_name]).join(', '),description:(event.leader_names||[event.leader_name]).join(', '),start:Date.parse(event.date+'T'+event.start_time+':00+03:00'),end:Date.parse(event.date+'T'+event.end_time+':00+03:00')});return;}
-      const file=new File([eventCalendar(event)],'kipclub-'+event.date+'.ics',{type:'text/calendar'});
-      if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file]});return;}
-      const url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
-    }catch(e){if(e.name!=='AbortError'){const note=document.createElement('span');note.setAttribute('role','status');note.textContent='Не удалось открыть календарь. Попробуйте ещё раз.';actions.append(note);}}
-  });actions.append(calendar);
+      const native = window.Capacitor?.Plugins?.ItcNative;
+      try {
+        if (native?.addToCalendar) {
+          await native.addToCalendar({
+            title: event.club_name,
+            location: (event.room_names || [event.room_name]).join(', '),
+            description: (event.leader_names || [event.leader_name]).join(', '),
+            start: Date.parse(`${event.date}T${event.start_time}:00+03:00`),
+            end: Date.parse(`${event.date}T${event.end_time}:00+03:00`),
+          });
+          return;
+        }
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+      }
+      const file = new File([eventCalendar(event)], `kipclub-${event.date}.ics`, { type: 'text/calendar' });
+      const data = { files: [file] };
+      try {
+        if (navigator.share && navigator.canShare?.(data)) { await navigator.share(data); return; }
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+      }
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      calendarStatus.textContent = 'Не удалось сохранить календарь. Попробуйте ещё раз.';
+      calendarStatus.hidden = false;
+    } finally {
+      calendar.disabled = false;
+    }
+  });
+  actions.append(calendar, calendarStatus);
   const server = window.AppServer?.get();
   if (!server && window.DemoBackend && window.Capacitor?.isNativePlatform?.()) return actions;
   const url = eventUrl(event, server || location.origin);

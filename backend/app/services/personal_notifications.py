@@ -13,12 +13,16 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.sqlite import insert
 
+from ..models.broadcast import Broadcast
 from ..models.notification_task import NotificationTask
 from ..models.push_subscription import PushSubscription
+from ..models.session_exception import SessionException
 from ..schemas.push import ScheduleNotificationSettings
+from . import broadcast
 
 MSK = ZoneInfo("Europe/Moscow")
 log = logging.getLogger("clubs.personal_notifications")
+CHANGE_TYPES = {"cancel": "cancelled", "reschedule": "moved"}
 
 
 def read_settings(row):
@@ -58,15 +62,22 @@ def enqueue(db, sub, payload, kind, due, expires, suffix=""):
     statement = insert(NotificationTask).values(
         key=key, target=target, payload=encoded, kind=kind, due=utc_naive(due), expires=utc_naive(expires), status="pending", attempts=0
     )
-    # A changed N/occurrence can replace an unsent reminder, never one already delivered.
-    statement = statement.on_conflict_do_update(
-        index_elements=[NotificationTask.key],
-        set_={"payload": encoded, "due": utc_naive(due), "expires": utc_naive(expires), "status": "pending", "attempts": 0},
-        where=(NotificationTask.kind == "reminder")
-        & (statement.excluded.kind == "reminder")
-        & NotificationTask.status.in_(["pending", "dropped"])
-        & (NotificationTask.payload != encoded),
-    )
+    # Changes to the same occurrence supersede an earlier notice, including
+    # a second move after the first was sent. A delivered reminder stays sent.
+    if kind in CHANGE_TYPES:
+        replaceable = NotificationTask.kind.in_(CHANGE_TYPES)
+    elif kind == "reminder":
+        replaceable = (NotificationTask.kind == "reminder") & NotificationTask.status.in_(["pending", "dropped"])
+    else:
+        replaceable = None
+    if replaceable is None:
+        statement = statement.on_conflict_do_nothing(index_elements=[NotificationTask.key])
+    else:
+        statement = statement.on_conflict_do_update(
+            index_elements=[NotificationTask.key],
+            set_={name: getattr(statement.excluded, name) for name in ("payload", "kind", "due", "expires", "status", "attempts")},
+            where=replaceable & (NotificationTask.payload != encoded),
+        )
     db.execute(statement)
     db.commit()
 
@@ -80,7 +91,17 @@ def defer_if_quiet(db, sub, ev, now=None):
     return True
 
 
-def allowed(rows, task, payload):
+def tag_id(payload, prefix):
+    tag = payload.get("tag")
+    if isinstance(tag, str) and tag.startswith(prefix):
+        try:
+            return int(tag.removeprefix(prefix))
+        except ValueError:
+            pass
+    return None
+
+
+def allowed(db, rows, task, payload):
     if not rows:
         return False
     settings = read_settings(rows[0])
@@ -90,10 +111,40 @@ def allowed(rows, task, payload):
         return False
     flag = {"announcement": "announcements", "cancel": "cancellations", "reschedule": "moves"}.get(task.kind)
     candidates = [r for r in rows if not flag or getattr(r, flag)]
+    if task.kind == "announcement":
+        # Older queued broadcasts carry only the tag, newer ones also carry
+        # broadcast_id for receipts. Recheck the real scope in both cases.
+        bid = payload.get("broadcast_id") or tag_id(payload, "broadcast-")
+        if bid is not None:
+            item = db.get(Broadcast, bid)
+            if item is None:
+                return False
+            clubs = set(broadcast.ids(item.club_ids))
+            return any(
+                item.audience == "all" or (not r.announcements_only and (r.club_id is None or r.club_id in clubs))
+                for r in candidates
+            )
     club = payload.get("club_id")
     if task.kind in {"reminder", "cancel", "reschedule"}:
         return any(not r.announcements_only and (r.club_id is None or r.club_id == club) for r in candidates)
     return bool(candidates)
+
+
+def update_task(db, task, *, lease=None, **values):
+    """Only update the observed task revision, including its worker lease."""
+    status, due, attempts = ("claimed", lease, task.attempts + 1) if lease is not None else (task.status, task.due, task.attempts)
+    return db.execute(
+        update(NotificationTask)
+        .where(
+            NotificationTask.key == task.key,
+            NotificationTask.status == status,
+            NotificationTask.due == due,
+            NotificationTask.attempts == attempts,
+            NotificationTask.payload == task.payload,
+        )
+        .values(**values)
+        .execution_options(synchronize_session=False)
+    ).rowcount
 
 
 def run(db, now=None):
@@ -175,6 +226,7 @@ def run(db, now=None):
             .where(NotificationTask.status == "pending", NotificationTask.due <= naive)
             .order_by(NotificationTask.due)
             .limit(200)
+            .execution_options(populate_existing=True)
         )
     )
     for task in tasks:
@@ -191,7 +243,8 @@ def run(db, now=None):
             else []
         )
         payload = json.loads(task.payload)
-        if rows and task.kind in {"reminder", "digest"}:
+        valid = task.expires > naive and allowed(db, rows, task, payload)
+        if valid and task.kind in {"reminder", "digest"}:
             current = source.week_events(source.load_snapshot(db), local.date() - timedelta(days=local.weekday()))
             mine = [
                 e
@@ -216,58 +269,47 @@ def run(db, now=None):
                 valid = bool(mine)
                 payload["title"] = "Сегодня в «Моих кружках»: " + str(len(mine))
                 payload["body"] = " · ".join(e["start_time"] + " " + e["club_name"] for e in mine)[:450]
-            if not valid:
-                task.status = "dropped"
-                result["dropped"] += 1
-                db.commit()
-                continue
-        if task.kind in {"cancel", "reschedule"} and str(payload.get("tag", "")).startswith("exception-"):
-            from ..models.session_exception import SessionException
-
-            try:
-                exception = db.get(SessionException, int(payload["tag"].removeprefix("exception-")))
-            except ValueError:
-                exception = None
-            if exception is None or exception.type != ("cancelled" if task.kind == "cancel" else "moved"):
-                task.status = "dropped"
-                result["dropped"] += 1
-                db.commit()
-                continue
-        if task.expires <= naive or not allowed(rows, task, payload):
-            task.status = "dropped"
-            result["dropped"] += 1
+        if valid and task.kind in CHANGE_TYPES:
+            exception_id = tag_id(payload, "exception-")
+            exception = db.get(SessionException, exception_id, populate_existing=True) if exception_id is not None else None
+            valid = (exception is not None and exception.type == CHANGE_TYPES[task.kind]
+                     and source.exception_is_notifiable(source.load_snapshot(db), exception, today=local.date()))
+            if valid:
+                # Rebuild even tasks queued by older versions from the live occurrence.
+                payload = push.build_payload(exception)
+                valid = allowed(db, rows, task, payload)
+        if not valid:
+            result["dropped"] += update_task(db, task, status="dropped")
             db.commit()
             continue
         end = quiet_until(read_settings(rows[0]), now)
         if end:
-            task.due = utc_naive(end)
+            update_task(db, task, due=utc_naive(end))
             db.commit()
             continue
         # Atomic claim survives multiple ASGI workers. Stable tag deduplicates uncertain transport retries.
-        claimed = db.execute(
-            update(NotificationTask)
-            .where(NotificationTask.key == task.key, NotificationTask.status == "pending")
-            .values(status="claimed", attempts=NotificationTask.attempts + 1, due=naive + timedelta(minutes=2))
-        ).rowcount
+        lease = naive + timedelta(minutes=2)
+        claimed = update_task(db, task, status="claimed", attempts=task.attempts + 1, due=lease)
         db.commit()
         if not claimed:
             continue
         sub = rows[0]
         try:
             push.send_one({"endpoint": sub.endpoint, "keys": {"p256dh": sub.p256dh, "auth": sub.auth}}, payload)
-            task.status = "sent"
+            update_task(db, task, lease=lease, status="sent", payload=json.dumps(payload, ensure_ascii=False))
             from .broadcast_receipts import deferred_result
             deferred_result(db, payload, True)
             result["sent"] += 1
         except push.PushGone:
             db.execute(delete(PushSubscription).where(PushSubscription.endpoint == sub.endpoint))
-            task.status = "dropped"
+            update_task(db, task, lease=lease, status="dropped")
             from .broadcast_receipts import deferred_result
             deferred_result(db, payload, False)
             result["dropped"] += 1
         except Exception:
-            task.status = "pending" if task.attempts < 3 else "failed"
-            if task.status == "failed":
+            status = "pending" if task.attempts + 1 < 3 else "failed"
+            update_task(db, task, lease=lease, status=status, due=lease)
+            if status == "failed":
                 from .broadcast_receipts import deferred_result
                 deferred_result(db, payload, False)
             task.due = naive + timedelta(minutes=2)

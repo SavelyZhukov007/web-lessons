@@ -32,6 +32,10 @@ def state_file() -> Path:
     return Path(os.getenv("RELEASE_NOTIFY_STATE") or Path(DB_PATH).with_name("release-notified.json"))
 
 
+def hold_file() -> Path:
+    return state_file().with_name("release-notify.hold")
+
+
 def _read() -> int | None:
     try:
         return int(json.loads(state_file().read_text(encoding="utf-8"))["versionCode"])
@@ -50,6 +54,8 @@ def check(db: Session) -> dict | None:
     """Возвращает итог рассылки (или None, если слать нечего). Не бросает исключений наружу из фоновой задачи."""
     from ..routers.distribution import latest_release
     with _lock:
+        if hold_file().exists():
+            return None
         rel = latest_release()
         code = rel and rel.get("versionCode")
         if not code:
@@ -65,7 +71,6 @@ def check(db: Session) -> dict | None:
             return None
         if code <= last:
             return None
-        _write(code)  # сначала фиксируем — ровно один раз на версию, даже если отправка упадёт посередине
         version = str(rel.get("version") or code)
         name = version if version.startswith("v") else "v" + version
         ev = delivery.Event(kind="update-available", audience="all", club_ids=[],
@@ -81,6 +86,12 @@ def check(db: Session) -> dict | None:
             except Exception:  # noqa: BLE001
                 db.rollback()
                 log.exception("объявление о выпуске %s: сбой", name)
+                # A later check retries validation/publication. If dispatch
+                # already started, the durable release key prevents a resend.
+                return None
+        # The announcement now has a durable reservation. The legacy APK
+        # notification is at most once, even if the provider result is uncertain.
+        _write(code)
         try:
             # только APK: web-подписчикам сайта обновление APK не нужно
             delivery._send_fcm(db, ev, r, only=(lambda d: not d.announcements) if announced else None)

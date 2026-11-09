@@ -3,10 +3,14 @@
 Все команды — из каталога приложения (`/opt/clubs` для systemd; в Docker: `docker compose exec app …`). Конфигурация — `deploy/.env.example`.
 
 ## Деплой и откат
-**Docker:** `git pull && docker compose up -d --build`. Миграции БД применяются при старте приложения. Проверка: `curl -fsS https://<домен>/readyz`.
-**Откат:** `git checkout <прошлый-тег> && docker compose up -d --build`. Если новая версия применила миграцию — **сначала** восстанови БД из бэкапа, сделанного перед обновлением (миграции «вниз» не гарантируются).
-**Перед каждым обновлением:** `tools/ops/backup.sh pre-migrate` (бэкап + verify, префикс `pre-migrate-`, своя ротация). Откат БД: `tools/ops/restore.sh /backups/<файл> --yes` (страховочный бэкап → stop → restore → start → /readyz).
-**systemd:** `git pull && .venv/bin/pip install -r backend/requirements.lock.txt && .venv/bin/python server.py build web && sudo systemctl restart clubs`.
+
+Docker-выпуск с APK запускается через `bash tools/ops/deploy-release.sh STAGE CHANNEL URL VERSION CODE`. В `STAGE` должны быть `source/` из Git, полный SHA коммита в `revision`, APK и его `latest.json`. Сценарий сохраняет старый образ и проверяет восстановление бэкапа. Объявление выпуска разблокируется после проверки расписания, защиты админки, PWA и опубликованных байтов APK.
+
+- Если ревизия БД совпадает, сценарий возвращает прежний образ и манифест APK, сохраняя текущую БД.
+- Если нужна миграция, сценарий останавливает приложение до снимка и запускает проверку в контейнере без публичного порта. При сбое на этом этапе он восстанавливает снимок через `server.py restore --yes`, отзывает админские сессии и проверяет готовность предыдущей версии.
+- После попытки открыть мигрированную БД для пользователей сохраняются текущая БД, новый образ и проверенный снимок. Если проверка не прошла, исправь ошибку совместимым выпуском. Снимок может не содержать новые записи. До завершения приёмки файл `release-notify.hold` рядом с файлом состояния рассылки удерживает автоматическое объявление. После проверки оператор удаляет этот файл и запускает `python server.py announce-release vVERSION --send` внутри приложения. Ключ версии защищает от повторной отправки.
+
+Для systemd используется `git pull && .venv/bin/pip install -r backend/requirements.lock.txt && .venv/bin/python server.py build web && sudo systemctl restart clubs`. Перед миграцией останови приложение и проверь снимок.
 
 ## Первый запуск
 1. `cp deploy/.env.example .env`, задать `SITE_ADDRESS`, `ALLOWED_HOSTS`, `JWT_SECRET` (`python -c "import secrets;print(secrets.token_urlsafe(48))"`).
@@ -21,7 +25,7 @@
 ## Бэкап и восстановление
 - Бэкап: `server.py backup --dir /backups --keep 14` (в Docker том `clubs-backups`; systemd-таймер `clubs-backup.timer` — каждый день 03:30).
 - Проверка: `server.py verify-backup /backups/<файл>.sqlite3.gz` — делай регулярно, а не только в аварии.
-- Восстановление: остановить приложение → распаковать копию (`gunzip -c … > /data/clubs.sqlite3`; удалить старые `-wal/-shm`) → запустить → `/readyz`.
+- Восстановление: `tools/ops/restore.sh /backups/<файл> --yes` с образом, совместимым с ревизией снимка. Скрипт делает страховочную копию, останавливает приложение, восстанавливает БД с отзывом админских сессий и проверяет `/readyz`.
 - Копию держи **вне** сервера (другой диск/облако) — копия на том же диске не защищает от потери диска.
 
 ## Логи

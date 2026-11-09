@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from playwright.sync_api import expect
 
 
@@ -55,8 +56,17 @@ def test_event_favorites_persist_and_link_to_filter(new_page):
     assert not page.errors, page.errors
 
 
-def test_one_occurrence_calendar_download(new_page):
+@pytest.mark.parametrize("native_share_fails", [False, True])
+def test_one_occurrence_calendar_download(new_page, native_share_fails):
     page = new_page(390, 844)
+    if native_share_fails:
+        page.add_init_script("""(() => {
+            navigator.canShare = () => true;
+            navigator.share = () => {
+                window.calendarShareAttempted = true;
+                return Promise.reject(new DOMException('Denied', 'NotAllowedError'));
+            };
+        })()""")
     page.goto("/?day=2026-11-09")
     page.wait_for_timeout(500)
     assert not page.errors, page.errors
@@ -66,6 +76,8 @@ def test_one_occurrence_calendar_download(new_page):
     page.locator(".calendar-event").first.click()
     with page.expect_download() as download:
         page.get_by_role("button", name="В календарь телефона", exact=True).click()
+    if native_share_fails:
+        assert page.evaluate("window.calendarShareAttempted")
     text = Path(download.value.path()).read_text(encoding="utf-8").replace("\n ", "")
     assert text.count("BEGIN:VEVENT") == 1
     assert "DTSTART:20261109T120000Z" in text

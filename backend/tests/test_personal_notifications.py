@@ -5,12 +5,14 @@ import pytest
 from sqlalchemy import select
 
 from backend.app.database import SessionLocal
-from backend.app.models import NotificationTask, PushSubscription
+from backend.app.models import Broadcast, NotificationTask, PushSubscription, SessionException
 from backend.app.schemas.push import ScheduleNotificationSettings
+from backend.app.services import broadcast, push
 from backend.app.services import personal_notifications as pn
-from backend.app.services import push
 from backend.app.services.delivery import Event
 
+from .test_exception_conflicts_api import admin_client as admin_client
+from .test_exception_conflicts_api import make_world
 from .test_push import ENDPOINT, sub_body
 
 
@@ -188,3 +190,54 @@ def test_changed_minutes_replace_unsent_but_not_sent_reminder(monkeypatch):
         db.commit()
         assert pn.run(db, now("2026-11-09T14:50"))["sent"] == 0
         assert len(calls) == 1 and calls[0]["reminder_minutes"] == 17
+
+
+@pytest.mark.parametrize("requeue", [False, True])
+def test_quiet_move_uses_latest_schedule(admin_client, monkeypatch, requeue):
+    world = make_world(admin_client)
+    calls = []
+    monkeypatch.setattr(push, "send_one", lambda _, payload: calls.append(payload))
+    with SessionLocal() as db:
+        row = sub(db, quiet_enabled=True)
+        exc = SessionException(
+            session_id=world["session"]["id"], type="moved", original_date="2026-11-16",
+            new_date="2026-11-17", new_start_time="15:00", new_end_time="16:00", new_room_id=world["room"]["id"],
+        )
+        db.add(exc)
+        db.commit()
+        pn.defer_if_quiet(db, row, push.exception_event(exc), now("2026-11-09T23:00"))
+        exc.new_start_time, exc.new_end_time = "17:00", "18:00"
+        db.commit()
+        if requeue:
+            pn.defer_if_quiet(db, row, push.exception_event(exc), now("2026-11-09T23:05"))
+        assert len(list(db.scalars(select(NotificationTask)))) == 1
+        assert pn.run(db, now("2026-11-10T08:00"))["sent"] == 1
+        assert "17:00–18:00" in calls[0]["body"]
+        assert pn.run(db, now("2026-11-10T08:01"))["sent"] == 0
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_quiet_club_broadcast_rechecks_audience_when_general_subscription_remains(admin_client, monkeypatch, legacy):
+    club_id = make_world(admin_client)["club"]["id"]
+    calls = []
+    monkeypatch.setattr(push, "send_one", lambda _, payload: calls.append(payload))
+    with SessionLocal() as db:
+        general = sub(db, quiet_enabled=True)
+        general.announcements_only = True
+        following = PushSubscription(endpoint=ENDPOINT, p256dh="key", auth="auth", club_id=club_id,
+                                     schedule_settings=general.schedule_settings)
+        targeted = Broadcast(title="Клубу", body="Текст", url="/", audience="clubs",
+                             club_ids=json.dumps([club_id]), session_ids="[]", author_login="test")
+        everyone = Broadcast(title="Всем", body="Текст", url="/", audience="all",
+                             club_ids="[]", session_ids="[]", author_login="test")
+        db.add_all([following, targeted, everyone])
+        db.commit()
+        for row, item in ((following, targeted), (general, everyone)):
+            ev = broadcast.event(item)
+            if legacy:
+                ev.payload.pop("broadcast_id")
+            assert pn.defer_if_quiet(db, row, ev, now("2026-11-09T23:00"))
+        db.delete(following)
+        db.commit()
+        assert pn.run(db, now("2026-11-10T08:00")) == {"sent": 1, "failed": 0, "dropped": 1}
+        assert [item["title"] for item in calls] == ["Всем"]
