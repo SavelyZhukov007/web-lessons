@@ -49,9 +49,19 @@ async function rememberApi(cache, request, response) {
 
 const PUSH_PREFS_CACHE = 'clubs-push-preferences';
 const PUSH_PREFS_KEY = '/__clubs/push-preferences';
-async function savePushPreferences(endpoint, status) {
+async function savePushPreferences(endpoint, status, scheduleSettings) {
   const cache = await caches.open(PUSH_PREFS_CACHE);
-  await cache.put(new Request(new URL(PUSH_PREFS_KEY, self.location.origin)), Response.json({ endpoint, ...status }));
+  const key = new Request(new URL(PUSH_PREFS_KEY, self.location.origin));
+  let settings=scheduleSettings;
+  try {
+    if (!settings) {
+      const saved=await cache.match(key), previous=saved?await saved.json():null;
+      if(previous?.endpoint===endpoint)settings=previous.schedule_settings;
+      const response=await fetch('/api/push/schedule-settings/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint})});
+      if(response.ok)settings=await response.json();
+    }
+  }catch{/* Keep the last explicit opt-in if the settings endpoint is temporarily offline. */}
+  await cache.put(key, Response.json({ endpoint, ...status, schedule_settings:settings }));
 }
 async function pushStatus(endpoint) {
   const response = await fetch('/api/push/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint }) });
@@ -63,7 +73,7 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (request.method === 'POST' && /^\/api\/push\/(subscribe|unsubscribe|preferences|status|sync)$/.test(url.pathname)) {
+  if (request.method === 'POST' && /^\/api\/push\/(subscribe|unsubscribe|preferences|status|sync|schedule-settings(?:\/read)?)$/.test(url.pathname)) {
     event.respondWith((async () => {
       const copy = request.clone();
       const response = await fetch(request);
@@ -73,8 +83,9 @@ self.addEventListener('fetch', event => {
           // Успешная операция могла сузить согласие. Старая копия больше не основание для восстановления.
           if (!url.pathname.endsWith('/status')) await (await caches.open(PUSH_PREFS_CACHE)).delete(new Request(new URL(PUSH_PREFS_KEY, self.location.origin)));
           if (endpoint) {
+            const scheduleSettings=url.pathname.includes('/schedule-settings')?await response.clone().json():undefined;
             const status = /\/(status|sync)$/.test(url.pathname) ? await response.clone().json() : await pushStatus(endpoint);
-            await savePushPreferences(endpoint, status);
+            await savePushPreferences(endpoint, status, scheduleSettings);
           }
         } catch { /* API-операция выполнена; отсутствие копии не расширяет подписку при восстановлении. */ }
       }
@@ -160,20 +171,32 @@ self.addEventListener('fetch', event => {
 });
 
 /* ---------- Web Push ---------- */
+let pushQueue=Promise.resolve();
+async function groupedPush(data) {
+  const kind=['cancelled','moved','cancel','reschedule'].includes(data.kind)?'changes':data.kind==='reminder'?'reminders':data.kind==='digest'?'digest':'announcements';
+  const group=kind+':'+(Number.isInteger(data.club_id)?data.club_id:'general');
+  const options={body:String(data.body||''),icon:'/icons/icon-192.png?v=kc4',badge:'/icons/badge-96.png?v=kc4',tag:'kc:'+group,renotify:false,lang:'ru',data:{url:typeof data.url==='string'?data.url:'/'}};
+  let title=String(data.title||'KipClub');
+  try {
+    const cache=await caches.open('clubs-notification-groups');
+    const key=new Request(new URL('/__clubs/notification-group/'+encodeURIComponent(group),self.location.origin));
+    const response=await cache.match(key);let row=response?await response.json():null;
+    const day=new Date(Date.now()+10800000).toISOString().slice(0,10);
+    if(!row || row.day!==day)row={seen:[],items:[],count:0,time:Date.now(),day};
+    const id=String(data.tag||data.title+'|'+data.body);
+    if(!row.seen.includes(id)){row.seen.push(id);row.seen=row.seen.slice(-100);row.count=Math.min(100,row.count+1);row.items.push(title+': '+options.body);row.items=row.items.slice(-3);}
+    row.time=Date.now();await cache.put(key,Response.json(row));
+    const keys=await cache.keys();for(const old of keys.slice(0,Math.max(0,keys.length-30)))await cache.delete(old);
+    if(row.count>1&&kind!=='digest'){title='KipClub · '+(kind==='changes'?'изменения':'уведомления')+': '+row.count;options.body=row.items.join('\n');}
+  }catch{/* Full/private Cache Storage: still show every userVisibleOnly push. */}
+  return self.registration.showNotification(title,options);
+}
+
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data ? event.data.text() : '' }; }
-  const title = String(data.title || 'KipClub');
-  const options = {
-    body: String(data.body || ''),
-    icon: '/icons/icon-192.png?v=kc4',
-    badge: '/icons/badge-96.png?v=kc4',
-    tag: data.tag ? String(data.tag) : undefined,
-    lang: 'ru',
-    data: { url: typeof data.url === 'string' ? data.url : '/' },
-  };
-  // userVisibleOnly: на каждый push обязательно показываем уведомление (иначе Safari/Chrome отзовут подписку)
-  event.waitUntil(self.registration.showNotification(title, options));
+  // Serialize concurrent pushes so their persistent group history cannot overwrite itself.
+  event.waitUntil(pushQueue=pushQueue.catch(()=>{}).then(()=>groupedPush(data)));
 });
 
 self.addEventListener('notificationclick', event => {
@@ -222,7 +245,8 @@ self.addEventListener('pushsubscriptionchange', event => {
         for (const club_id of prefs.all ? [null] : prefs.club_ids) await post('/api/push/subscribe', { endpoint: json.endpoint, keys: json.keys, club_id });
         await post('/api/push/preferences', { endpoint: json.endpoint, ...flags });
       }
-      await savePushPreferences(json.endpoint, await pushStatus(json.endpoint));
+      if (prefs.schedule_settings) await post('/api/push/schedule-settings', {endpoint:json.endpoint,...prefs.schedule_settings});
+      await savePushPreferences(json.endpoint, await pushStatus(json.endpoint), prefs.schedule_settings);
       if (previous && previous !== json.endpoint) await post('/api/push/unsubscribe', { endpoint: previous });
     } catch { /* повторно предложим подписаться на странице кружка */ }
   })());

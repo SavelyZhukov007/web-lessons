@@ -967,3 +967,13 @@ dialog .list-row--danger, dialog .list-row--danger span { color: var(--danger, #
 
 #settings-dialog .sheet-body { overscroll-behavior-y: contain; }
 #settings-dialog :is(.sheet-head, .sheet-foot) { flex: none; }
+
+/* Personal schedule preferences, shared by all public settings sheets. */
+.favorite-setting-row { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+.favorite-setting-row a { overflow-wrap:anywhere; min-width:0; }
+
+
+.personal-notification-form { margin-top:16px; }
+.personal-notification-form .preference-toggle { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; }
+.personal-notification-form input[type="number"] { width:76px; min-height:44px; }
+.personal-notification-form input[type="time"] { width:112px; min-height:44px; }

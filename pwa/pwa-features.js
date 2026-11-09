@@ -144,6 +144,8 @@
       ('setAppBadge' in navigator ? '' : '<p class="itc-muted small">Значок на иконке это устройство не поддерживает.</p>') +
       '<button type="button" class="itc-close">Готово</button></div>';
     doc.body.appendChild(wrap);
+    var personalPanel;
+    import('/js/schedule-notification-form.js').then(function(m){const place=document.createElement('div');wrap.querySelector('.itc-close').before(place);personalPanel=m.mountScheduleNotificationForm(place,{load:async function(){const s=await subscription(false);return enabled()&&s?api('/api/push/schedule-settings/read',{endpoint:s.endpoint}):null;},save:async function(v){const s=await subscription(false);if(!enabled()||!s)throw Error('Нет подписки');return api('/api/push/schedule-settings',Object.assign({endpoint:s.endpoint},v));}});}).catch(function(){});
     var box = wrap.querySelector('#itc-push'), fields = Array.from(wrap.querySelectorAll('[data-push-field]'));
     function busy(value) {
       var current = availability();
@@ -154,7 +156,7 @@
     }
     box.addEventListener('change', function () {
       busy(true);
-      (box.checked ? enableFromGesture() : disable()).finally(function () { box.checked = enabled(); busy(false); });
+      (box.checked ? enableFromGesture() : disable()).finally(function () { box.checked = enabled(); busy(false);personalPanel?.refresh(); });
     });
     fields.forEach(function (input) {
       input.addEventListener('change', function () {

@@ -1,3 +1,4 @@
+import { favoritesSection } from './personal-schedule.js';
 import { bindSheetDismiss } from './sheet-gesture.js';
 // Общие настройки для браузера и установленного PWA.
 // Подключается на каждой странице: <script type="module" src="/js/settings.js">. Кнопка-шестерёнка добавляется в шапку сама.
@@ -184,7 +185,7 @@ function build(opener) {
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Акцентный цвет'), swatches(prefs.accent, v => theme.set({ accent: v }))),
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Размер текста'),
       sizeSlider(prefs.textSize)),
-    interfaceSettings(theme, interfaceLifetime.signal), notificationsSection(opener), accountSection(), serverSection(), demoSection());
+    interfaceSettings(theme, interfaceLifetime.signal), notificationsSection(opener), favoritesSection(h), accountSection(), serverSection(), demoSection());
   const reset = h('button', { type: 'button', class: 'btn btn--text', onclick: () => { theme.set(theme.DEFAULTS); rebuild(opener); toast('Вид сброшен'); } }, 'Сбросить вид');
   const done = h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово');
   const fb = h('button', { type: 'button', class: 'list-row', dataset: { feedbackOpen: '' } }, h('span', {}, 'Обратная связь'));

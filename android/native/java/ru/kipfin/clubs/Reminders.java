@@ -36,6 +36,8 @@ final class Reminders {
                 if (e.cancelled()) continue;
                 long at = e.startMs - minutes * 60_000L;
                 if (at <= now || at > now + WINDOW) continue;
+                long quietEnd=Store.quietEnd(c,at);if(quietEnd>0)at=quietEnd;
+                if(at>=e.startMs)continue;
                 int code = requestCode(e);
                 PendingIntent pi = pending(c, code, e);
                 boolean exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms();
@@ -46,6 +48,7 @@ final class Reminders {
             }
         }
         p.edit().putStringSet("alarm_codes", codes).apply();
+        PersonalNotifications.schedule(c);
     }
 
     private static PendingIntent pending(Context c, int code, Store.Event e) {

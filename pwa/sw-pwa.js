@@ -4,6 +4,8 @@
 const ITC_BADGE_CACHE = 'itc-badge';
 const ITC_BADGE_KEY = '/__itc/badge';
 const ITC_BADGE_PREF = '/__itc/badge-enabled';
+const ITC_BADGE_SEEN = '/__itc/badge-seen';
+let itcBadgeQueue=Promise.resolve();
 async function itcBadgeGet() {
   try { const r = await (await caches.open(ITC_BADGE_CACHE)).match(ITC_BADGE_KEY); return r ? (parseInt(await r.text(), 10) || 0) : 0; } catch { return 0; }
 }
@@ -18,11 +20,20 @@ self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { /* текстовый push — тоже изменение */ }
   if (data && data.badge === false) return;
-  event.waitUntil((async () => {
+  event.waitUntil(itcBadgeQueue=itcBadgeQueue.catch(()=>{}).then(async () => {
+    try {
+      const cache=await caches.open(ITC_BADGE_CACHE),saved=await cache.match(ITC_BADGE_SEEN);
+      let seen=saved?await saved.json():[];
+      if(typeof data.tag==='string'){
+        if(seen.includes(data.tag))return;
+        seen=seen.concat(data.tag).slice(-100);
+        await cache.put(ITC_BADGE_SEEN,Response.json(seen));
+      }
+    }catch{/* With no cache, preserve the existing best-effort badge behaviour. */}
     let enabled = true;
     try { const pref = await (await caches.open(ITC_BADGE_CACHE)).match(ITC_BADGE_PREF); enabled = !pref || await pref.text() !== '0'; } catch { /* без Cache Storage считаем как раньше */ }
     if (enabled) await itcBadgeSet(await itcBadgeGet() + 1);
-  })());
+  }));
 });
 self.addEventListener('message', event => {
   const d = event.data || {};

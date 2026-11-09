@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat;
 
 /** Локальные уведомления (без FCM/GMS): напоминания, изменения расписания, объявления. */
 final class Notifier {
+    static final String CH_DIGEST = "itc_digest";
     static final String CH_REMIND = "itc_reminders";
     static final String CH_CHANGES = "itc_changes";
     static final String CH_CANCEL = "itc_cancellations";
@@ -34,6 +35,7 @@ final class Notifier {
         ch.setDescription("Когда отменённое занятие снова появилось в расписании");
         NotificationChannel an = new NotificationChannel(CH_ANN, "Объявления", NotificationManager.IMPORTANCE_DEFAULT);
         an.setDescription("Сообщения от администрации кружков");
+        nm.createNotificationChannel(new NotificationChannel(CH_DIGEST,"Утренний дайджест",NotificationManager.IMPORTANCE_DEFAULT));
         nm.createNotificationChannel(r);
         nm.createNotificationChannel(ch);
         nm.createNotificationChannel(an);
@@ -79,16 +81,24 @@ final class Notifier {
     static void post(Context c, String channel, int id, String title, String text, String path) {
         channels(c);
         if (!allowed(c)) return;
+        if(Store.quietEnd(c,System.currentTimeMillis())>0){PersonalNotifications.defer(c,channel,id,title,text,path);return;}
+        String group="ru.kipfin.clubs."+channel;
         NotificationCompat.Builder b = new NotificationCompat.Builder(c, channel)
             .setSmallIcon(R.drawable.ic_stat_itc)
             .setColor(0xFFB83B29)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
+            .setGroup(group)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
             .setAutoCancel(true)
             .setCategory(CH_REMIND.equals(channel) ? NotificationCompat.CATEGORY_REMINDER : NotificationCompat.CATEGORY_EVENT)
             .setPriority(isChangeChannel(channel) ? NotificationCompat.PRIORITY_HIGH : NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(open(c, path, id));
         NotificationManagerCompat.from(c).notify(id, b.build());
+        if(Build.VERSION.SDK_INT>=24){
+            int count=0;for(android.service.notification.StatusBarNotification n:c.getSystemService(NotificationManager.class).getActiveNotifications())if(group.equals(n.getNotification().getGroup())&&(n.getNotification().flags&android.app.Notification.FLAG_GROUP_SUMMARY)==0)count++;
+            if(count>1)NotificationManagerCompat.from(c).notify(("summary:"+group).hashCode(),new NotificationCompat.Builder(c,channel).setSmallIcon(R.drawable.ic_stat_itc).setContentTitle("KipClub · "+count).setContentText("Уведомления сгруппированы").setGroup(group).setGroupSummary(true).setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN).setAutoCancel(true).setContentIntent(open(c,"/",group.hashCode())).build());
+        }
     }
 }

@@ -1,4 +1,5 @@
 """Часть шаблона проекта. Назначение описано в docs/START_HERE.md."""
+
 from .admin import Admin, AdminSession
 from .assignments import ClubLeader, SessionLeader, SessionRoom
 from .broadcast import AppDevice, Broadcast
@@ -9,6 +10,7 @@ from .import_publication import ImportPublication, ScheduleRowRevision
 from .install import Install
 from .leader import Leader
 from .login_attempt import LoginAttempt
+from .notification_task import NotificationTask
 from .period import AcademicPeriod, NoClassDay
 from .push_subscription import PushSubscription
 from .room import Room
@@ -34,6 +36,7 @@ __all__ = [
     "AcademicPeriod",
     "NoClassDay",
     "PushSubscription",
+    "NotificationTask",
     "Room",
     "ClubSession",
     "SessionException",

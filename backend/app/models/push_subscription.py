@@ -22,11 +22,11 @@ class PushSubscription(Base):
     endpoint: Mapped[str] = mapped_column(Text)
     p256dh: Mapped[str] = mapped_column(String(255))
     auth: Mapped[str] = mapped_column(String(255))
-    club_id: Mapped[int | None] = mapped_column(
-        ForeignKey("clubs.id", ondelete="CASCADE"), nullable=True, index=True
-    )
+    club_id: Mapped[int | None] = mapped_column(ForeignKey("clubs.id", ondelete="CASCADE"), nullable=True, index=True)
     announcements_only: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     announcements: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     cancellations: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     moves: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+    schedule_settings: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")

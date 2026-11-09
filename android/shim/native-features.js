@@ -117,14 +117,14 @@
   function N() { return P.ItcNative; }
   function settings() {
     var saved = jget(SETTINGS, {}), changes = saved.notifyChanges !== false;
-    return Object.assign({ reminderMinutes: 15, notifyCancellations: changes, notifyMoves: changes, notifyAnnouncements: true }, saved);
+    return Object.assign({ reminderMinutes: 15, notifyCancellations: changes, notifyMoves: changes, notifyAnnouncements: true, quietEnabled:false, quietStart:"22:00", quietEnd:"08:00", digestEnabled:false, digestTime:"08:00" }, saved);
   }
   function configureNative() {
     if (!N()) return Promise.resolve(null);
     var s = settings();
     return N().configure({ follows: Follows.all(), server: DEMO ? '' : ((window.AppServer && window.AppServer.get()) || ''),
       demo: DEMO, reminderMinutes: s.reminderMinutes, notifyChanges: s.notifyCancellations || s.notifyMoves,
-      notifyCancellations: s.notifyCancellations, notifyMoves: s.notifyMoves, notifyAnnouncements: s.notifyAnnouncements !== false }).catch(function () { return null; });
+      notifyCancellations: s.notifyCancellations, notifyMoves: s.notifyMoves, notifyAnnouncements: s.notifyAnnouncements !== false, quietEnabled:s.quietEnabled,quietStart:s.quietStart,quietEnd:s.quietEnd,digestEnabled:s.digestEnabled,digestTime:s.digestTime }).catch(function () { return null; });
   }
   function mskMonday(offsetWeeks) {
     var d = new Date(Date.now() + 3 * 3600e3); // Москва UTC+3
@@ -160,7 +160,7 @@
   }
   function banner() {
     var b = document.getElementById('itc-offline-banner');
-    if (!offline) { if (b) b.remove(); return; }
+    if (!offline || document.getElementById('schedule-cache-status')) { if (b) b.remove(); return; }
     if (b || !document.body) return;
     b = el('div', { id: 'itc-offline-banner', role: 'status' });
     var t = jget('itc.lastSync', 0);
@@ -246,10 +246,6 @@
     wrap.innerHTML = '<div class="itc-sheet-card">' +
       '<h2 id="itc-sheet-title">Уведомления</h2>' +
       '<p class="itc-muted">Отмены и переносы приходят по «Моим кружкам». Напоминания работают с сохранённым расписанием.</p>' +
-      '<label class="itc-row"><span>Напоминать до начала</span><select id="itc-remind">' +
-      [['0', 'Не напоминать'], ['15', 'За 15 минут'], ['30', 'За 30 минут'], ['60', 'За 1 час'], ['120', 'За 2 часа']].map(function (o) {
-        return '<option value="' + o[0] + '"' + (String(s.reminderMinutes) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
-      '</select></label>' +
       '<label class="itc-row"><span>Отмены занятий</span><input type="checkbox" id="itc-cancellations"' + (s.notifyCancellations ? ' checked' : '') + '></label>' +
       '<label class="itc-row"><span>Переносы занятий</span><input type="checkbox" id="itc-moves"' + (s.notifyMoves ? ' checked' : '') + '></label>' +
       '<label class="itc-row"><span>Объявления от администрации</span><input type="checkbox" id="itc-ann"' + (s.notifyAnnouncements !== false ? ' checked' : '') + '></label>' +
@@ -262,10 +258,17 @@
       '<p class="itc-muted small">Если кнопка не сработала: долгое нажатие на рабочем столе → Виджеты → «KipClub».</p>' +
       '<button type="button" class="itc-close">Готово</button></div>';
     document.body.appendChild(wrap);
+    import('/js/schedule-notification-form.js').then(function (module) {
+      const place=document.createElement('div');wrap.querySelector('.itc-close').before(place);
+      module.mountScheduleNotificationForm(place,{
+        load:async function(){const s=settings();return {reminder_minutes:s.reminderMinutes,quiet_enabled:s.quietEnabled,quiet_start:s.quietStart,quiet_end:s.quietEnd,digest_enabled:s.digestEnabled,digest_time:s.digestTime};},
+        save:async function(v){const s=settings();Object.assign(s,{reminderMinutes:v.reminder_minutes,quietEnabled:v.quiet_enabled,quietStart:v.quiet_start,quietEnd:v.quiet_end,digestEnabled:v.digest_enabled,digestTime:v.digest_time});jset(SETTINGS,s);await configureNative();if((v.reminder_minutes>0||v.digest_enabled)&&N()?.requestNotifications)await N().requestNotifications();}
+      });
+    }).catch(function(){toast('Дополнительные настройки не загрузились');});
     function save() {
-      jset(SETTINGS, { reminderMinutes: parseInt(wrap.querySelector('#itc-remind').value, 10),
+      jset(SETTINGS, Object.assign(settings(), {
         notifyCancellations: wrap.querySelector('#itc-cancellations').checked, notifyMoves: wrap.querySelector('#itc-moves').checked,
-        notifyAnnouncements: wrap.querySelector('#itc-ann').checked });
+        notifyAnnouncements: wrap.querySelector('#itc-ann').checked }));
       configureNative().then(checkPerm);
     }
     function checkPerm(st) {

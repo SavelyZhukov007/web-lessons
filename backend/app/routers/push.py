@@ -1,4 +1,5 @@
 """Публичные эндпоинты Web Push (без авторизации, как и остальной публичный API)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -8,7 +9,14 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.club import Club
 from ..models.push_subscription import PushSubscription
-from ..schemas.push import PushPreferencesRequest, PushStatusRequest, PushSubscribeRequest, PushSyncRequest, PushUnsubscribeRequest
+from ..schemas.push import (
+    PushPreferencesRequest,
+    PushStatusRequest,
+    PushSubscribeRequest,
+    PushSyncRequest,
+    PushUnsubscribeRequest,
+    ScheduleNotificationRequest,
+)
 from ..services import push as push_service
 
 router = APIRouter(prefix="/api/push", tags=["push"])
@@ -62,6 +70,7 @@ def subscribe(payload: PushSubscribeRequest, response: Response, db: Session = D
     prefs = _status(rows)
     db.add(
         PushSubscription(
+            schedule_settings=rows[0].schedule_settings if rows else "{}",
             endpoint=payload.endpoint,
             p256dh=payload.keys.p256dh,
             auth=payload.keys.auth,
@@ -81,9 +90,7 @@ def unsubscribe(payload: PushUnsubscribeRequest, db: Session = Depends(get_db)):
         stmt = stmt.where(PushSubscription.club_id == payload.club_id)
     removed = db.execute(stmt).rowcount
     db.commit()
-    remaining = db.scalar(
-        select(func.count()).select_from(PushSubscription).where(PushSubscription.endpoint == payload.endpoint)
-    )
+    remaining = db.scalar(select(func.count()).select_from(PushSubscription).where(PushSubscription.endpoint == payload.endpoint))
     return {"removed": removed, "remaining": remaining}
 
 
@@ -95,9 +102,7 @@ def status(payload: PushStatusRequest, db: Session = Depends(get_db)):
 @router.post("/preferences")
 def preferences(payload: PushPreferencesRequest, db: Session = Depends(get_db)):
     values = payload.model_dump(exclude={"endpoint"}, exclude_none=True)
-    updated = db.execute(
-        PushSubscription.__table__.update().where(PushSubscription.endpoint == payload.endpoint).values(**values)
-    ).rowcount
+    updated = db.execute(PushSubscription.__table__.update().where(PushSubscription.endpoint == payload.endpoint).values(**values)).rowcount
     db.commit()
     return {"updated": updated, **values}
 
@@ -110,8 +115,10 @@ def sync(payload: PushSyncRequest, db: Session = Depends(get_db)):
     db.connection().exec_driver_sql("BEGIN IMMEDIATE")
     active = db.scalars(select(Club.id).where(Club.id.in_(payload.club_ids), Club.is_active.is_(True)))
     wanted = {(club_id, False) for club_id in active} | {(None, True)}
+    old_rows = _rows(db, payload.endpoint)
+    saved_schedule = old_rows[0].schedule_settings if old_rows else "{}"
     kept = {}
-    for row in _rows(db, payload.endpoint):
+    for row in old_rows:
         scope = (row.club_id, row.announcements_only)
         if scope in wanted and scope not in kept:
             kept[scope] = row
@@ -120,7 +127,7 @@ def sync(payload: PushSyncRequest, db: Session = Depends(get_db)):
     for club_id, general in wanted:
         row = kept.get((club_id, general))
         if row is None:
-            row = PushSubscription(endpoint=payload.endpoint, club_id=club_id, announcements_only=general)
+            row = PushSubscription(endpoint=payload.endpoint, club_id=club_id, announcements_only=general, schedule_settings=saved_schedule)
             db.add(row)
             kept[club_id, general] = row
         row.p256dh, row.auth = payload.keys.p256dh, payload.keys.auth
@@ -128,3 +135,29 @@ def sync(payload: PushSyncRequest, db: Session = Depends(get_db)):
             setattr(row, field, getattr(payload, field))
     db.commit()
     return _status(list(kept.values()))
+
+
+@router.post("/schedule-settings/read")
+def schedule_settings_read(payload: PushStatusRequest, db: Session = Depends(get_db)):
+    from ..services.personal_notifications import read_settings
+
+    rows = _rows(db, payload.endpoint)
+    if not rows:
+        raise HTTPException(404, "Сначала включите push-уведомления")
+    return read_settings(rows[0]).model_dump()
+
+
+@router.post("/schedule-settings")
+def schedule_settings_write(payload: ScheduleNotificationRequest, db: Session = Depends(get_db)):
+    import json
+
+    values = payload.model_dump(exclude={"endpoint"})
+    updated = db.execute(
+        PushSubscription.__table__.update()
+        .where(PushSubscription.endpoint == payload.endpoint)
+        .values(schedule_settings=json.dumps(values))
+    ).rowcount
+    if not updated:
+        raise HTTPException(404, "Сначала включите push-уведомления")
+    db.commit()
+    return values

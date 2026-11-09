@@ -51,10 +51,11 @@ function setup(prefs, active = true) {
 }
 
 test('rotated subscription keeps selected clubs and disabled announcements', async () => {
-  const sw = setup({ all: false, club_ids: [2, 7], announcements: false });
+  const sw = setup({ all: false, club_ids: [2, 7], announcements: false, schedule_settings: {reminder_minutes:17,quiet_enabled:true,quiet_start:'23:00',quiet_end:'07:00',digest_enabled:true,digest_time:'08:00'} });
   await sw.fire('pushsubscriptionchange', { oldSubscription: { endpoint: 'https://push.test/old' } });
   assert.deepEqual(sw.calls.filter(c => c.path.endsWith('/subscribe')).map(c => c.body.club_id), [2, 7]);
   assert.equal(sw.calls.find(c => c.path.endsWith('/preferences')).body.announcements, false);
+  assert.deepEqual(sw.calls.find(c=>c.path.endsWith('/schedule-settings')).body,{endpoint:'https://push.test/new',reminder_minutes:17,quiet_enabled:true,quiet_start:'23:00',quiet_end:'07:00',digest_enabled:true,digest_time:'08:00'});
   assert.equal(sw.calls.some(c => c.path.endsWith('/unsubscribe') && c.body.endpoint.endsWith('/old')), true);
 });
 test('missing saved consent never becomes a subscription to all clubs', async () => {

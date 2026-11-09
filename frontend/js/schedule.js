@@ -1,3 +1,4 @@
+import { markLiveCard, favoriteControls } from './personal-schedule.js';
 import { DAY_NAMES, parseDate, dateKey, addDays, formatDate, minutes, eventGroups, scheduleLocation, movedFromSlot } from './schedule-dates.js';
 import { currentStudyDay, mountScheduleUi } from './schedule-ui.js';
 import { eventShareControls } from './schedule-share.js';
@@ -62,7 +63,7 @@ function details(event) {
   ];
   if (event.status === 'moved' && parseDate(event.original_date)) facts.push(['Исходная дата', formatDate(parseDate(event.original_date), { year: 'numeric' })]);
   for (const [label, value] of facts) info.append(node('dt', '', label), node('dd', '', value));
-  target.append(info);
+  target.append(info, favoriteControls(event));
   if (event.comment) target.append(node('p', 'event-comment', event.comment));
   const link = node('a', 'club-link', 'О кружке');
   link.append(icon('arrow'));
@@ -85,6 +86,7 @@ function eventCard(event, compact = false) {
   button.append(node('strong', 'event-name', event.club_name), node('span', 'event-room', eventRoom(event, rooms)), node('span', 'event-leader', (event.leader_names || [event.leader_name]).join(', ')));
   if (event.status !== 'scheduled') button.append(node('span', 'event-badge', statusNames[event.status]));
   button.append(icon('right', 'event-affordance'));
+  markLiveCard(button,event);
   button.addEventListener('click', () => details(event));
   return button;
 }

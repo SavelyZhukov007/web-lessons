@@ -86,3 +86,22 @@ class PushSyncRequest(InputSchema):
     announcements: bool
     cancellations: bool
     moves: bool
+
+
+class ScheduleNotificationSettings(InputSchema):
+    reminder_minutes: int = Field(default=0, ge=0, le=120)
+    quiet_enabled: bool = False
+    quiet_start: str = Field(default="22:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    quiet_end: str = Field(default="08:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    digest_enabled: bool = False
+    digest_time: str = Field(default="08:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
+    @model_validator(mode="after")
+    def valid_quiet_window(self):
+        if self.quiet_enabled and self.quiet_start == self.quiet_end:
+            raise ValueError("Начало и конец тихих часов должны отличаться")
+        return self
+
+
+class ScheduleNotificationRequest(ScheduleNotificationSettings):
+    endpoint: Endpoint

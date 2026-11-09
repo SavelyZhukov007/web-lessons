@@ -119,6 +119,10 @@ public final class Store {
         return out;
     }
 
+    static long quietEnd(Context c,long now) {
+        SharedPreferences p=prefs(c);
+        try{return NotificationTime.quietEnd(now,p.getBoolean("quiet_enabled",false),NotificationTime.minute(p.getString("quiet_start","22:00")),NotificationTime.minute(p.getString("quiet_end","08:00")));}catch(IllegalArgumentException e){return 0;}
+    }
     static int reminderMinutes(Context c) { return prefs(c).getInt("reminder_minutes", 15); }
     static boolean notifyCancellations(Context c) {
         return prefs(c).getBoolean("notify_cancellations", prefs(c).getBoolean("notify_changes", true));

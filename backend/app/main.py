@@ -33,6 +33,7 @@ async def lifespan(app):
         raise RuntimeError("Небезопасная конфигурация production:\n - " + "\n - ".join(problems))
     prepare_database()
     from .services import client_logs, mdns
+
     client_logs.cleanup()
     import asyncio
 
@@ -43,11 +44,13 @@ async def lifespan(app):
                 client_logs.cleanup()
             except Exception:  # noqa: BLE001 — фоновая уборка не должна ронять сервер
                 pass
+
     daily = asyncio.create_task(_daily())
 
     def _release_check():
         from .database import SessionLocal
         from .services import release_notify
+
         try:
             with SessionLocal() as db:
                 release_notify.check(db)
@@ -56,16 +59,35 @@ async def lifespan(app):
 
     async def _releases():
         from .services import release_notify
+
         while True:
             await asyncio.to_thread(_release_check)
             await asyncio.sleep(release_notify.CHECK_INTERVAL)
+
     releases = asyncio.create_task(_releases())
+
+    def _personal_check():
+        from .services import personal_notifications
+
+        try:
+            with SessionLocal() as db:
+                personal_notifications.run(db)
+        except Exception:
+            logging.getLogger("clubs.personal_notifications").exception("проверка напоминаний")
+
+    async def _personal():
+        while True:
+            await asyncio.sleep(30)
+            await asyncio.to_thread(_personal_check)
+
+    personal = asyncio.create_task(_personal())
     zc = mdns.start() if settings.mdns_enabled() else None
     try:
         yield
     finally:
         daily.cancel()
         releases.cancel()
+        personal.cancel()
         mdns.stop(zc)
 
 

@@ -25,8 +25,8 @@ function validate(data, week) {
 export function createScheduleFeed({ store = createWeekStore() } = {}) {
   const cache = new Map(), inflight = new Map();
   let generation = 0, prefetchEpoch = 0;
-  function remember(key, events, time) {
-    cache.delete(key); cache.set(key, { time, events });
+  function remember(key, events, time, source = 'network') {
+    cache.delete(key); cache.set(key, { time, events, source });
     if (cache.size > LIMIT) cache.delete(cache.keys().next().value);
   }
   async function hydrate(week) {
@@ -36,7 +36,7 @@ export function createScheduleFeed({ store = createWeekStore() } = {}) {
     if (started !== generation) return;
     if (cache.has(key)) return cache.get(key).events; // never replace a faster network response with old disk data
     if (!validWeekRecord(row)) return;
-    try { const events = validate(row.events, week); remember(key, events, row.savedAt); if (row.migrated) void store.write(key, events, row.savedAt); return events; }
+    try { const events = validate(row.events, week); remember(key, events, row.savedAt, 'cache'); if (row.migrated) void store.write(key, events, row.savedAt); return events; }
     catch { return; }
   }
   function fetchWeek(week, { refresh = false, prefetch = false } = {}) {
@@ -54,7 +54,7 @@ export function createScheduleFeed({ store = createWeekStore() } = {}) {
       const events = current && JSON.stringify(current.events) === JSON.stringify(checked) ? current.events : checked;
       if (started === generation && !controller.signal.aborted) {
         const savedAt = Date.parse(meta?.savedAt) || Date.now();
-        remember(key, events, savedAt); void store.write(key, events, savedAt);
+        remember(key, events, savedAt, meta?.offline ? 'cache' : 'network'); void store.write(key, events, savedAt);
       }
       return events;
     }).finally(() => { if (inflight.get(key) === entry) inflight.delete(key); });
@@ -67,6 +67,7 @@ export function createScheduleFeed({ store = createWeekStore() } = {}) {
   }
   return {
     read: week => cache.get(dateKey(week))?.events,
+    info: week => cache.get(dateKey(week)),
     hydrate, fetchWeek, cancelPrefetch,
     activate(week) { cancelPrefetch(dateKey(week)); },
     async prefetch(week, isCurrent, onReady) {

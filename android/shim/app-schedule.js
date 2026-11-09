@@ -1,3 +1,4 @@
+import { markLiveCard, favoriteControls } from './personal-schedule.js';
 // APK uses the same schedule controls as the web. It renders parallel
 // sessions as a slot and keeps the native splash and quick admin actions.
 import { DAY_NAMES, parseDate, dateKey, addDays, formatDate, minutes, scheduleLocation, movedFromSlot } from './schedule-dates.js';
@@ -49,6 +50,7 @@ function card(e) {
   b.append(time, node('strong', 'event-name', e.club_name), node('span', 'event-room', (e.room_names || [e.room_name]).join(', ')), node('span', 'event-leader', (e.leader_names || [e.leader_name]).join(', ')));
   if (e.status !== 'scheduled') b.append(node('span', 'event-badge', statusNames[e.status]));
   b.append(icon('right', 'event-affordance'));
+  markLiveCard(b,e);
   const rec = { sig: s, node: b, event: e };
   b.addEventListener('click', () => details(rec.event));
   cards.set(e.event_id, rec);
@@ -169,6 +171,7 @@ function details(e) {
   t.append(dl);
   if (e.comment) t.append(node('p', 'event-comment', e.comment));
   const a = node('a', 'club-link', 'О кружке'); a.append(icon('arrow')); a.href = `/club.html?id=${e.club_id}`; t.append(eventShareControls(e, a));
+  t.append(favoriteControls(e));
   const dlg = $('#event-dialog'); if (!dlg.open) dlg.showModal();
 }
 

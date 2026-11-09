@@ -1,3 +1,5 @@
+import { publishWeekStatus } from './personal-schedule.js';
+import { favorites } from './personal-schedule-model.js';
 import { getCategories, getLeaders, getRooms } from './api.js';
 import { addDays, dateKey, DAY_NAMES, formatDate, monday, moscowToday, parseDate, scheduleLocation } from './schedule-dates.js';
 import { bindDaySwipe, createDayRibbon, stepStudyDay, weekInRange } from './schedule-navigation.js';
@@ -52,6 +54,16 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
   let chipSignature;
   let flashTimer;
   let raw = noEvents;
+  const initialFilters = new URLSearchParams(location.search);
+  const referencesData = new Map();
+  function paintReference(key, data) {
+    const select=fields[key], selected=select.value || initialFilters.get(key) || '';initialFilters.delete(key);
+    const kind=key==='leader_id'?'leaders':key==='room_id'?'rooms':null, ids=new Set(kind?favorites(kind).map(x=>x.id):[]);
+    const sorted=[...data].sort((a,b)=>Number(ids.has(b.id))-Number(ids.has(a.id)));
+    select.replaceChildren(select.options[0],...sorted.map(item=>new Option((ids.has(item.id)?'★ ':'')+(key==='room_id'&&item.building?`${item.name} · ${item.building}`:item.name),item.id)));
+    select.value=[...select.options].some(o=>o.value===selected)?selected:'';select.disabled=false;
+  }
+  window.addEventListener('kc:favorites',()=>{for(const [key,data] of referencesData)paintReference(key,data);});
 
   const selectedDate = () => addDays(state.week, state.day);
   const myIds = () => inMyMode() ? new Set(window.ItcFeatures.Follows.all()) : null;
@@ -119,13 +131,14 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
     const cached = feed.read(week);
     const needsRender = dir || raw !== cached || state.phase !== 'ready';
     raw = cached || noEvents;
+    publishWeekStatus(feed.info(week));
     state.phase = cached ? 'ready' : 'loading';
     applyFilters();
     onPhase?.(state.phase);
     if (needsRender) render(dir);
     const hydration = cached ? Promise.resolve() : feed.hydrate(week).then(events => {
       if (id !== request || !events || state.phase !== 'loading') return;
-      raw = events; state.phase = 'ready'; applyFilters(); onPhase?.(state.phase); render(dir);
+      raw = events; publishWeekStatus(feed.info(week)); state.phase = 'ready'; applyFilters(); onPhase?.(state.phase); render(dir);
     });
     try {
       const events = await feed.fetchWeek(week, { refresh });
@@ -137,10 +150,12 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
         onPhase?.(state.phase);
         render();
       }
+      publishWeekStatus(feed.info(week));
       prefetchNearby(id);
     } catch (error) {
       await hydration;
-      if (id !== request || feed.read(week) || error?.name === 'AbortError') return;
+      if (id !== request || error?.name === 'AbortError') return;
+      if (feed.read(week)) {publishWeekStatus({...feed.info(week),source:'cache',failed:true});return;}
       state.phase = 'error';
       state.error = error.message;
       onPhase?.(state.phase);
@@ -294,11 +309,7 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
         return;
       }
       if (key === 'room_id') onRooms?.(data);
-      const selected = select.value;
-      select.replaceChildren(select.options[0], ...data.map(item => new Option(
-        key === 'room_id' && item.building ? `${item.name} · ${item.building}` : item.name, item.id)));
-      select.value = [...select.options].some(option => option.value === selected) ? selected : '';
-      select.disabled = false;
+      referencesData.set(key,data);paintReference(key,data);
     });
     $('reference-error').hidden = !failed.length;
     $('reference-error').querySelector('span').textContent = `Не удалось загрузить список ${failed.join(', ')}. Доступные фильтры продолжают работать.`;
@@ -346,6 +357,7 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { clearTimeout(prefetch); feed.cancelPrefetch(); } else load({ refresh: true });
   });
+  window.addEventListener('online',()=>load({refresh:true}));
   window.addEventListener('public:cache-invalidated', () => { feed.invalidate({ persisted: true }); load({ refresh: true }); });
   return { load, loadReferences, updateControls, focusPending, hasFilters, inMyMode, jumpTo, shiftDay, shiftWeek, goto };
 }

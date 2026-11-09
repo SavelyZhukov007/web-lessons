@@ -87,6 +87,7 @@ export function webNotificationPreferences() {
       return h('label', { class: 'preference-toggle' }, h('span', {}, label), box);
     });
     controls.replaceChildren(...fields, h('p', { class: 'field-hint' }, 'Подписки на изменения отдельных кружков можно настроить в их карточках.'));
+    import('./schedule-notification-form.js').then(m=>m.mountScheduleNotificationForm(controls,{load:()=>post('schedule-settings/read',{endpoint}),save:v=>post('schedule-settings',{endpoint,...v})})).catch(()=>{});
   }
 
   function offerAnnouncements() {

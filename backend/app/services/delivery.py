@@ -4,6 +4,7 @@
 APK без FCM получает то же самое опросом (SyncWorker / GET /api/announcements) — на устройстве общая дедупликация.
 Ничего не бросает: одна плохая подписка не мешает остальным.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,7 +21,7 @@ from . import fcm
 from . import push as push_service
 
 log = logging.getLogger("clubs.delivery")
-DEVICE_ACTIVE_DAYS = 60   # FCM-токен старше — не трогаем (установку, скорее всего, удалили)
+DEVICE_ACTIVE_DAYS = 60  # FCM-токен старше — не трогаем (установку, скорее всего, удалили)
 CHANGE_KINDS = ("cancel", "reschedule", "schedule-change")
 
 
@@ -37,10 +38,10 @@ def _ids(raw: str | None) -> set[int]:
 
 @dataclass
 class Event:
-    kind: str                      # cancel | reschedule | announcement | schedule-change | update-available
-    audience: str                  # all | clubs
+    kind: str  # cancel | reschedule | announcement | schedule-change | update-available
+    audience: str  # all | clubs
     club_ids: list[int]
-    payload: dict                  # для Web Push (title, body, url, tag, ...)
+    payload: dict  # для Web Push (title, body, url, tag, ...)
     data: dict = field(default_factory=dict)  # для FCM (строки), type/tag добавляются сами
 
     @property
@@ -65,8 +66,10 @@ def web_targets(db: Session, ev: Event) -> list[PushSubscription]:
     elif ev.kind == "reschedule":
         stmt = stmt.where(PushSubscription.moves.is_(True))
     if ev.audience != "all":
-        stmt = stmt.where(PushSubscription.announcements_only.is_(False),
-                          or_(PushSubscription.club_id.in_(ev.club_ids), PushSubscription.club_id.is_(None)))
+        stmt = stmt.where(
+            PushSubscription.announcements_only.is_(False),
+            or_(PushSubscription.club_id.in_(ev.club_ids), PushSubscription.club_id.is_(None)),
+        )
     seen: set[str] = set()
     out = []
     for sub in db.scalars(stmt.order_by(PushSubscription.id)):
@@ -95,6 +98,10 @@ def _send_web(db: Session, ev: Event, r: Result) -> None:
     dead: list[str] = []
     for sub in web_targets(db, ev):
         try:
+            from .personal_notifications import defer_if_quiet
+
+            if defer_if_quiet(db, sub, ev):
+                continue
             push_service.send_one({"endpoint": sub.endpoint, "keys": {"p256dh": sub.p256dh, "auth": sub.auth}}, ev.payload)
             r.web_sent += 1
         except push_service.PushGone:
@@ -111,8 +118,14 @@ def _send_web(db: Session, ev: Event, r: Result) -> None:
 def _send_fcm(db: Session, ev: Event, r: Result, only=None) -> None:
     if not fcm.enabled():
         return
-    data = {"type": ev.kind, "tag": ev.tag, "title": ev.payload.get("title", ""), "body": ev.payload.get("body", ""),
-            "url": ev.payload.get("url") or "/", **ev.data}
+    data = {
+        "type": ev.kind,
+        "tag": ev.tag,
+        "title": ev.payload.get("title", ""),
+        "body": ev.payload.get("body", ""),
+        "url": ev.payload.get("url") or "/",
+        **ev.data,
+    }
     dead: list[str] = []
     for d in fcm_targets(db, ev):
         if only is not None and not only(d):

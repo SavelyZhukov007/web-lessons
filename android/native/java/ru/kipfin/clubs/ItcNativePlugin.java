@@ -56,16 +56,25 @@ public class ItcNativePlugin extends Plugin {
     /** config: follows[], server, demo, reminderMinutes, notifyChanges, notifyAnnouncements. */
     @PluginMethod
     public void configure(PluginCall call) {
+        for(String name:new String[]{"quietStart","quietEnd","digestTime"}) {
+            if(call.hasOption(name))try {NotificationTime.minute(call.getString(name));}catch(IllegalArgumentException error){call.reject("Ожидается время HH:mm");return;}
+        }
+        if(Boolean.TRUE.equals(call.getBoolean("quietEnabled",false)) && call.getString("quietStart","22:00").equals(call.getString("quietEnd","08:00"))){call.reject("Начало и конец тихих часов должны отличаться");return;}
         android.content.SharedPreferences.Editor e = Store.prefs(getContext()).edit();
         JSONArray follows = call.getArray("follows", null);
         if (follows != null) e.putString("follows", follows.toString());
         if (call.hasOption("server")) e.putString("server", call.getString("server", ""));
         if (call.hasOption("demo")) e.putBoolean("demo", Boolean.TRUE.equals(call.getBoolean("demo", false)));
-        if (call.hasOption("reminderMinutes")) e.putInt("reminder_minutes", call.getInt("reminderMinutes", 30));
+        if (call.hasOption("reminderMinutes")) e.putInt("reminder_minutes", Math.max(0,Math.min(120,call.getInt("reminderMinutes",15))));
         if (call.hasOption("notifyChanges")) e.putBoolean("notify_changes", Boolean.TRUE.equals(call.getBoolean("notifyChanges", true)));
         if (call.hasOption("notifyCancellations")) e.putBoolean("notify_cancellations", Boolean.TRUE.equals(call.getBoolean("notifyCancellations", true)));
         if (call.hasOption("notifyMoves")) e.putBoolean("notify_moves", Boolean.TRUE.equals(call.getBoolean("notifyMoves", true)));
         if (call.hasOption("notifyAnnouncements")) e.putBoolean("notify_announcements", Boolean.TRUE.equals(call.getBoolean("notifyAnnouncements", true)));
+        if(call.hasOption("quietEnabled"))e.putBoolean("quiet_enabled",Boolean.TRUE.equals(call.getBoolean("quietEnabled",false)));
+        if(call.hasOption("digestEnabled"))e.putBoolean("digest_enabled",Boolean.TRUE.equals(call.getBoolean("digestEnabled",false)));
+        if(call.hasOption("quietStart"))e.putString("quiet_start",call.getString("quietStart"));
+        if(call.hasOption("quietEnd"))e.putString("quiet_end",call.getString("quietEnd"));
+        if(call.hasOption("digestTime"))e.putString("digest_time",call.getString("digestTime"));
         e.apply();
         Reminders.reschedule(getContext());
         Widgets.updateAll(getContext());
@@ -73,6 +82,23 @@ public class ItcNativePlugin extends Plugin {
         Push.refresh(getContext()); // FCM-токен + регистрация на сервере (только в сборке с FCM)
         Push.registerAsync(getContext());
         call.resolve(state());
+    }
+
+    /** Opens the system editor; insertion requires the user's confirmation in Calendar. */
+    @PluginMethod
+    public void addToCalendar(PluginCall call) {
+        long start=call.getData().optLong("start",0),end=call.getData().optLong("end",0);
+        String title=call.getString("title","");
+        if(start<=0 || end<=start || title.trim().isEmpty() || title.length()>255){call.reject("Некорректное занятие");return;}
+        android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_INSERT)
+            .setData(android.provider.CalendarContract.Events.CONTENT_URI)
+            .putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME,start)
+            .putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME,end)
+            .putExtra(android.provider.CalendarContract.Events.TITLE,title)
+            .putExtra(android.provider.CalendarContract.Events.EVENT_TIMEZONE,"Europe/Moscow")
+            .putExtra(android.provider.CalendarContract.Events.EVENT_LOCATION,call.getString("location",""))
+            .putExtra(android.provider.CalendarContract.Events.DESCRIPTION,call.getString("description",""));
+        getActivity().runOnUiThread(()->{try{getActivity().startActivity(intent);call.resolve();}catch(android.content.ActivityNotFoundException error){call.reject("Приложение календаря не найдено");}});
     }
 
     /** events: массив занятий /api/schedule (текущая и следующая недели). */

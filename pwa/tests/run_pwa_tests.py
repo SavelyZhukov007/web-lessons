@@ -94,7 +94,10 @@ try:
             pg.evaluate("!!(window.NativeShell && window.ItcFeatures && window.ItcMotion && window.ItcPwaFeatures)"),
         )
         check("standalone: NativeShell.host = pwa", pg.evaluate("window.NativeShell.host") == "pwa")
-        check("доступное название бренда «KipClub»", "KipClub" in (pg.locator(".campus-brand").first.get_attribute('aria-label') or pg.locator(".campus-brand").first.inner_text()))
+        check(
+            "доступное название бренда «KipClub»",
+            "KipClub" in (pg.locator(".campus-brand").first.get_attribute("aria-label") or pg.locator(".campus-brand").first.inner_text()),
+        )
         check("разрешение на уведомления НЕ запрашивается при запуске", not calls(pg, "requestPermission"))
         pg.screenshot(path=str(SHOTS / "d-schedule-iphone15-light.png"))
         pg.goto("/club.html?id=1")
@@ -225,14 +228,23 @@ try:
             and "BEGIN:VEVENT" in sh[0]["text"]
         )
         check(".ics (iOS): share с файлом выбранной недели text/calendar", ok, str(sh)[:200])
+
         def stable_ics(text):
-            return [line for line in text.splitlines() if not line.startswith('DTSTAMP:')]
-        check(".ics: события совпадают с backend за выбранную неделю", sh and stable_ics(sh[0]["text"]) == stable_ics(pg.request.get(pg.locator("a[href*='calendar.ics?week=']").get_attribute('href')).text()))
+            return [line for line in text.splitlines() if not line.startswith("DTSTAMP:")]
+
+        check(
+            ".ics: события совпадают с backend за выбранную неделю",
+            sh
+            and stable_ics(sh[0]["text"])
+            == stable_ics(pg.request.get(pg.locator("a[href*='calendar.ics?week=']").get_attribute("href")).text()),
+        )
         pg.click("a[href*='calendar.ics?start=']")
         pg.wait_for_timeout(1200)
         sh = calls(pg, "share")
-        expected = pg.request.get(pg.locator("a[href*='calendar.ics?start=']").get_attribute('href')).text()
-        check(".ics: четыре недели в iOS совпадают с событиями сервера", len(sh) >= 2 and stable_ics(sh[-1]["text"]) == stable_ics(expected))
+        expected = pg.request.get(pg.locator("a[href*='calendar.ics?start=']").get_attribute("href")).text()
+        check(
+            ".ics: четыре недели в iOS совпадают с событиями сервера", len(sh) >= 2 and stable_ics(sh[-1]["text"]) == stable_ics(expected)
+        )
         c.close()
         c = ctx("android", w=360, h=800)
         pg = c.new_page()
@@ -262,7 +274,10 @@ try:
         pg.reload()
         pg.wait_for_selector('#content[aria-busy="false"] .event-name')
         check("офлайн: страница открылась из кэша SW", pg.locator("#schedule-filters").count() == 1)
-        check("офлайн: баннер «Нет сети»", pg.locator("#itc-offline-banner").is_visible())
+        check(
+            "офлайн: временная метка сохранённой недели",
+            pg.locator("#schedule-cache-status").is_visible() and "Данные от" in pg.locator("#schedule-cache-status").inner_text(),
+        )
         txt = pg.evaluate("(document.querySelector('#result-status') || document.body).innerText") or ""
         check("офлайн: расписание показано из кэша", pg.locator(".event-name").count() > 0 and "Ошибка" not in txt, txt[:80])
         pg.screenshot(path=str(SHOTS / "d-offline-android360-light.png"))
@@ -291,7 +306,10 @@ try:
         pg.wait_for_selector(".bottom-nav", timeout=10000)
         pg.goto("/admin/#/sessions")
         pg.wait_for_timeout(1200)
-        check("админка в PWA: справочники без удалённой посещаемости", pg.locator("#native-sessions-tabs a").count() == 4 and pg.locator("a[href='#/attendance']").count() == 0)
+        check(
+            "админка в PWA: справочники без удалённой посещаемости",
+            pg.locator("#native-sessions-tabs a").count() == 4 and pg.locator("a[href='#/attendance']").count() == 0,
+        )
         check("админка в PWA: «Справочники» нет в нижней навигации", not pg.locator(".bottom-nav [data-route=reference]").is_visible())
         pg.screenshot(path=str(SHOTS / "d-admin-sessions-android360-dark.png"))
         check("без ошибок JS (Android standalone)", not errs, "; ".join(errs))
@@ -303,7 +321,8 @@ try:
                 s["url"].split("?")[0] + "?" + s["url"].split("?")[1].split("&")[0] if "?" in s["url"] else s["url"]
                 for s in manifest["shortcuts"]
             }
-            == {"/?my=1"} or not any("qr" in s["url"] for s in manifest["shortcuts"]),
+            == {"/?my=1"}
+            or not any("qr" in s["url"] for s in manifest["shortcuts"]),
         )
         br.close()
 finally:
