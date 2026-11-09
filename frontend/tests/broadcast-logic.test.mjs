@@ -41,10 +41,19 @@ test('время по Москве', () => {
 test('охват и итог доставки с правильными окончаниями', () => {
   assert.equal(reachText({ web: 1, apk: 3 }), 'Браузеры (Web Push): 1 подписка · Приложение Android: 3 устройства');
   assert.equal(reachText({ web: 11, apk: 0 }), 'Браузеры (Web Push): 11 подписок · Приложение Android: 0 устройств');
-  assert.equal(deliveryText({ web_sent: 2, web_failed: 1, apk_targets: 21 }), 'Web Push: 2 отправлено, 1 с ошибкой · Android: 21 устройство');
+  assert.equal(deliveryText({ web_sent: 2, web_failed: 1, apk_targets: 21 }), 'Web Push: 2 принято, 1 с ошибкой · FCM: 0 принято · Android: охват 21 устройство');
 });
 test('ключ идемпотентности: 32 hex-символа, каждый раз новый', () => {
   const a = newIdempotencyKey(), b = newIdempotencyKey();
   assert.match(a, /^[0-9a-f]{32}$/);
   assert.notEqual(a, b);
+});
+
+
+test('scheduled Moscow datetime ignores the browser zone and rejects calendar rollovers', async () => {
+  const { scheduledMsk } = await import('../js/admin/broadcast-logic.js');
+  const now = Date.parse('2026-11-09T09:00:00Z');
+  assert.equal(scheduledMsk('', now), null);
+  assert.equal(scheduledMsk('2026-11-09T15:30', now), '2026-11-09T12:30:00.000Z');
+  for (const raw of ['2026-11-09T11:59', '2026-11-09T12:00', '2027-02-31T15:30', '2026-13-01T10:00', '2028-01-01T12:00']) assert.throws(() => scheduledMsk(raw, now));
 });

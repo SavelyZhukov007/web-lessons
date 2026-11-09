@@ -71,3 +71,13 @@ test('chunked idle index preserves ranking and yields between batches', async ()
   const abort = new AbortController(); abort.abort();
   await assert.rejects(indexScheduleAsync(events, { signal: abort.signal }), { name: 'AbortError' });
 });
+
+test('invalidate never changes saved-data provenance or date', async () => {
+  const savedAt = Date.now() - 120_000;
+  const feed = createScheduleFeed({ store: store(async () => ({ schema: 1, savedAt, events: [event] })) });
+  await feed.hydrate(week);
+  feed.invalidate();
+  assert.equal(feed.info(week).time, 0);
+  assert.equal(feed.info(week).savedAt, savedAt);
+  assert.equal(feed.info(week).source, 'cache');
+});

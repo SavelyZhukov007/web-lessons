@@ -256,13 +256,20 @@ def run(db, now=None):
         try:
             push.send_one({"endpoint": sub.endpoint, "keys": {"p256dh": sub.p256dh, "auth": sub.auth}}, payload)
             task.status = "sent"
+            from .broadcast_receipts import deferred_result
+            deferred_result(db, payload, True)
             result["sent"] += 1
         except push.PushGone:
             db.execute(delete(PushSubscription).where(PushSubscription.endpoint == sub.endpoint))
             task.status = "dropped"
+            from .broadcast_receipts import deferred_result
+            deferred_result(db, payload, False)
             result["dropped"] += 1
         except Exception:
             task.status = "pending" if task.attempts < 3 else "failed"
+            if task.status == "failed":
+                from .broadcast_receipts import deferred_result
+                deferred_result(db, payload, False)
             task.due = naive + timedelta(minutes=2)
             result["failed"] += 1
             log.warning("scheduled notification transport failure")

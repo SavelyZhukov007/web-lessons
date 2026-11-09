@@ -10,6 +10,8 @@ SCHEDULE_KEYS = {
     "leaders": ("id",),
     "rooms": ("id",),
     "clubs": ("id",),
+    "academic_periods": ("id",),
+    "no_class_days": ("id",),
     "sessions": ("id",),
     "club_leaders": ("club_id", "leader_id"),
     "session_leaders": ("session_id", "leader_id"),

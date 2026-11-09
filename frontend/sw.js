@@ -171,11 +171,27 @@ self.addEventListener('fetch', event => {
 });
 
 /* ---------- Web Push ---------- */
-let pushQueue=Promise.resolve();
+let pushQueue=Promise.resolve(), receiptInstallPromise;
+async function receipt(id, kind) {
+  if (!Number.isSafeInteger(id) || id <= 0) return;
+  try {
+    const install=await(receiptInstallPromise ||= (async()=>{
+      const cache=await caches.open('clubs-notification-receipts');
+      const key=new Request(new URL('/__clubs/receipt-install',self.location.origin));
+      const previous=await cache.match(key);
+      const id=previous?await previous.text():crypto.randomUUID().replaceAll('-','');
+      if(!previous)await cache.put(key,new Response(id));
+      return id;
+    })());
+    const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),4000);
+    try{await fetch('/api/announcements/'+id+'/receipt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({install_id:install,channel:'web',kind}),signal:controller.signal});}
+    finally{clearTimeout(timer);}
+  }catch{/* Best effort only: lack of receipts is not proof a notification was not seen. */}
+}
 async function groupedPush(data) {
   const kind=['cancelled','moved','cancel','reschedule'].includes(data.kind)?'changes':data.kind==='reminder'?'reminders':data.kind==='digest'?'digest':'announcements';
   const group=kind+':'+(Number.isInteger(data.club_id)?data.club_id:'general');
-  const options={body:String(data.body||''),icon:'/icons/icon-192.png?v=kc4',badge:'/icons/badge-96.png?v=kc4',tag:'kc:'+group,renotify:false,lang:'ru',data:{url:typeof data.url==='string'?data.url:'/'}};
+  const options={body:String(data.body||''),icon:'/icons/icon-192.png?v=kc4',badge:'/icons/badge-96.png?v=kc4',tag:'kc:'+group,renotify:false,lang:'ru',data:{url:typeof data.url==='string'?data.url:'/',broadcast_id:data.broadcast_id}};
   let title=String(data.title||'KipClub');
   try {
     const cache=await caches.open('clubs-notification-groups');
@@ -196,14 +212,15 @@ self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data ? event.data.text() : '' }; }
   // Serialize concurrent pushes so their persistent group history cannot overwrite itself.
-  event.waitUntil(pushQueue=pushQueue.catch(()=>{}).then(()=>groupedPush(data)));
+  const display=pushQueue=pushQueue.catch(()=>{}).then(()=>groupedPush(data));
+  event.waitUntil(display.then(()=>receipt(data.broadcast_id,'shown')));
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   let target = new URL('/', self.location.origin);
   try { const u = new URL(event.notification.data?.url || '/', self.location.origin); if (u.origin === self.location.origin) target = u; } catch { /* оставляем / */ }
-  event.waitUntil((async () => {
+  event.waitUntil(Promise.all([receipt(event.notification.data?.broadcast_id,'opened'), (async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of windows) {
       const current = new URL(client.url);
@@ -215,7 +232,7 @@ self.addEventListener('notificationclick', event => {
       }
     }
     await self.clients.openWindow(target.href);
-  })());
+  })()]));
 });
 
 /* Подписку отозвал браузер (смена ключей / срок): тихо пересоздаём на те же кружки, если сервер даёт ключ. */

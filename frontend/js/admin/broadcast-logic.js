@@ -69,6 +69,17 @@ export function reachText({ web = 0, apk = 0 } = {}) {
 
 /** Итог доставки одной рассылки для журнала. */
 export function deliveryText(item) {
-  const web = item.web_failed ? `${item.web_sent} отправлено, ${item.web_failed} с ошибкой` : `${item.web_sent} отправлено`;
-  return `Web Push: ${web} · Android: ${item.apk_targets} ${plural(item.apk_targets, 'устройство', 'устройства', 'устройств')}`;
+  const accepted = (sent, failed) => `${Math.max(0, sent || 0)} принято` + (failed > 0 ? `, ${failed} с ошибкой` : '');
+  return `Web Push: ${accepted(item.web_sent, item.web_failed)} · FCM: ${accepted(item.fcm_sent, item.fcm_failed)} · Android: охват ${item.apk_targets || 0} ${plural(item.apk_targets || 0, 'устройство', 'устройства', 'устройств')}`;
+}
+
+
+// The schedule field is explicitly Moscow time, independent of the device/browser zone.
+export function scheduledMsk(raw, now = Date.now()) {
+  if (!raw) return null;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw)) throw new Error('Укажите дату и время отправки (МСК)');
+  const value = Date.parse(raw + ':00+03:00');
+  if (!Number.isFinite(value) || new Date(value + 10800000).toISOString().slice(0, 16) !== raw) throw new Error('Некорректная дата отправки');
+  if (value < now + 30000 || value > now + 366 * 86400000) throw new Error('Отправка — через 30 секунд или позже, не дальше года');
+  return new Date(value).toISOString();
 }

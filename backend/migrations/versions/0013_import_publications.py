@@ -10,6 +10,12 @@ branch_labels = None
 depends_on = None
 
 
+def _original_triggers():
+    # Freeze this migration's schema: future journal tables belong in their own migrations.
+    original = ("categories", "leaders", "rooms", "clubs", "sessions", "club_leaders", "session_leaders", "session_rooms", "session_exceptions")
+    return [(name, sql) for name, sql in revision_triggers() if any(name.startswith(f"schedule_revision_{table}_") for table in original)]
+
+
 def upgrade():
     op.create_table(
         "import_publications",
@@ -26,12 +32,12 @@ def upgrade():
         sa.Column("row_key", sa.String, primary_key=True),
         sa.Column("revision", sa.String, nullable=False),
     )
-    for _, statement in revision_triggers():
+    for _, statement in _original_triggers():
         op.execute(statement)
 
 
 def downgrade():
-    for name, _ in revision_triggers():
+    for name, _ in _original_triggers():
         op.execute(f"DROP TRIGGER {name}")
     op.drop_table("schedule_row_revisions")
     op.drop_table("import_publications")

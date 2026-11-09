@@ -23,7 +23,9 @@ certifi==2026.10.23
 cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
 charset-normalizer==3.5.2
-    # via requests
+    # via
+    #   reportlab
+    #   requests
 click==8.5.0
     # via uvicorn
 cryptography==50.0.2
@@ -63,6 +65,10 @@ multidict==7.1.0
     #   yarl
 opentelemetry-api==1.45.1
     # via fastapi
+pillow==12.3.0 ; python_full_version < '3.11'
+    # via reportlab
+pillow==13.0.0 ; python_full_version >= '3.11'
+    # via reportlab
 propcache==0.5.4
     # via
     #   aiohttp
@@ -86,6 +92,8 @@ pydantic-core==2.50.0
 pyjwt==2.15.1
     # via -r requirements.txt
 pywebpush==2.5.0
+    # via -r requirements.txt
+reportlab==4.5.1
     # via -r requirements.txt
 requests==2.34.2
     # via pywebpush

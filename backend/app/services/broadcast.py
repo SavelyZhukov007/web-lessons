@@ -10,7 +10,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import case, delete, select, update
 from sqlalchemy.orm import Session
 
 from ..models.broadcast import AppDevice, Broadcast
@@ -33,7 +33,12 @@ def ids(raw: str | None) -> list[int]:
 
 
 def payload(b: Broadcast) -> dict:
-    return {"title": b.title, "body": b.body, "url": b.url or "/", "tag": f"broadcast-{b.id}", "kind": "announcement",
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+    u = urlsplit(b.url or "/")
+    query = [(key, value) for key, value in parse_qsl(u.query, keep_blank_values=True) if key != "bc"]
+    query.append(("bc", str(b.id)))
+    url = urlunsplit(("", "", u.path, urlencode(query), u.fragment))
+    return {"title": b.title, "body": b.body, "url": url, "tag": f"broadcast-{b.id}", "kind": "announcement",
             "broadcast_id": b.id}
 
 
@@ -66,9 +71,12 @@ def estimate(db: Session, audience: str, club_ids: list[int]) -> dict:
 def dispatch(db: Session, b: Broadcast) -> Broadcast:
     """Доставка по всем каналам (delivery.deliver); итоги пишутся в строку рассылки. Не бросает исключений."""
     r = delivery.deliver(db, event(b))
-    b.web_sent, b.web_failed, b.fcm_sent, b.fcm_failed = r.web_sent, r.web_failed, r.fcm_sent, r.fcm_failed
-    b.apk_targets = _apk_targets(db, b.audience, ids(b.club_ids))  # без FCM APK заберёт объявление сам при опросе
+    db.execute(update(Broadcast).where(Broadcast.id == b.id).values(
+        web_sent=case((Broadcast.web_sent < 0, 0), else_=Broadcast.web_sent) + r.web_sent, web_failed=case((Broadcast.web_failed < 0, 0), else_=Broadcast.web_failed) + r.web_failed,
+        fcm_sent=case((Broadcast.fcm_sent < 0, 0), else_=Broadcast.fcm_sent) + r.fcm_sent, fcm_failed=case((Broadcast.fcm_failed < 0, 0), else_=Broadcast.fcm_failed) + r.fcm_failed,
+        apk_targets=_apk_targets(db, b.audience, ids(b.club_ids))))
     db.commit()
+    db.refresh(b)
     return b
 
 

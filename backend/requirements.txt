@@ -8,3 +8,4 @@ PyJWT>=2.8,<3
 pywebpush>=2.0,<3
 google-auth>=2.30,<3
 tzdata>=2024.1
+reportlab>=4.4,<5

@@ -14,6 +14,10 @@ const ROUTES = {
   exceptions: { title: 'Изменения', mobileTitle: 'Правки', icon: 'list', load: () => import('./views/exceptions.js') },
   reference: { title: 'Справочники', mobileTitle: 'Данные', icon: 'book', load: () => import('./views/reference.js') },
   broadcasts: { title: 'Рассылки', mobileTitle: 'Анонсы', icon: 'megaphone', load: () => import('./views/broadcasts.js') },
+  calendar: { title: 'Календарь переносов', hidden: true, icon: 'calendar', load: () => import('./views/calendar.js') },
+  bulk: { title: 'Пакетные изменения', hidden: true, icon: 'list', load: () => import('./views/bulk.js') },
+  export: { title: 'Экспорт и печать', hidden: true, icon: 'list', load: () => import('./views/export.js') },
+  actions: { title: 'Журнал действий', hidden: true, icon: 'list', load: () => import('./views/actions.js') },
   account: { title: 'Аккаунт', icon: 'key', hidden: true, load: () => import('./views/account.js') },
 };
 const LOGIN = '/admin/login.html';
@@ -85,7 +89,8 @@ async function render() {
   controller?.abort();
   controller = new AbortController();
   const current = controller;
-  markCurrent(route);
+  main.dataset.adminTool = ['actions', 'bulk', 'export', 'calendar'].includes(route) ? '1' : '0';
+  markCurrent(['bulk', 'export', 'calendar'].includes(route) ? 'sessions' : route === 'actions' ? '' : route);
   document.title = `${ROUTES[route].title} — админка`;
   main.setAttribute('aria-busy', 'true');
   try {
@@ -111,6 +116,8 @@ async function boot() {
     return;
   }
   buildChrome();
+  const { mountQuickTools } = await import('./quick-tools.js');
+  mountQuickTools(ROUTES, document.querySelector('.admin-tools'), render);
   window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
   await import('../settings.js'); // добавит кнопку настроек в [data-settings-slot]
   render();

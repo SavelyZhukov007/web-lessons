@@ -50,10 +50,11 @@ def _metadata(row: ImportPublication) -> dict:
     }
 
 
-def history(db: Session) -> list[dict]:
+def history(db: Session, *, include_actions: bool = False) -> list[dict]:
     legacy = [{**item, "rollback_available": False} for item in legacy_history()]
     entries = db.scalars(select(ImportPublication).order_by(ImportPublication.created_at, ImportPublication.id))
-    return legacy + [_metadata(row) for row in entries]
+    items = [_metadata(row) for row in entries]
+    return legacy + [item for item in items if include_actions or item.get("kind") != "action"]
 
 
 def find_draft(db: Session, draft_id: int) -> dict | None:
@@ -102,7 +103,7 @@ def _new_entry(db: Session, metadata: dict, changes: dict, draft_id: int | None 
     return row
 
 
-def record(db: Session, before: dict, *, author: str, stats: dict, draft_id: int | None = None) -> dict:
+def record(db: Session, before: dict, *, author: str, stats: dict, draft_id: int | None = None, metadata: dict | None = None) -> dict:
     after = capture(db)
     revisions = _revisions(db)
     changes = {}
@@ -125,7 +126,7 @@ def record(db: Session, before: dict, *, author: str, stats: dict, draft_id: int
             assigned_clubs.add(link["club_id"])
     watched = _club_sessions(after, revisions, assigned_clubs)
     journal = {"rows": changes, "assigned_clubs": sorted(assigned_clubs), "watched_sessions": watched}
-    return _metadata(_new_entry(db, {"author": author, "stats": stats}, journal, draft_id))
+    return _metadata(_new_entry(db, {"author": author, "stats": stats, **(metadata or {})}, journal, draft_id))
 
 
 def _club_sessions(snapshot: dict, revisions: dict, clubs: set[int]) -> dict:
@@ -150,6 +151,13 @@ def _check_logical_dependencies(db: Session, removed: dict[str, set[int]], creat
         rows = db.execute(select(Broadcast.club_ids, Broadcast.session_ids))
         if any(clubs.intersection(ids(c)) or sessions.intersection(ids(s)) for c, s in rows):
             raise RollbackError(409, "На опубликованные записи ссылаются объявления")
+
+    from ..models.broadcast_schedule import BroadcastSchedule
+    planned = db.scalars(select(BroadcastSchedule.payload_json).where(BroadcastSchedule.status.in_(["scheduled", "sending"])))
+    for raw in planned:
+        payload = json.loads(raw)
+        if clubs.intersection(payload.get("club_ids", [])) or sessions.intersection(payload.get("session_ids", [])):
+            raise RollbackError(409, "На записи ссылается запланированная рассылка")
 
     choices = db.scalars(select(ImportDraft.decisions_json).where(ImportDraft.status == "draft"))
     for raw in choices:
@@ -265,7 +273,8 @@ def rollback(db: Session, publish_id: int, *, author: str) -> dict:
                    for item in conflicts.detect(after, occ_src.snapshot_occurrences(after, start, end))):
                 raise RollbackError(409, "Откат создаёт пересечение в расписании")
         row.rolled_back = True
-        entry = _new_entry(db, {"author": author, "rollback_of": publish_id, "stats": {}}, {})
+        entry = _new_entry(db, {"author": author, "rollback_of": publish_id, "stats": {},
+                                **({"kind": "action", "label": "Отмена изменения"} if json.loads(row.metadata_json).get("kind") == "action" else {})}, {})
         entry.rolled_back = True
         db.flush()
         result = _metadata(entry)

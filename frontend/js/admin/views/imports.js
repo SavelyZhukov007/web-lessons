@@ -3,8 +3,9 @@ import { imports, loadAll, periods } from '../api.js';
 import { pageHeader, loading, dataTable, actionButton, formDialog, confirmDialog, guarded, dayName, WEEKDAY_OPTIONS } from '../kit.js';
 
 export async function mount(root, { signal }) {
-  let drafts = [], refs, academicPeriods = [], selected = null;
+  let drafts = [], refs, academicPeriods = [], selected = null, preparedPreview = null;
   async function refresh(id = selected?.id) {
+    preparedPreview = null;
     [drafts, refs, academicPeriods] = await Promise.all([imports.list({ signal }), loadAll({ signal }), periods.list({ signal })]);
     selected = drafts.find(d => d.id === id) || null;
     draw();
@@ -60,7 +61,7 @@ export async function mount(root, { signal }) {
     const uploadButton = h('button', { type: 'button', class: 'btn btn--filled', onclick: () => upload(input.files[0]) }, 'Создать черновик');
     const selector = h('select', { 'aria-label': 'Черновик' }, h('option', { value: '' }, 'Выберите черновик'),
       drafts.map(d => h('option', { value: String(d.id), selected: d.id === selected?.id }, `${d.filename} · ${d.status === 'published' ? 'опубликован' : 'черновик'}`)));
-    selector.addEventListener('change', () => { selected = drafts.find(d => String(d.id) === selector.value) || null; draw(); });
+    selector.addEventListener('change', () => { selected = drafts.find(d => String(d.id) === selector.value) || null; preparedPreview = null; draw(); });
     const content = [];
     if (selected) {
       const decisions = new Map((selected.decisions || []).map(d => [d.row, d]));
@@ -71,12 +72,23 @@ export async function mount(root, { signal }) {
           { label: 'Замечания', cell: r => r.issues.join('; ') || 'Проверьте данные' },
           { label: 'Решение', cell: r => decisions.get(r.row)?.action === 'skip' ? 'Пропустить' : decisions.has(r.row) ? 'Подготовлено' : 'Не выбрано' }],
         actions: r => selected.status !== 'draft' ? [] : [actionButton('Настроить', 'edit', () => configure(r)), actionButton('Пропустить', 'trash', () => save(r, { action: 'skip' }))] }));
-      if (selected.status === 'draft') content.push(h('button', { type: 'button', class: 'btn btn--filled', onclick: async () => {
+      if (selected.status === 'draft') content.push(h('button', { type: 'button', class: 'btn btn--tonal', onclick: async () => {
+        const id = selected.id, preview = await guarded(() => imports.preview(id));
+        if (preview && !signal.aborted && selected?.id === id) { preparedPreview = preview; draw(); }
+      } }, 'Проверить перед публикацией'), h('button', { type: 'button', class: 'btn btn--filled', onclick: async () => {
         if (await confirmDialog({ title: 'Опубликовать расписание?', message: 'Все выбранные строки будут повторно проверены. При ошибке ничего не сохранится.', confirmLabel: 'Опубликовать', danger: false })) {
           const result = await guarded(() => imports.publish(selected.id), 'Расписание опубликовано');
           if (result) await refresh(selected.id);
         }
       } }, 'Опубликовать подготовленные строки'));
+      if (preparedPreview) content.push(h('section', { 'aria-label': 'Предпросмотр подготовленного импорта' },
+        h('h2', {}, `Будет создано: ${preparedPreview.created}; пропущено: ${preparedPreview.skipped}`),
+        h('p', { class: 'field-hint' }, 'Данные ещё не сохранены. При публикации сервер заново проверит строки, связи и пересечения.'),
+        dataTable({ caption: 'Подготовленные занятия', rows: preparedPreview.items, empty: 'Все строки пропущены', columns: [
+          { label: 'Кружок', cell: r => r.club }, { label: 'День и время', cell: r => `${dayName(r.weekday)} ${r.start_time}–${r.end_time}` },
+          { label: 'Аудитории', cell: r => r.rooms.join(', ') }, { label: 'Руководители', cell: r => r.leaders.join(', ') },
+          { label: 'Период и повторение', cell: r => r.period + ' · ' + ({ weekly: 'каждую неделю', even: 'чётные недели', odd: 'нечётные недели' }[r.repeat] || r.repeat) }] })));
+
     }
     root.replaceChildren(pageHeader('Импорт расписания'), h('p', {}, 'Файл DOCX или XLSX до 600 КБ. Сначала создаётся черновик — действующее расписание не меняется.'),
       h('div', { class: 'toolbar' }, input, uploadButton, selector), ...content);

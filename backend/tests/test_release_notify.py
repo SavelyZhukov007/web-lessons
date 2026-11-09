@@ -112,7 +112,7 @@ def test_manual_release_dispatch_is_shared_and_idempotent(env, tmp_path, monkeyp
     assert int(sent[0][1]["id"]) == result["broadcast_id"]
     feed = client.get("/api/announcements?clubs=20").json()["items"]
     assert feed[-1]["id"] == result["broadcast_id"]
-    assert feed[-1]["url"] == "/?update=1&release=v1.9.014"
+    assert feed[-1]["url"] == f"/?update=1&release=v1.9.014&bc={feed[-1]['id']}"
 
 
 def _auto_release(tmp_path, monkeypatch, publish, code, version, changelog):
@@ -147,7 +147,7 @@ def test_auto_release_announces_once_to_web_and_apk(env, tmp_path, monkeypatch, 
     assert len(web) == 1
     assert web[0]["title"] == "Что нового в KipClub v1.9.016"
     assert web[0]["body"] == " · ".join(changelog)
-    assert web[0]["url"] == "/?update=1&release=v1.9.016"
+    assert web[0]["url"] == f"/?update=1&release=v1.9.016&bc={announced['broadcast_id']}"
     # APK: «b» с объявлениями получает объявление, «a» без объявлений — служебный push об обновлении
     kinds = sorted((token, data["type"]) for token, data, _ in sent)
     assert kinds == [("t1", "update-available"), ("t2", "announcement")]

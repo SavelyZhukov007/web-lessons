@@ -32,7 +32,9 @@ certifi==2026.10.23
 cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
 charset-normalizer==3.5.2
-    # via requests
+    # via
+    #   reportlab
+    #   requests
 click==8.5.0
     # via uvicorn
 colorama==0.4.6 ; sys_platform == 'win32'
@@ -116,6 +118,10 @@ packaging==26.3
     #   pip-audit
     #   pip-requirements-parser
     #   pytest
+pillow==12.3.0 ; python_full_version < '3.11'
+    # via reportlab
+pillow==13.0.0 ; python_full_version >= '3.11'
+    # via reportlab
 pip==26.2.2
     # via pip-api
 pip-api==0.0.35
@@ -175,6 +181,8 @@ pytest==9.1.1
 pytest-cov==7.1.0
     # via -r requirements-dev.txt
 pywebpush==2.5.0
+    # via -r requirements.txt
+reportlab==4.5.1
     # via -r requirements.txt
 requests==2.34.2
     # via

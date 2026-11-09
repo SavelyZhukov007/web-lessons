@@ -5,6 +5,8 @@ import {
 } from "./personal-schedule-model.js";
 export function favoriteControls(event) {
   const root = document.createElement("div");
+  const error = document.createElement("p");
+  error.className = "field-hint"; error.setAttribute("role", "status"); error.hidden = true;
   root.className = "schedule-event-actions favorite-actions";
   for (const [kind, ids, names, label] of [
     [
@@ -35,15 +37,18 @@ export function favoriteControls(event) {
       button.addEventListener("click", () => {
         try {
           toggleFavorite(kind, id, names[i]);
+          error.hidden = true; error.textContent = "";
           paint();
           window.dispatchEvent(new CustomEvent("kc:favorites"));
         } catch (e) {
+          error.textContent = e.message; error.hidden = false;
           window.ItcFeatures?.toast?.(e.message);
         }
       });
       root.append(button);
     });
   }
+  root.append(error);
   return root;
 }
 let mounted = false;
@@ -55,6 +60,7 @@ export function markLiveCard(card, event) {
     status: event.status,
     ghost: event.ghost,
   });
+  card.dataset.liveBaseLabel = card.getAttribute("aria-label") || "";
   card.classList.add("has-live-status");
   const label = document.createElement("span");
   label.className = "event-live";
@@ -85,6 +91,12 @@ function paint(card) {
   l.hidden = !s;
   b.hidden = !s;
   card.dataset.liveKind = s?.kind || "";
+  // No live-region announcements on the 30s timer; the focused card still has a complete name.
+  if (card.dataset.liveBaseLabel) {
+    const status = s?.kind === "soon" ? "Начнётся в ближайшие 15 минут" : s?.label;
+    const name = card.dataset.liveBaseLabel + (status ? ". " + status : "");
+    if (card.getAttribute("aria-label") !== name) card.setAttribute("aria-label", name);
+  }
   if (s) {
     b.style.transform = `scaleX(${s.progress})`;
     b.setAttribute("aria-valuenow", String(Math.round(s.progress * 100)));
@@ -168,8 +180,9 @@ export function publishWeekStatus(info) {
   }
   const cached = info?.source === "cache";
   el.hidden = !cached;
-  const stamp = Number.isFinite(info?.time)
-    ? new Date(info.time).toLocaleString("ru-RU", {
+  const savedAt = info?.savedAt ?? info?.time;
+  const stamp = Number.isFinite(savedAt) && savedAt > 0
+    ? new Date(savedAt).toLocaleString("ru-RU", {
         timeZone: "Europe/Moscow",
         day: "numeric",
         month: "short",
@@ -179,11 +192,11 @@ export function publishWeekStatus(info) {
     : "";
   el.textContent = cached
     ? (stamp ? "Данные от " + stamp + " (МСК)" : "Сохранённой недели нет") +
-      (info.failed || navigator.onLine === false
+      (info.failed || info.offline || navigator.onLine === false
         ? " · нет сети"
         : " · обновляем…")
     : "";
-  if (info?.failed) document.documentElement.classList.add("itc-offline");
+  if (info?.failed || info?.offline) document.documentElement.classList.add("itc-offline");
   else if (!cached && navigator.onLine !== false)
     document.documentElement.classList.remove("itc-offline");
   document.getElementById("itc-offline-banner")?.remove();

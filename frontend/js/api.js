@@ -78,7 +78,7 @@ export async function request(path, options = {}) {
 }
 
 async function send(path, options = {}) {
-  const { signal, timeout = 15000, onCacheState, ...fetchOptions } = options;
+  const { signal, timeout = 15000, onCacheState, responseType = 'json', ...fetchOptions } = options;
   if (path.startsWith('/api/admin') && adminToken()) {
     fetchOptions.headers = { ...(fetchOptions.headers || {}), Authorization: `Bearer ${adminToken()}` };
   }
@@ -96,6 +96,7 @@ async function send(path, options = {}) {
       window.dispatchEvent(new CustomEvent('public:cache-state', { detail }));
     }
     if (response.status === 204 || response.status === 205) return null;
+    if (response.ok && responseType === 'blob') return await response.blob();
     const raw = await response.text();
     let body;
     try { body = raw ? JSON.parse(raw) : null; }

@@ -76,7 +76,11 @@ export async function mount(root, { signal }) {
       pageHeader('Занятия', h('button', { type: 'button', class: 'btn btn--filled', onclick: () => edit(null) }, icon('plus'), 'Добавить занятие'),
         h('button', { type: 'button', class: 'btn btn--tonal', onclick: () => edit(null, true) }, 'Разовое занятие'),
         h('a', { class: 'btn btn--tonal', href: '#/periods' }, 'Учебные периоды'),
-        h('a', { class: 'btn btn--tonal', href: '#/imports' }, 'Импорт расписания')),
+        h('a', { class: 'btn btn--tonal', href: '#/imports' }, 'Импорт расписания'),
+        h('a', { class: 'btn btn--tonal', href: '#/bulk' }, 'Пакетные изменения'),
+        h('a', { class: 'btn btn--tonal', href: '#/export' }, 'Экспорт и печать'),
+        h('a', { class: 'btn btn--tonal', href: '#/actions' }, 'Журнал действий'),
+        h('a', { class: 'btn btn--tonal', href: '#/calendar' }, 'Календарь переносов')),
       h('div', { class: 'toolbar' }, h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Кружок'), clubSel), h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'День'), daySel)),
       host);
     paint();

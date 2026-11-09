@@ -18,7 +18,7 @@ from .database import DB_PATH, SessionLocal
 from .logging_setup import configure_logging
 from .middleware import request_pipeline
 from .migrations import current_revision, head_revision, prepare_database
-from .routers import admin, admin_schedule, announcements, app_api, distribution, feedback, public, push
+from .routers import admin, admin_schedule, admin_tools, announcements, app_api, distribution, feedback, public, push
 
 configure_logging()
 log = logging.getLogger("clubs.app")
@@ -72,6 +72,8 @@ async def lifespan(app):
         try:
             with SessionLocal() as db:
                 personal_notifications.run(db)
+                from .services import scheduled_broadcasts
+                scheduled_broadcasts.run(db)
         except Exception:
             logging.getLogger("clubs.personal_notifications").exception("проверка напоминаний")
 
@@ -117,6 +119,7 @@ app.middleware("http")(request_pipeline)
 app.include_router(public.router)
 app.include_router(admin.router)
 app.include_router(admin_schedule.router)
+app.include_router(admin_tools.router)
 app.include_router(push.router)
 app.include_router(distribution.router)
 app.include_router(announcements.router)

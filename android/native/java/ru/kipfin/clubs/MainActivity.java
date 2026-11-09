@@ -63,6 +63,7 @@ public class MainActivity extends BridgeActivity implements DisplayManager.Displ
         registerPlugin(ItcDiscoveryPlugin.class);
         registerPlugin(ItcPerformancePlugin.class);
         super.onCreate(state);
+        NotificationReceipts.opened(this, getIntent());
         displays = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
         frameThread = new HandlerThread("kipclub-frame-budget", android.os.Process.THREAD_PRIORITY_BACKGROUND);
         frameThread.start();
@@ -155,5 +156,9 @@ public class MainActivity extends BridgeActivity implements DisplayManager.Displ
         r.put("refreshRate", d == null ? 60 : d.getRefreshRate()); r.put("requestedHz", requestedHz);
         r.put("hardwareAccelerated", bridge != null && bridge.getWebView().isHardwareAccelerated());
         return r;
+    }
+    @Override public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent); setIntent(intent);
+        NotificationReceipts.opened(this, intent);
     }
 }

@@ -6,7 +6,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import Admin, AppDevice, Install, PushSubscription
@@ -48,7 +48,17 @@ def summary(db: Session) -> dict:
         active[w]["total"] = sum(active[w].values())
     new_week = sum(1 for k in ("ios-pwa", "web") for _, fs in groups[k] if fs and fs >= windows["week"])
     fcm_since = now - timedelta(days=DEVICE_ACTIVE_DAYS)
+    from ..models import Broadcast, BroadcastReceipt, BroadcastSchedule
+    push_metrics = {
+        "accepted": db.scalar(select(func.sum(case((Broadcast.web_sent < 0, 0), else_=Broadcast.web_sent) + case((Broadcast.fcm_sent < 0, 0), else_=Broadcast.fcm_sent)))) or 0,
+        "failed": db.scalar(select(func.sum(case((Broadcast.web_failed < 0, 0), else_=Broadcast.web_failed) + case((Broadcast.fcm_failed < 0, 0), else_=Broadcast.fcm_failed)))) or 0,
+        "shown": db.scalar(select(func.count()).select_from(BroadcastReceipt)) or 0,
+        "opened": db.scalar(select(func.count(BroadcastReceipt.opened_at))) or 0,
+        "scheduled": db.scalar(select(func.count()).select_from(BroadcastSchedule).where(BroadcastSchedule.status == "scheduled")) or 0,
+        "uncertain": db.scalar(select(func.count()).select_from(BroadcastSchedule).where(BroadcastSchedule.status == "uncertain")) or 0,
+    }
     return {
+        "push_events": push_metrics,
         "total": sum(len(v) for v in groups.values()),
         "by_kind": {k: len(v) for k, v in groups.items()},
         "active": active,

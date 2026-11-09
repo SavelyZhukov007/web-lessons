@@ -141,7 +141,7 @@ _write_locks: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 _confirmed_conflicts: ContextVar[frozenset[str]] = ContextVar("confirmed_conflicts", default=frozenset())
 
 
-async def schedule_write_lock(request: Request):
+async def schedule_write_lock(request: Request, db: Session = Depends(get_db), admin: Admin = Depends(require_admin)):
     """API-02: проверка конфликтов и commit — одна критическая секция на процесс.
     asyncio.Lock (а не threading): ожидающие запросы не занимают потоки пула, дедлока при N одновременных записей нет.
     ВАЖНО: защищает только в пределах одного процесса — запускать ровно один воркер (SQLite; см. docs/deploy.md)."""
@@ -152,9 +152,12 @@ async def schedule_write_lock(request: Request):
     async with lock:
         confirmations = frozenset(request.headers.get("X-Confirmed-Conflicts", "").split(","))
         token = _confirmed_conflicts.set(confirmations)
+        from ..services.admin_actions import listen
+        cleanup = listen(db, request, admin.login)
         try:
             yield
         finally:
+            cleanup()
             _confirmed_conflicts.reset(token)
 
 
@@ -1405,7 +1408,7 @@ def update_import_decisions(draft_id: int, payload: ImportDecisions, db: Session
 
 
 @router.post("/imports/{draft_id}/publish", dependencies=[Depends(schedule_write_lock)])
-def publish_import(draft_id: int, db: Session = Depends(get_db), admin: Admin = Depends(require_admin)):
+def publish_import(draft_id: int, dry_run: bool = False, db: Session = Depends(get_db), admin: Admin = Depends(require_admin)):
     from ..services import import_journal
 
     import_journal.begin(db)
@@ -1472,6 +1475,15 @@ def publish_import(draft_id: int, db: Session = Depends(get_db), admin: Admin = 
         db.add(session)
         db.flush()
         created += 1
+    if dry_run:
+        preview = [{"session_id": s.id, "club": db.get(Club, s.club_id).name, "weekday": s.weekday,
+                    "start_time": s.start_time, "end_time": s.end_time,
+                    "rooms": [r.name + (" · " + r.building if r.building else "") for r in s.rooms],
+                    "leaders": [leader.name for leader in (s.leaders or s.club.leaders or [s.club.leader])],
+                    "repeat": s.repeat, "period": db.get(AcademicPeriod, s.period_id).name if s.period_id else "Без периода"}
+                   for s in db.scalars(select(ClubSession)) if f"[{s.id}]" not in before["sessions"]]
+        db.rollback()
+        return {"dry_run": True, "created": created, "skipped": len(decisions) - created, "items": preview}
     item.status = "published"
     entry = import_journal.record(
         db, before, author=admin.login, draft_id=draft_id,

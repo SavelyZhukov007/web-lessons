@@ -3,11 +3,18 @@ import { request as baseRequest, setAdminToken, clearAdminToken } from '../api.j
 
 // A 409 without a confirmation token remains a blocking validation error.
 // Each retry rechecks the schedule; a changed conflict set needs a new decision.
+async function perform(path, options = {}) {
+  const mutates = options.method && options.method !== 'GET' && /^\/api\/admin\/(?:categories|leaders|rooms|clubs|sessions|exceptions|periods|bulk|calendar)(?:\/|$)/.test(path);
+  const id = mutates ? (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now()) : '';
+  const result = await baseRequest(path, id ? { ...options, headers: { ...options.headers, 'X-Request-ID': id } } : options);
+  if (id && typeof CustomEvent !== 'undefined' && window.dispatchEvent) window.dispatchEvent(new CustomEvent('admin:mutation', { detail: { request_id: id } }));
+  return result;
+}
 async function request(path, options = {}) {
   const confirmed = [];
   for (;;) {
     try {
-      return await baseRequest(path, confirmed.length
+      return await perform(path, confirmed.length
         ? { ...options, headers: { ...(options.headers || {}), 'X-Confirmed-Conflicts': confirmed.join(',') } }
         : options);
     } catch (error) {
@@ -63,6 +70,7 @@ export const imports = {
   list: options => request('/api/admin/imports', options),
   create: body => request('/api/admin/imports', send('POST', body)),
   decisions: (id, decisions) => request(`/api/admin/imports/${id}/decisions`, send('PUT', { decisions })),
+  preview: id => request(`/api/admin/imports/${id}/publish?dry_run=true`, { method: 'POST' }),
   publish: id => request(`/api/admin/imports/${id}/publish`, { method: 'POST' }),
 };
 export const exceptions = {
@@ -81,7 +89,7 @@ export const exceptions = {
 function exceptionWrite(path, options, tokens) {
   if (!tokens) return request(path, options);
   if (tokens.length) options.headers['X-Confirmed-Conflicts'] = tokens.join(',');
-  return baseRequest(path, options);
+  return perform(path, options);
 }
 
 /** Все справочники и расписание одним пакетом — нужны почти каждой вкладке (названия вместо id). */
@@ -99,5 +107,10 @@ export const broadcasts = {
     return Array.isArray(result) ? result : result.items;
   },
   estimate: (body, options) => request('/api/admin/broadcasts/estimate', { ...send('POST', body), ...options }),
+  cancel: id => request(`/api/admin/broadcasts/schedules/${id}`, { method: 'DELETE' }),
   send: body => request('/api/admin/broadcasts', send('POST', body)),
 };
+
+export const bulk = body => request('/api/admin/bulk', send('POST', body));
+
+export const calendarMove = body => request('/api/admin/calendar/move', send('POST', body));

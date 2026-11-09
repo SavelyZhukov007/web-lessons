@@ -3,7 +3,7 @@
 import { h, toast } from '../../ui.js';
 import { loadAll, broadcasts } from '../api.js';
 import { pageHeader, loading, confirmDialog, dataTable, dayShort } from '../kit.js';
-import { TITLE_MAX, BODY_MAX, buildPayload, filterClubs, audienceLabel, formatMsk, reachText, deliveryText, newIdempotencyKey } from '../broadcast-logic.js';
+import { TITLE_MAX, BODY_MAX, buildPayload, filterClubs, audienceLabel, formatMsk, reachText, deliveryText, newIdempotencyKey, scheduledMsk } from '../broadcast-logic.js';
 import { readDraft, writeDraft, clearDraft, markUnsaved } from '../../draft-state.js';
 import { animatePanel, bindGlassIndicator } from '../../glass.js';
 
@@ -23,7 +23,7 @@ export async function mount(root, { signal }) {
   const draft = readDraft('broadcast');
   const state = { title: draft?.title || '', body: draft?.body || '', url: draft?.url || '', audience: draft?.audience === 'clubs' ? 'clubs' : 'all',
     clubIds: new Set((Array.isArray(draft?.clubIds) ? draft.clubIds : []).filter(id => clubs.some(c => c.id === id))),
-    sessionIds: new Set((Array.isArray(draft?.sessionIds) ? draft.sessionIds : []).filter(id => sessionClub.has(id))), key: draft?.key || newIdempotencyKey(), query: '' };
+    sessionIds: new Set((Array.isArray(draft?.sessionIds) ? draft.sessionIds : []).filter(id => sessionClub.has(id))), key: draft?.key || newIdempotencyKey(), scheduledAt: draft?.scheduledAt || '', query: '' };
   const fresh = () => { state.key = newIdempotencyKey(); }; // правка текста = новое объявление
 
   // --- поля текста со счётчиками ---
@@ -36,6 +36,7 @@ export async function mount(root, { signal }) {
     h('option', { value: '' }, 'Без ссылки — откроется расписание'),
     h('option', { value: '/clubs.html' }, 'Каталог кружков'),
     clubs.map(c => h('option', { value: `/club.html?id=${c.id}` }, `Кружок: ${c.name}`)));
+  const scheduleInput = h('input', { id: 'bc-scheduled', type: 'datetime-local', value: state.scheduledAt, 'aria-describedby': 'bc-schedule-hint' });
   const errorBox = h('p', { class: 'field-error', role: 'alert', hidden: true });
   titleInput.value = state.title; bodyInput.value = state.body; linkSelect.value = state.url;
 
@@ -132,7 +133,8 @@ export async function mount(root, { signal }) {
     }, 250);
   }
   function update() {
-    state.title = titleInput.value; state.body = bodyInput.value; state.url = linkSelect.value;
+    state.title = titleInput.value; state.body = bodyInput.value; state.url = linkSelect.value; state.scheduledAt = scheduleInput.value;
+    send.textContent = state.scheduledAt ? 'Запланировать…' : 'Отправить…';
     titleCount.textContent = `${state.title.length} / ${TITLE_MAX}`;
     bodyCount.textContent = `${state.body.length} / ${BODY_MAX}`;
     pvTitle.textContent = state.title.trim() || 'Заголовок';
@@ -140,12 +142,13 @@ export async function mount(root, { signal }) {
     pvTitle.toggleAttribute('data-empty', !state.title.trim());
     pvBody.toggleAttribute('data-empty', !state.body.trim());
     scheduleReach();
-    const dirty = !!(state.title || state.body || state.url || state.audience !== 'all' || state.clubIds.size);
+    const dirty = !!(state.scheduledAt || state.title || state.body || state.url || state.audience !== 'all' || state.clubIds.size);
     markUnsaved(form, dirty);
     if (dirty) writeDraft('broadcast', { ...state, clubIds: [...state.clubIds], sessionIds: [...state.sessionIds] });
     else clearDraft('broadcast');
   }
   for (const el of [titleInput, bodyInput]) el.addEventListener('input', () => { fresh(); errorBox.hidden = true; update(); });
+  scheduleInput.addEventListener('change', () => { fresh(); errorBox.hidden = true; update(); });
   linkSelect.addEventListener('change', () => { fresh(); update(); });
 
   const audience = h('div', { class: 'segmented glass-tabs bc-audience', role: 'radiogroup', 'aria-label': 'Кому отправить' },
@@ -156,6 +159,8 @@ export async function mount(root, { signal }) {
     h('label', { class: 'field', for: 'bc-body' }, h('span', { class: 'field-label' }, 'Текст *'), bodyInput), bodyCount,
     h('label', { class: 'field', for: 'bc-url' }, h('span', { class: 'field-label' }, 'По нажатию открыть'), linkSelect),
     h('fieldset', { class: 'field' }, h('legend', { class: 'field-label' }, 'Кому'), audience, audienceSlot),
+    h('label', { class: 'field', for: 'bc-scheduled' }, h('span', { class: 'field-label' }, 'Когда отправить (МСК, необязательно)'), scheduleInput),
+    h('p', { class: 'field-hint', id: 'bc-schedule-hint' }, 'Пусто — сразу. Запланированную рассылку можно отменить до начала отправки. Охват пересчитается в момент отправки.'),
     errorBox,
     h('div', { class: 'form-actions' }, send));
 
@@ -164,23 +169,24 @@ export async function mount(root, { signal }) {
     event.preventDefault();
     if (submitting || signal?.aborted) return;
     const { errors, payload } = buildPayload({ ...state, sessionClub });
+    try { const scheduled = scheduledMsk(state.scheduledAt); if (scheduled) payload.scheduled_at = scheduled; } catch (e) { errors.schedule = e.message; }
     const first = Object.values(errors)[0];
     if (first) {
       errorBox.textContent = first; errorBox.hidden = false;
-      (errors.title ? titleInput : errors.body ? bodyInput : search).focus();
+      (errors.title ? titleInput : errors.body ? bodyInput : errors.schedule ? scheduleInput : search).focus();
       return;
     }
     submitting = true; send.disabled = true; form.inert = true;
     try {
       const who = payload.audience === 'all' ? 'всем, кто включил объявления' : `подписчикам: ${audienceLabel({ audience: 'clubs', club_names: payload.club_ids.map(id => data.club.get(id)?.name ?? `#${id}`) })}${payload.session_ids?.length ? ` (занятий: ${payload.session_ids.length})` : ''}`;
-      const ok = await confirmDialog({ title: 'Отправить объявление?', message: `«${payload.title}» уйдёт ${who}. ${lastReach ? reachText(lastReach) : 'Оценка охвата пока недоступна'}. Это оценка, а не число прочитавших. Отменить отправку будет нельзя.`, confirmLabel: 'Отправить', danger: false });
+      const ok = await confirmDialog({ title: payload.scheduled_at ? 'Запланировать объявление?' : 'Отправить объявление?', message: `«${payload.title}» уйдёт ${who}${payload.scheduled_at ? ' · ' + formatMsk(payload.scheduled_at) : ''}. ${lastReach ? reachText(lastReach) : 'Оценка охвата пока недоступна'}. Это оценка, а не число прочитавших. ${payload.scheduled_at ? 'Можно отменить до начала отправки.' : 'Отменить отправку будет нельзя.'}`, confirmLabel: payload.scheduled_at ? 'Запланировать' : 'Отправить', danger: false });
       if (!ok || signal?.aborted) return;
       send.textContent = 'Отправляю…';
       const result = await broadcasts.send(payload);
       if (readDraft('broadcast')?.key === payload.idempotency_key) clearDraft('broadcast');
       if (signal?.aborted) return;
-      toast(result.duplicate ? 'Это объявление уже отправлено' : `Отправлено. ${deliveryText(result)}`);
-      titleInput.value = ''; bodyInput.value = ''; linkSelect.value = '';
+      toast(result.duplicate ? 'Этот запрос уже сохранён — повторной отправки нет' : result.schedule_id ? 'Рассылка запланирована: ' + formatMsk(result.scheduled_at) : `Отправлено. ${deliveryText(result)}`);
+      titleInput.value = ''; bodyInput.value = ''; linkSelect.value = ''; scheduleInput.value = '';
       state.audience = 'all'; state.clubIds.clear(); state.sessionIds.clear(); state.query = ''; search.value = ''; expanded = false;
       form.querySelector('input[value="all"]').checked = true;
       updateAudienceIndicator();
@@ -189,7 +195,7 @@ export async function mount(root, { signal }) {
       catch (error) { if (!signal?.aborted) historyNote.textContent = 'Объявление отправлено. Журнал не обновился — нажмите «Обновить журнал». Повторно отправлять не нужно.'; }
     } catch (error) {
       if (!signal?.aborted) { errorBox.textContent = error?.message || 'Не удалось подтвердить отправку. Повторите с тем же текстом — ключ запроса сохранён.'; errorBox.hidden = false; }
-    } finally { submitting = false; form.inert = false; send.disabled = false; send.textContent = 'Отправить…'; }
+    } finally { submitting = false; form.inert = false; send.disabled = false; send.textContent = state.scheduledAt ? 'Запланировать…' : 'Отправить…'; }
   });
 
   // --- журнал ---
@@ -203,7 +209,8 @@ export async function mount(root, { signal }) {
   } }, 'Обновить журнал');
   function renderHistory(items) {
     historyNote.textContent = '';
-    historySlot.replaceChildren(h('h2', { id: 'bc-history-title' }, 'Отправленные'), retryHistory, historyNote,
+    historySlot.replaceChildren(h('h2', { id: 'bc-history-title' }, 'Журнал рассылок'), retryHistory, historyNote,
+      h('p', { class: 'field-hint' }, 'Принято Web Push / FCM — ответ транспортного сервиса, не доказательство доставки. Показано — клиент передал уведомление системе, не доказательство прочтения. Открыто — нажатия. Обезличенные подтверждения могут теряться без сети. Задержка планировщика — до 30 секунд.'),
       dataTable({
         caption: 'Отправленные объявления, сначала новые',
         empty: 'Объявлений ещё не было.',
@@ -213,8 +220,15 @@ export async function mount(root, { signal }) {
           { label: 'Автор', cell: r => r.author || '—' },
           { label: 'Кому', cell: r => audienceLabel(r) + (r.session_ids?.length ? ` · занятий: ${r.session_ids.length}` : '') },
           { label: 'Объявление', cell: r => h('div', {}, h('strong', {}, r.title), h('div', { class: 'field-hint' }, r.body)) },
-          { label: 'Доставка', cell: r => deliveryText(r) },
+          { label: 'Состояние', cell: r => ({ scheduled: 'Запланировано · ' + formatMsk(r.scheduled_at), sending: 'Отправляется', cancelled: 'Отменено', failed: 'Ошибка: ' + r.error, uncertain: 'Требует проверки: ' + r.error, sent: 'Отправлено' }[r.status] || 'Отправлено') },
+          { label: 'Принято транспортом', cell: r => r.schedule_id ? '—' : deliveryText(r) },
+          { label: 'Показано / открыто', cell: r => r.schedule_id ? '—' : `${r.shown || 0} / ${r.opened || 0}` },
         ],
+        actions: r => r.status === 'scheduled' ? [h('button', { type: 'button', class: 'btn btn--small', onclick: async () => {
+          if (!await confirmDialog({ title: 'Отменить запланированную рассылку?', message: r.title, confirmLabel: 'Отменить рассылку' })) return;
+          try { await broadcasts.cancel(r.schedule_id); const items = await broadcasts.list({ signal }); if (!signal.aborted) renderHistory(items); }
+          catch (e) { historyNote.textContent = e.message; }
+        } }, 'Отменить запланированную')] : [],
       }));
   }
 

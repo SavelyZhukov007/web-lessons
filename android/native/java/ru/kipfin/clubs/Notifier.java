@@ -25,9 +25,11 @@ final class Notifier {
 
     private Notifier() {}
 
-    static void channels(Context c) {
+    static synchronized void channels(Context c) {
         if (Build.VERSION.SDK_INT < 26) return;
         NotificationManager nm = c.getSystemService(NotificationManager.class);
+        // Bump revision when the channel schema changes. Preserve all user importance/sound settings.
+        if (Store.prefs(c).getInt("channels_revision", 0) == 1 && nm.getNotificationChannel(CH_DIGEST) != null) return;
         NotificationChannel previous = nm.getNotificationChannel(CH_CHANGES);
         NotificationChannel r = new NotificationChannel(CH_REMIND, "Напоминания о занятиях", NotificationManager.IMPORTANCE_DEFAULT);
         r.setDescription("Перед началом занятий отмеченных кружков");
@@ -41,6 +43,7 @@ final class Notifier {
         nm.createNotificationChannel(an);
         addChangeChannel(nm, previous, CH_CANCEL, "Отмены занятий");
         addChangeChannel(nm, previous, CH_MOVE, "Переносы занятий");
+        Store.prefs(c).edit().putInt("channels_revision", 1).apply();
     }
 
     private static void addChangeChannel(NotificationManager nm, NotificationChannel previous, String id, String title) {
@@ -96,6 +99,7 @@ final class Notifier {
             .setPriority(isChangeChannel(channel) ? NotificationCompat.PRIORITY_HIGH : NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(open(c, path, id));
         NotificationManagerCompat.from(c).notify(id, b.build());
+        NotificationReceipts.mark(c, path, "shown");
         if(Build.VERSION.SDK_INT>=24){
             int count=0;for(android.service.notification.StatusBarNotification n:c.getSystemService(NotificationManager.class).getActiveNotifications())if(group.equals(n.getNotification().getGroup())&&(n.getNotification().flags&android.app.Notification.FLAG_GROUP_SUMMARY)==0)count++;
             if(count>1)NotificationManagerCompat.from(c).notify(("summary:"+group).hashCode(),new NotificationCompat.Builder(c,channel).setSmallIcon(R.drawable.ic_stat_itc).setContentTitle("KipClub · "+count).setContentText("Уведомления сгруппированы").setGroup(group).setGroupSummary(true).setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN).setAutoCancel(true).setContentIntent(open(c,"/",group.hashCode())).build());

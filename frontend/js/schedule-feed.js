@@ -25,8 +25,8 @@ function validate(data, week) {
 export function createScheduleFeed({ store = createWeekStore() } = {}) {
   const cache = new Map(), inflight = new Map();
   let generation = 0, prefetchEpoch = 0;
-  function remember(key, events, time, source = 'network') {
-    cache.delete(key); cache.set(key, { time, events, source });
+  function remember(key, events, savedAt, source = 'network', offline = false) {
+    cache.delete(key); cache.set(key, { time: savedAt, savedAt, events, source, offline });
     if (cache.size > LIMIT) cache.delete(cache.keys().next().value);
   }
   async function hydrate(week) {
@@ -54,7 +54,7 @@ export function createScheduleFeed({ store = createWeekStore() } = {}) {
       const events = current && JSON.stringify(current.events) === JSON.stringify(checked) ? current.events : checked;
       if (started === generation && !controller.signal.aborted) {
         const savedAt = Date.parse(meta?.savedAt) || Date.now();
-        remember(key, events, savedAt, meta?.offline ? 'cache' : 'network'); void store.write(key, events, savedAt);
+        remember(key, events, savedAt, meta?.offline ? 'cache' : 'network', !!meta?.offline); void store.write(key, events, savedAt);
       }
       return events;
     }).finally(() => { if (inflight.get(key) === entry) inflight.delete(key); });

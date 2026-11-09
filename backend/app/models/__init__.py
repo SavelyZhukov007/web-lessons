@@ -3,6 +3,7 @@
 from .admin import Admin, AdminSession
 from .assignments import ClubLeader, SessionLeader, SessionRoom
 from .broadcast import AppDevice, Broadcast
+from .broadcast_schedule import BroadcastReceipt, BroadcastSchedule
 from .category import Category
 from .club import Club
 from .import_draft import ImportDraft
@@ -25,6 +26,8 @@ __all__ = [
     "SessionRoom",
     "AppDevice",
     "Broadcast",
+    "BroadcastReceipt",
+    "BroadcastSchedule",
     "Category",
     "Club",
     "Install",

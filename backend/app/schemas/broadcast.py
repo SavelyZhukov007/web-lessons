@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import Field, StringConstraints, field_validator, model_validator
+from pydantic import AwareDatetime, Field, StringConstraints, field_validator, model_validator
 
 from .common import InputSchema, PositiveId
 
@@ -32,6 +32,7 @@ class BroadcastCreate(AudienceIn):
     body: Body
     url: Annotated[str, StringConstraints(strict=True, strip_whitespace=True, max_length=URL_MAX)] | None = None
     idempotency_key: IdemKey
+    scheduled_at: AwareDatetime | None = None
 
     @field_validator("url")
     @classmethod

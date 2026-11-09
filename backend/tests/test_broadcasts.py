@@ -76,7 +76,7 @@ def test_estimate_and_send_filtered_by_clubs(admin_client, sent, caplog):
     assert (j["web_sent"], j["web_failed"], j["apk_targets"], j["duplicate"]) == (2, 0, 1, False)
     assert j["author"] == "admin" and j["club_names"] == ["Python"] and j["created_at"].endswith("Z")
     assert sorted(e for e, _ in sent) == [EP + "a", EP + "all"]
-    assert sent[0][1]["kind"] == "announcement" and sent[0][1]["url"] == f"/club.html?id={w['club']['id']}"
+    assert sent[0][1]["kind"] == "announcement" and sent[0][1]["url"] == f"/club.html?id={w['club']['id']}&bc={j['id']}"
     assert any('"broadcast_sent"' in m for m in caplog.messages)
 
     hist = admin_client.get("/api/admin/broadcasts").json()["items"]
