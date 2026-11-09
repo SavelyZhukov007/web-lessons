@@ -44,7 +44,11 @@ public class SyncWorker extends Worker {
             long now = System.currentTimeMillis();
             JSONArray all = new JSONArray();
             for (int w = 0; w < 2; w++) {
-                JSONArray week = new JSONArray(get(server + "/api/schedule?week=" + Store.mondayOf(now, w)));
+                String monday = Store.mondayOf(now, w);
+                JSONArray week = new JSONArray(get(server + "/api/schedule?week=" + monday));
+                try { ScheduleCache.write(new java.io.File(c.getNoBackupFilesDir(), ScheduleCache.DIRECTORY),
+                    new java.net.URI(server).resolve("/").toString().replaceAll("/+$", ""), monday, week, now, now); }
+                catch (Exception ignored) { /* widgets/reminders must not depend on optional cache */ }
                 for (int i = 0; i < week.length(); i++) all.put(week.get(i));
             }
             Sync.apply(c, all.toString());

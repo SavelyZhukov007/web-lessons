@@ -8,7 +8,7 @@ export function hasUnsavedWork(doc = document) {
 
 export function startUpdates() {
   if (window.Capacitor?.isNativePlatform?.() || window.ClubsUpdates) return;
-  let registration, pending = false, nextBuild = null, loadedBuild = null, checking, lastCheck = 0, applying = false;
+  let registration, pending = false, nextBuild = null, loadedBuild = null, checking, lastCheck = 0, applying = false, preparedBuild = null;
   let bar, message, button, closeButton;
   const sw = navigator.serviceWorker;
   let hadController = !!sw?.controller;
@@ -34,21 +34,17 @@ export function startUpdates() {
     if (!shouldShowUpdate(pendingVersion(), { manual })) return;
     notify(hasUnsavedWork() ? 'Есть обновление. Сохраните или закройте форму — ввод не будет потерян.' : 'Доступна новая версия приложения.');
   }
-  function reload() {
-    if (hasUnsavedWork()) { applying = false; showPending(); return; }
-    const target = new URL(location.href), id = nextBuild || loadedBuild || 'worker-update';
-    try {
-      if (sessionStorage.getItem('clubs.update.reload') === id) { applying = false; notify('Обновление уже загружалось. Закройте и снова откройте приложение, если версия не изменилась.'); return; }
-      sessionStorage.setItem('clubs.update.reload', id);
-    } catch { /* недоступно */ }
-    target.searchParams.set('__clubs_update', id); location.replace(target.href);
+  function prepared() {
+    preparedBuild = nextBuild || loadedBuild;
+    applying = false; pending = false;
+    notify('Обновление подготовлено. Новая оболочка откроется при следующем открытии страницы — текущий экран сохранён.');
   }
   async function apply() {
     if (!pending || applying) return;
     if (hasUnsavedWork()) { showPending(); return; }
     applying = true;
     if (registration?.waiting) { registration.waiting.postMessage({ type: 'clubs:activate' }); return; }
-    reload();
+    prepared();
   }
   async function buildId() {
     try {
@@ -62,12 +58,12 @@ export function startUpdates() {
     lastCheck = Date.now();
     checking = (async () => {
       const id = await buildId();
-      if (id && loadedBuild && id !== loadedBuild) { pending = true; nextBuild = id; }
+      if (id && loadedBuild && id !== loadedBuild && id !== preparedBuild) { pending = true; nextBuild = id; }
       if (id && !loadedBuild) loadedBuild = id;
       try { await registration?.update(); } catch { /* нет связи */ }
       if (registration?.waiting) pending = true;
       if (pending) showPending({ manual }); // применяем только по нажатию «Обновить» или при холодном старте
-      else if (manual) notify(id ? 'Установлена актуальная версия.' : 'Не удалось проверить версию. Проверьте подключение.');
+      else if (manual) notify(preparedBuild ? 'Обновление подготовлено к следующему открытию страницы.' : id ? 'Установлена актуальная версия.' : 'Не удалось проверить версию. Проверьте подключение.');
       return { available: pending, build: id };
     })().finally(() => { checking = null; });
     return checking;
@@ -89,11 +85,11 @@ export function startUpdates() {
     if (!applying && id && id === loadedBuild && !registration?.waiting) return;
     nextBuild = id || nextBuild;
     pending = true;
-    if (hasUnsavedWork()) { applying = false; showPending(); } else if (applying) reload(); else showPending();
+    if (hasUnsavedWork()) { applying = false; showPending(); } else if (applying) prepared(); else showPending();
   });
   async function boot() {
     const coldStart = !loadedBuild; // не сразу после применённого обновления (?__clubs_update)
-    loadedBuild ||= await buildId();
+    loadedBuild ||= document.querySelector('meta[name="clubs-build"]')?.content || await buildId();
     if (sw && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
       try {
         registration = await sw.register('/sw.js', { scope: '/', updateViaCache: 'none' });

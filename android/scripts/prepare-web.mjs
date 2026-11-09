@@ -16,7 +16,7 @@ function findFrontend() {
 const src = findFrontend();
 const out = process.env.WWW_OUT ? resolve(process.env.WWW_OUT) : join(root, 'www');
 rmSync(out, { recursive: true, force: true });
-cpSync(src, out, { recursive: true, filter: p => !/[\\/](tests)([\\/]|$)/.test(relative(src, p)) });
+cpSync(src, out, { recursive: true, filter: p => !/[\\/](tests)([\\/]|$)/.test(relative(src, p)) && !/GolosText-Variable\.(ttf|woff2)$/.test(p) });
 // В APK нет ни service worker, ни manifest, ни страницы установки PWA (приложение уже «установлено»; SW с кэшем мешал бы обновлениям)
 for (const f of ['sw.js', 'manifest.webmanifest', 'install.html', 'offline.html', 'build-info.json']) rmSync(join(out, f), { force: true });
 // Страницы распространения (/ios, /android/) и плашка установки нужны только сайту, не APK.
@@ -81,7 +81,7 @@ const NATIVE = '<script src="/js/performance-policy.js"></script><script src="/j
   '<script src="/js/native-shell.js"></script><script src="/js/native-features.js"></script><script src="/js/native-motion.js"></script>' +
   '<link rel="stylesheet" href="/css/app-student.css"><script src="/js/app-student.js"></script><script src="/js/app-extras.js" defer></script>' +
   '<script src="/js/app-update.js" defer></script><script src="/js/app-admin.js" defer></script>'; // t100 perf: некритичные — defer
-const SCHEDULE_HEAD = '<link rel="preload" href="/fonts/GolosText-Variable.woff2" as="font" type="font/woff2" crossorigin>' +
+const SCHEDULE_HEAD = '' +
   '<link rel="modulepreload" href="/js/app-schedule.js"><link rel="modulepreload" href="/js/api.js"><link rel="modulepreload" href="/js/schedule-dates.js"><link rel="modulepreload" href="/js/icons.js">' +
   '<link rel="stylesheet" href="/css/app-schedule.css">';
 

@@ -30,6 +30,29 @@ public class ItcNativePlugin extends Plugin {
         } catch (Exception ignored) { }
     }
 
+    private java.io.File weekDirectory() { return new java.io.File(getContext().getNoBackupFilesDir(), ScheduleCache.DIRECTORY); }
+
+    @PluginMethod
+    public void readWeek(PluginCall call) {
+        try {
+            org.json.JSONObject row = ScheduleCache.read(weekDirectory(), call.getString("origin", ""), call.getString("week", ""), System.currentTimeMillis());
+            call.resolve(row == null ? new JSObject() : new JSObject(row.toString()));
+        } catch (Exception ignored) { call.resolve(new JSObject()); }
+    }
+    @PluginMethod
+    public void writeWeek(PluginCall call) {
+        try {
+            ScheduleCache.write(weekDirectory(), call.getString("origin", ""), call.getString("week", ""), call.getArray("events"),
+                call.getLong("savedAt", System.currentTimeMillis()), System.currentTimeMillis());
+            call.resolve();
+        } catch (Exception error) { call.reject("Не удалось сохранить публичное расписание", error); }
+    }
+    @PluginMethod
+    public void clearWeeks(PluginCall call) {
+        try { ScheduleCache.clear(weekDirectory(), call.getString("origin", "")); call.resolve(); }
+        catch (Exception error) { call.reject("Не удалось очистить кэш расписания", error); }
+    }
+
     /** config: follows[], server, demo, reminderMinutes, notifyChanges, notifyAnnouncements. */
     @PluginMethod
     public void configure(PluginCall call) {

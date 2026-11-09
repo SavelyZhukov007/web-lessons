@@ -3,7 +3,7 @@ import { addDays, dateKey, DAY_NAMES, formatDate, monday, moscowToday, parseDate
 import { bindDaySwipe, createDayRibbon, stepStudyDay, weekInRange } from './schedule-navigation.js';
 import { bindGlassIndicator, mountGlassEverywhere, mountGlassOptics, toggleGlassPanel } from './glass.js';
 import { createScheduleFeed, filteredEvents } from './schedule-feed.js';
-import { mountScheduleSearch } from './schedule-search.js';
+import { mountLazyScheduleSearch as mountScheduleSearch } from './schedule-search-lazy.js';
 import { prefersReducedMotion } from './motion-preferences.js';
 import { tapFeedback } from './interaction-feedback.js';
 
@@ -115,6 +115,7 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
   async function load({ dir = 0, refresh = false } = {}) {
     const id = ++request;
     const week = state.week;
+    feed.activate(week);
     const cached = feed.read(week);
     const needsRender = dir || raw !== cached || state.phase !== 'ready';
     raw = cached || noEvents;
@@ -122,6 +123,10 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
     applyFilters();
     onPhase?.(state.phase);
     if (needsRender) render(dir);
+    const hydration = cached ? Promise.resolve() : feed.hydrate(week).then(events => {
+      if (id !== request || !events || state.phase !== 'loading') return;
+      raw = events; state.phase = 'ready'; applyFilters(); onPhase?.(state.phase); render(dir);
+    });
     try {
       const events = await feed.fetchWeek(week, { refresh });
       if (id !== request) return;
@@ -134,7 +139,8 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
       }
       prefetchNearby(id);
     } catch (error) {
-      if (id !== request || cached) return;
+      await hydration;
+      if (id !== request || feed.read(week) || error?.name === 'AbortError') return;
       state.phase = 'error';
       state.error = error.message;
       onPhase?.(state.phase);
@@ -337,6 +343,9 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
     const result = load({ refresh: true });
     event.detail?.done?.(result);
   });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) load({ refresh: true }); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { clearTimeout(prefetch); feed.cancelPrefetch(); } else load({ refresh: true });
+  });
+  window.addEventListener('public:cache-invalidated', () => { feed.invalidate({ persisted: true }); load({ refresh: true }); });
   return { load, loadReferences, updateControls, focusPending, hasFilters, inMyMode, jumpTo, shiftDay, shiftWeek, goto };
 }

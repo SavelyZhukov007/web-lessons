@@ -71,7 +71,7 @@ def output_dir(target: str, out: Path | None) -> Path:
 
 
 def copy_tree(src: Path, dest: Path, *, exclude: set[str] | None = None) -> None:
-    exclude = {"__pycache__", ".pytest_cache", ".ruff_cache", "node_modules", "tests", ".env", "jwt_secret.key", "vapid_keys.json", *(exclude or set())}
+    exclude = {"__pycache__", ".pytest_cache", ".ruff_cache", "node_modules", "tests", "GolosText-Variable.ttf", "GolosText-Variable.woff2", ".env", "jwt_secret.key", "vapid_keys.json", *(exclude or set())}
     for path in sorted(src.rglob("*")):
         rel = path.relative_to(src)
         if any(part in exclude or part.startswith(".") for part in rel.parts) or path.is_symlink():
@@ -84,6 +84,8 @@ def copy_tree(src: Path, dest: Path, *, exclude: set[str] | None = None) -> None
 
 
 def stamp_web(out: Path) -> None:
+    from .assets import fingerprint_assets
+    asset_version = fingerprint_assets(out)
     files = [p for p in sorted(out.rglob("*")) if p.is_file() and p.name not in {"sw.js", MARKER, "build-info.json"}]
     digest = hashlib.sha256()
     for path in files:
@@ -93,7 +95,13 @@ def stamp_web(out: Path) -> None:
     worker = (ROOT / "frontend/sw.js").read_text(encoding="utf-8")
     digest.update(worker.encode())
     build_id = digest.hexdigest()[:20]
-    urls = ["/"] + ["/" + p.relative_to(out).as_posix() for p in files if not p.relative_to(out).as_posix().startswith("admin/")]
+    urls = ["/"] + ["/" + p.relative_to(out).as_posix() for p in files
+        if not p.relative_to(out).as_posix().startswith("admin/")
+        and (p.suffix in {".html", ".webmanifest"} or p.relative_to(out).as_posix().startswith(f"assets/{asset_version}/"))
+        and "/js/admin/" not in p.as_posix() and not p.name.startswith("xlsx")]
+    for path in out.rglob("*.html"):
+        html = path.read_text(encoding="utf-8").replace("</head>", f'<meta name="clubs-build" content="{build_id}"></head>')
+        path.write_text(html, encoding="utf-8")
     lines = worker.splitlines()
     for i, line in enumerate(lines):
         if "// __BUILD_ID__" in line:

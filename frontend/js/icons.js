@@ -17,6 +17,22 @@ const paths = {
   gear: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
 };
 
+const NS = 'http://www.w3.org/2000/svg';
+function symbol(name) {
+  let sprite = document.getElementById('kc-icon-sprite');
+  if (!sprite) {
+    sprite = document.createElementNS(NS, 'svg'); sprite.id = 'kc-icon-sprite';
+    sprite.setAttribute('aria-hidden', 'true'); sprite.setAttribute('focusable', 'false');
+    sprite.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+    document.body.append(sprite);
+  }
+  const id = `kc-icon-${name}`;
+  if (!document.getElementById(id) && paths[name]) {
+    const item = document.createElementNS(NS, 'symbol'); item.id = id; item.setAttribute('viewBox', '0 0 24 24');
+    const path = document.createElementNS(NS, 'path'); path.setAttribute('d', paths[name]); item.append(path); sprite.append(item);
+  }
+  return id;
+}
 // Один набор геометрии для иконок в динамических элементах.
 export function icon(name, className = '') {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -28,8 +44,8 @@ export function icon(name, className = '') {
   svg.setAttribute('stroke-linecap', 'round');
   svg.setAttribute('stroke-linejoin', 'round');
   svg.setAttribute('aria-hidden', 'true');
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', paths[name]);
-  svg.append(path);
+  const use = document.createElementNS(NS, 'use');
+  use.setAttribute('href', '#' + symbol(name));
+  svg.append(use);
   return svg;
 }

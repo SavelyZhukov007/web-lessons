@@ -268,3 +268,11 @@ $1buildTypes {`);
   writeFileSync(gradlePath, g);
   console.log(`[patch-android] FCM: ${fcmOn ? 'включён (google-services.json)' : 'нет — только опрос'}`);
 }
+
+// Native startup profile + supported async provider API. Existing SplashScreen, local assets and WorkManager stay enabled.
+cpSync(join(root, 'native', 'baseline-prof.txt'), join(app, 'baseline-prof.txt'));
+{
+  let g = readFileSync(gradlePath, 'utf8');
+  if (!g.includes('androidx.webkit:webkit:1.16.0')) g = g.replace(/(\ndependencies\s*\{)/, '$1\n    implementation "androidx.webkit:webkit:1.16.0"\n    implementation "androidx.profileinstaller:profileinstaller:1.4.1"');
+  writeFileSync(gradlePath, g);
+}

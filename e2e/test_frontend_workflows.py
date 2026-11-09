@@ -137,7 +137,10 @@ def test_legacy_state_redirects_without_losing_favorites(new_page):
     assert page.locator('a[href*="attendance"], a[href*="qr.html"], a[href*="teacher/"]').count() == 0
 
 
-def test_pwa_update_waits_for_draft_and_then_loads_fresh_assets(browser):
+def test_pwa_update_waits_for_draft_without_reloading_current_document(browser):
+    import hashlib
+    import shutil
+
     from pwa.tests.pwa_env import Stand
     st = Stand()
     context = browser.new_context(base_url=st.base, viewport={'width': 390, 'height': 844}, bypass_csp=True)
@@ -156,8 +159,17 @@ def test_pwa_update_waits_for_draft_and_then_loads_fresh_assets(browser):
         (st.www / 'build-info.json').write_text(json.dumps({'build_id': new}))
         worker = st.www / 'sw.js'
         worker.write_text(worker.read_text(encoding='utf-8').replace(old, new), encoding='utf-8')
-        with (st.www / 'css/campus.css').open('a', encoding='utf-8') as f:
+        assets = next((st.www / 'assets').iterdir())
+        old_assets = '/assets/' + assets.name
+        new_assets = '/assets/' + hashlib.sha256(new.encode()).hexdigest()[:20]
+        target = st.www / new_assets.lstrip('/')
+        shutil.copytree(assets, target)
+        for file in [*target.rglob('*.js'), *target.rglob('*.css'), *st.www.rglob('*.html')]:
+            file.write_text(file.read_text(encoding='utf-8').replace(old_assets, new_assets), encoding='utf-8')
+        with (target / 'css/campus.css').open('a', encoding='utf-8') as f:
             f.write('\nhtml { --qa-build: updated; }\n')
+        worker.write_text(worker.read_text(encoding='utf-8').replace(old_assets, new_assets), encoding='utf-8')
+        page.evaluate('window.__sameDocument = true')
         page.evaluate('window.ClubsUpdates.check({manual:true})')
         expect(page.locator('.app-update-notice')).to_contain_text('Сохраните')
         expect(page.locator('#bc-title')).to_have_value('Черновик во время обновления')
@@ -166,10 +178,18 @@ def test_pwa_update_waits_for_draft_and_then_loads_fresh_assets(browser):
         page.locator('#bc-body').fill('')
         expect(page.get_by_role('button', name='Обновить', exact=True)).to_be_enabled()
         page.get_by_role('button', name='Обновить', exact=True).click()
-        page.wait_for_function("() => getComputedStyle(document.documentElement).getPropertyValue('--qa-build').trim() === 'updated'")
+        expect(page.locator('.app-update-notice')).to_contain_text('Обновление подготовлено')
+        assert page.evaluate('window.__sameDocument') is True
+        assert page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--qa-build').trim()") != 'updated'
+        page.wait_for_function('() => navigator.serviceWorker.getRegistration().then(r => !r.waiting)')
         expect(page.locator('#bc-title')).to_have_value('')
         assert not errors, errors
-        shot(page, 'pwa-updated-390.png')
+        shot(page, 'pwa-prepared-no-reload-390.png')
+        page.reload()
+        page.wait_for_function('() => window.ClubsUpdates')
+        assert page.evaluate('window.__sameDocument === undefined') is True
+        assert page.request.get('/build-info.json').json()['build_id'] == new
+        page.wait_for_function("() => getComputedStyle(document.documentElement).getPropertyValue('--qa-build').trim() === 'updated'")
     finally:
         context.close()
         st.stop()

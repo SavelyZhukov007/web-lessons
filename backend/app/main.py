@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -157,8 +158,10 @@ class SiteFiles(StaticFiles):
         if norm.startswith(self.HIDDEN_PREFIXES) or norm in self.HIDDEN_FILES or norm.endswith((".test.mjs", ".map")):
             raise HTTPException(404)
         response = await super().get_response(path, scope)
-        if response.status_code == 200:
-            if norm.endswith((".woff2", ".ttf", ".png", ".svg", ".ico")):
+        if response.status_code in {200, 304}:
+            if re.match(r"^assets/[a-f0-9]{20}/", norm):
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif norm.endswith((".woff2", ".ttf", ".png", ".svg", ".ico")):
                 response.headers["Cache-Control"] = "public, max-age=604800"
             else:
                 response.headers["Cache-Control"] = "no-cache"  # всегда ревалидация по ETag

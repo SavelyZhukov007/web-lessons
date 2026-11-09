@@ -8,3 +8,9 @@ migrateLegacyState();
 if (location.pathname === '/qr.html' || location.pathname.startsWith('/teacher/')) location.replace('/?from=legacy');
 startUpdates();
 startReleaseNotes();
+
+// Best effort, never a claim that iOS cannot evict a PWA. No permission prompt on first load.
+if (matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) {
+  const protect = () => { navigator.storage?.persist?.().catch(() => {}); };
+  document.addEventListener('pointerdown', protect, { once: true, passive: true });
+}

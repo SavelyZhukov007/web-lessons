@@ -78,7 +78,7 @@ export async function request(path, options = {}) {
 }
 
 async function send(path, options = {}) {
-  const { signal, timeout = 15000, ...fetchOptions } = options;
+  const { signal, timeout = 15000, onCacheState, ...fetchOptions } = options;
   if (path.startsWith('/api/admin') && adminToken()) {
     fetchOptions.headers = { ...(fetchOptions.headers || {}), Authorization: `Bearer ${adminToken()}` };
   }
@@ -91,8 +91,9 @@ async function send(path, options = {}) {
   try {
     const response = await fetch(path, { credentials: 'same-origin', ...fetchOptions, signal: controller.signal });
     if (/^\/api\/(schedule|clubs|categories|leaders|rooms)(\/|\?|$)/.test(path)) {
-      window.dispatchEvent(new CustomEvent('public:cache-state', { detail: { path: path.split('?')[0],
-        offline: response.headers.get('X-Clubs-Offline') === '1', savedAt: response.headers.get('X-Clubs-Cached-At') } }));
+      const detail = { path: path.split('?')[0], offline: response.headers.get('X-Clubs-Offline') === '1', savedAt: response.headers.get('X-Clubs-Cached-At') };
+      onCacheState?.(detail);
+      window.dispatchEvent(new CustomEvent('public:cache-state', { detail }));
     }
     if (response.status === 204 || response.status === 205) return null;
     const raw = await response.text();

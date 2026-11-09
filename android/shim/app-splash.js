@@ -1,7 +1,7 @@
 /* Экран загрузки APK (только Capacitor). Подключается prepare-web.mjs синхронно в <head>, разметка #itc-splash — первым
  * элементом <body>. Холодный старт (первая страница процесса): брендовый экран — иконка на фирменном круге (как у системного
  * SplashScreen Android 12+, поэтому передача без второго сплэша), полоса прогресса по реальным этапам загрузки
- * (DOM → скрипты → кэш/запрос → данные → отрисовка), весёлые фразы, версия и «Продукт ИТС КИПФИН». Не меньше ~600 мс.
+ * (DOM → скрипты → кэш/запрос → данные → отрисовка), весёлые фразы, версия и «Продукт ИТС КИПФИН». Без искусственной задержки уже готового расписания.
  * Повторные переходы внутри приложения — без экрана. API: window.ItcSplash.progress(0..1), .done(). */
 (function () {
   'use strict';
@@ -9,7 +9,7 @@
   if (!(Cap && typeof Cap.isNativePlatform === 'function' && Cap.isNativePlatform())) return;
   var doc = document, root = doc.documentElement;
   var VERSION = '%%VERSION%%';
-  var MIN_MS = 600, MAX_MS = 8000;
+  var MIN_MS = 0, MAX_MS = 8000;
   var cold = false;
   try { cold = !sessionStorage.getItem('itc.booted'); } catch (e) { cold = false; }
   function plugin() { return Cap.Plugins && Cap.Plugins.ItcUpdate; }
@@ -26,14 +26,15 @@
     'Разминаемся перед занятием…', 'Раскладываем шахматы…', 'Варим кофе преподавателям…', 'Наводим порядок в журнале…',
     'Ловим вдохновение…', 'Собираем команду…', 'Синхронизируем часы с Москвой…', 'Сдуваем пыль с конспектов…',
     'Заряжаем маркеры…', 'Поливаем кактус в учительской…', 'Почти готово…'];
-  var shown = 0, target = 0.08, finished = false, t0 = performance.now(), el = null, bar = null, phrase = null, timer = 0;
+  var shown = 0, target = 0.08, finished = false, t0 = performance.now(), el = null, bar = null, phrase = null, timer = 0, frame = 0;
   function paint() { if (bar) bar.style.transform = 'scaleX(' + Math.max(shown, 0.04) + ')'; if (el) el.setAttribute('aria-valuenow', String(Math.round(shown * 100))); }
   function tick() { // плавно догоняем реальный прогресс, не обгоняя его
+    frame = 0;
     if (!el) return;
     shown += (target - shown) * 0.25; if (target - shown < 0.004) shown = target; paint();
-    if (shown < 1) requestAnimationFrame(tick);
+    if (shown < 1) frame = requestAnimationFrame(tick);
   }
-  api.progress = function (p) { if (finished) return; target = Math.max(target, Math.min(0.97, +p || 0)); requestAnimationFrame(tick); };
+  api.progress = function (p) { if (finished) return; target = Math.max(target, Math.min(0.97, +p || 0)); if (!frame) frame = requestAnimationFrame(tick); };
   api.done = function () {
     if (finished) return; finished = true;
     var wait = Math.max(0, MIN_MS - (performance.now() - t0));
@@ -42,8 +43,8 @@
       try { sessionStorage.setItem('itc.booted', '1'); } catch (e) {}
       setTimeout(function () {
         root.classList.add('itc-splash-out');
-        setTimeout(function () { clearInterval(timer); if (el) el.remove(); root.classList.remove('itc-splash-on', 'itc-splash-out'); }, 260);
-      }, 120);
+        setTimeout(function () { clearInterval(timer); if (frame) cancelAnimationFrame(frame); frame = 0; if (el) el.remove(); root.classList.remove('itc-splash-on', 'itc-splash-out'); }, 260);
+      }, 0);
     }, wait);
   };
   function mount() {

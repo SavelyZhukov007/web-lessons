@@ -1,0 +1,7 @@
+# Deliberately narrow manual native startup profile; WebView provider has its own profile.
+Lru/kipfin/clubs/MainActivity;
+HSPLru/kipfin/clubs/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLru/kipfin/clubs/MainActivity;->onResume()V
+HSPLru/kipfin/clubs/ItcNativePlugin;->load()V
+HSPLcom/getcapacitor/BridgeActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/getcapacitor/Bridge;->**(**)**

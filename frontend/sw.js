@@ -12,14 +12,22 @@ self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     // addAll атомарен: один недоступный файл ломает всё, поэтому добавляем по одному и не падаем.
-    await Promise.all(PRECACHE.map(url => cache.add(new Request(url, { cache: 'reload' })).catch(() => null)));
+    const queue = [...PRECACHE];
+    await Promise.all(Array.from({ length: 4 }, async () => {
+      while (queue.length) { const url = queue.shift(); try { await cache.add(new Request(url, { cache: 'reload' })); } catch { /* optional asset, retry on demand */ } }
+    }));
     if (!self.registration?.active) await self.skipWaiting();
   })());
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    for (const key of await caches.keys()) if (/^clubs-(shell|api)-/.test(key) && ![CACHE, API_CACHE].includes(key)) await caches.delete(key);
+    const keys = await caches.keys();
+    // One previous shell remains usable by an already open page and its lazy imports.
+    for (const prefix of ['clubs-shell-', 'clubs-api-']) {
+      const versions = keys.filter(key => key.startsWith(prefix));
+      for (const key of versions.slice(0, -2)) if (![CACHE, API_CACHE].includes(key)) await caches.delete(key);
+    }
     await self.clients.claim();
   })());
 });
@@ -99,20 +107,35 @@ self.addEventListener('fetch', event => {
         return fresh;
       } catch {
         const cache = await caches.open(API_CACHE);
-        const cached = await cache.match(request);
-        const savedAt = cached && Date.parse(cached.headers.get('X-Clubs-Cached-At'));
-        if (cached && Number.isFinite(savedAt) && Date.now() - savedAt <= API_MAX_AGE) {
-          const headers = new Headers(cached.headers);
-          headers.set('X-Clubs-Offline', '1');
-          return new Response(await cached.arrayBuffer(), { status: cached.status, headers });
+        const names = caches.keys ? (await caches.keys()).filter(key => key.startsWith('clubs-api-')).reverse() : [];
+        for (const name of [API_CACHE, ...names.filter(name => name !== API_CACHE)]) {
+          const store = name === API_CACHE ? cache : await caches.open(name);
+          const cached = await store.match(request);
+          const savedAt = cached && Date.parse(cached.headers.get('X-Clubs-Cached-At'));
+          if (cached && Number.isFinite(savedAt) && Date.now() - savedAt <= API_MAX_AGE) {
+            const headers = new Headers(cached.headers); headers.set('X-Clubs-Offline', '1');
+            return new Response(await cached.arrayBuffer(), { status: cached.status, headers });
+          }
+          if (cached) await store.delete(request);
         }
-        if (cached) await cache.delete(request);
         throw new Error('offline');
       }
     })());
     return;
   }
   if (url.pathname.startsWith('/api/')) return;
+  if (/^\/assets\/[a-f0-9]{20}\//.test(url.pathname)) {
+    event.respondWith((async () => {
+      // Hashed same-origin assets have exactly one public representation. Module/font
+      // requests carry Origin while precache requests do not (Vary: Origin).
+      const cached = await caches.match(request, { ignoreVary: true, ignoreSearch: true });
+      if (cached) return cached; // immutable graph, including a still-open previous shell
+      const response = await fetch(request);
+      if (response.ok) event.waitUntil?.((await caches.open(CACHE)).put(request, response.clone()));
+      return response;
+    })());
+    return;
+  }
   if (/\.(css|js|woff2|png|svg|webmanifest|json)$/.test(url.pathname)) {
     // Always try current assets first; stale JS must not hide a saved fix in dev.
     event.respondWith((async () => {

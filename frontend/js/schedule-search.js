@@ -1,6 +1,7 @@
 import { bindGlassIndicator, mountGlassOptics } from './glass.js';
 import { prefersReducedMotion } from './motion-preferences.js';
 import { addDays, dateKey, formatDate, parseDate } from './schedule-dates.js';
+import { prepareScheduleSearch } from './schedule-search-index.js';
 
 const RECENT_KEY = 'clubs.scheduleSearch.v1';
 const $ = id => document.getElementById(id);
@@ -140,7 +141,11 @@ export function mountScheduleSearch({ state, filters, jumpTo }) {
       results.replaceChildren();
       return;
     }
-    if (indexedEvents !== events) { indexedEvents = events; lookup = model.indexSchedule(events); }
+    if (indexedEvents !== events) {
+      indexedEvents = events; lookup = null;
+      prepareScheduleSearch(events).then(index => { if (indexedEvents === events) { lookup = index; render(); } }, () => { if (opened) status.textContent = 'Не удалось подготовить поиск. Попробуй ещё раз.'; });
+    }
+    if (!lookup) { status.textContent = 'Подготавливаем поиск…'; return; }
     const key = [query, scope, dateKey(date), events, filters.weekday.value];
     if (searched && key.every((value, index) => value === searched[index])) return;
     searched = key;
@@ -218,5 +223,5 @@ export function mountScheduleSearch({ state, filters, jumpTo }) {
     paintScope();
     render();
   });
-  return { render, close };
+  return { render, close, open, setComposing(value) { composing = value; } };
 }

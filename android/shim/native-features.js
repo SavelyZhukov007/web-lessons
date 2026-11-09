@@ -75,6 +75,7 @@
     }
     // Cache only public resources. Admin/push responses are private,
     // including when the same device changes accounts while offline.
+    if (path && init && init.itcPersistentWeekCache && /^\/api\/schedule(\?|$)/.test(path)) return baseFetch(input, init);
     if (!path || method !== 'GET' || !/^\/api\/(schedule|clubs|categories|leaders|rooms)(\/|\?|$)/.test(path)) return baseFetch(input, init);
     return baseFetch(input, init).then(function (r) {
       setOffline(navigator.onLine === false); // в PWA ответ без сети может прийти из кэша service worker
@@ -106,6 +107,7 @@
     var keys = [];
     for (var i = 0; i < LS.length; i++) { var k = LS.key(i); if (k && (k.indexOf(CACHE) === 0 || k.indexOf('itc.sched.') === 0)) keys.push(k); }
     keys.forEach(function (k) { LS.removeItem(k); });
+    window.dispatchEvent(new CustomEvent('public:cache-invalidated'));
   }
   window.addEventListener('online', function () { setOffline(false); syncNow(); });
   window.addEventListener('offline', function () { setOffline(true); });
@@ -328,7 +330,7 @@
     if (/\/clubs\.html$/.test(p)) pageClubs();
     if (p === '/' || /\/index\.html$/.test(p)) pageSchedule();
     banner();
-    if (!sessionStorage.getItem('itc.synced')) { sessionStorage.setItem('itc.synced', '1'); configureNative().then(syncNow); }
+    if (!sessionStorage.getItem('itc.synced')) { sessionStorage.setItem('itc.synced', '1'); var idle = window.requestIdleCallback || function (fn) { setTimeout(fn, 800); }; idle(function () { configureNative().then(syncNow); }, { timeout: 2500 }); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

@@ -23,10 +23,15 @@ function queries(value) {
   ].filter(Boolean))];
 }
 
-export function indexSchedule(events) {
+function builder() {
   const items = new Map();
-  const documents = [];
-  for (const event of events) {
+  const index = new MiniSearch({
+    fields: ['name', 'teacher', 'room', 'context'],
+    storeFields: ['date'],
+    tokenize: words,
+    searchOptions: { combineWith: 'AND', boost: { name: 5, room: 4, teacher: 3, context: 1 } },
+  });
+  function add(event) {
     const date = parseDate(event.date);
     const raw = {
       name: event.club_name,
@@ -35,20 +40,12 @@ export function indexSchedule(events) {
       context: [event.category_name, DAY_NAMES[date.getDay() - 1], formatDate(date), event.start_time].join(' '),
     };
     items.set(event.event_id, { event, raw });
-    documents.push({
+    index.add({
       id: event.event_id, date: dateKey(date),
       ...Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, [...new Set([plain(value), latin(value)])].join(' ')])),
     });
   }
-  const index = new MiniSearch({
-    fields: ['name', 'teacher', 'room', 'context'],
-    storeFields: ['date'],
-    tokenize: words,
-    searchOptions: { combineWith: 'AND', boost: { name: 5, room: 4, teacher: 3, context: 1 } },
-  });
-  index.addAll(documents);
-
-  return (value, day) => {
+  const lookup = (value, day) => {
     const hits = new Map();
     queries(value).forEach((query, indexOfQuery) => {
       const results = index.search(query, {
@@ -71,6 +68,23 @@ export function indexSchedule(events) {
     return [...hits.values()].sort((a, b) => b.rank - a.rank || b.score - a.score
       || a.event.date.localeCompare(b.event.date) || a.event.start_time.localeCompare(b.event.start_time));
   };
+  return { add, lookup };
+}
+export function indexSchedule(events) {
+  const index = builder(); events.forEach(index.add); return index.lookup;
+}
+export async function indexScheduleAsync(events, { signal, chunkSize = 48, yieldTask } = {}) {
+  const index = builder();
+  const pause = yieldTask || (() => new Promise(resolve => {
+    if (globalThis.requestIdleCallback) requestIdleCallback(resolve, { timeout: 120 }); else setTimeout(resolve, 0);
+  }));
+  for (let start = 0; start < events.length; start += chunkSize) {
+    if (signal?.aborted) throw new DOMException('Search indexing cancelled', 'AbortError');
+    events.slice(start, start + chunkSize).forEach(index.add);
+    if (start + chunkSize < events.length) await pause();
+  }
+  if (signal?.aborted) throw new DOMException('Search indexing cancelled', 'AbortError');
+  return index.lookup;
 }
 
 export function markedText(text, terms) {

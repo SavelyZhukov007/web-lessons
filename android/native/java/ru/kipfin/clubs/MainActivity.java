@@ -21,6 +21,7 @@ import android.view.WindowManager;
 import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.WebViewListener;
 
 /** Display hints, not a forced system setting: power saver/OEM/thermal policy always wins. */
 public class MainActivity extends BridgeActivity implements DisplayManager.DisplayListener {
@@ -33,6 +34,7 @@ public class MainActivity extends BridgeActivity implements DisplayManager.Displ
     private volatile boolean nativeGpuOverloaded;
     private volatile float actualHz = 60;
     private long performanceStartedAt;
+    private boolean recordedStartup;
     private final Window.OnFrameMetricsAvailableListener gpuFrames = (window, metrics, dropped) -> {
         // Ignore cold-start/first-draw work; this signal covers GPU/RenderThread waits invisible to JS RAF.
         if (!observing || nativeGpuOverloaded || SystemClock.uptimeMillis() - performanceStartedAt < 5000
@@ -49,6 +51,7 @@ public class MainActivity extends BridgeActivity implements DisplayManager.Displ
 
     @Override public void onCreate(Bundle state) {
         SplashScreen splash = SplashScreen.installSplashScreen(this);
+        WebViewWarmup.start(getApplicationContext());
         webReady = false;
         final long start = SystemClock.uptimeMillis();
         performanceStartedAt = start;
@@ -64,7 +67,19 @@ public class MainActivity extends BridgeActivity implements DisplayManager.Displ
         frameThread = new HandlerThread("kipclub-frame-budget", android.os.Process.THREAD_PRIORITY_BACKGROUND);
         frameThread.start();
         // NONE means the normal accelerated WebView pipeline, not a giant cached hardware texture.
-        if (bridge != null) bridge.getWebView().setLayerType(View.LAYER_TYPE_NONE, null);
+        if (bridge != null) {
+            bridge.getWebView().setLayerType(View.LAYER_TYPE_NONE, null);
+            // First committed pixels, not requestAnimationFrame behind a held native pre-draw.
+            bridge.addWebViewListener(new WebViewListener() {
+                @Override public void onPageCommitVisible(android.webkit.WebView view, String url) {
+                    webReady = true;
+                    if (!recordedStartup) {
+                        recordedStartup = true;
+                        android.util.Log.i("KipClubStartup", "firstVisualMs=" + (SystemClock.uptimeMillis() - performanceStartedAt));
+                    }
+                }
+            });
+        }
     }
 
     @Override public void onResume() {
