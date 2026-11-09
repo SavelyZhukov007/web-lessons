@@ -10,9 +10,12 @@ import os
 import threading
 from pathlib import Path
 
+from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
-from . import delivery
+from ..models.broadcast import Broadcast
+from . import audit, broadcast, delivery
 
 log = logging.getLogger("clubs.release_notify")
 CHECK_INTERVAL = 300
@@ -47,6 +50,10 @@ def check(db: Session) -> dict | None:
         if not code:
             return None
         last = _read()
+        if rel.get("announcement") == "manual":
+            if last is None or code > last:
+                _write(code)
+            return None
         if last is None:  # первый запуск: текущая версия уже у всех — только запоминаем
             _write(code)
             return None
@@ -66,3 +73,39 @@ def check(db: Session) -> dict | None:
             log.exception("push об обновлении %s: сбой", name)
         log.info("push об обновлении %s (versionCode %s): отправлено %s, ошибок %s", name, code, r.fcm_sent, r.fcm_failed)
         return {"versionCode": code, "fcm_sent": r.fcm_sent, "fcm_failed": r.fcm_failed}
+
+
+
+def announce(db: Session, version: str) -> dict:
+    """Publish a single release announcement only after the operator has accepted the deployment."""
+    from ..routers.distribution import _frontend, latest_release
+
+    notes = json.loads((_frontend() / "release-info.json").read_text(encoding="utf-8"))
+    release = latest_release()
+    if (notes.get("version") != version or notes.get("announcement") != "manual"
+            or release is None or release.get("announcement") != "manual"
+            or not release["versionName"].startswith(version)
+            or release["changelog"] != notes.get("changelog")):
+        raise ValueError("APK и веб-версия не совпадают со списком изменений")
+
+    key = f"release:{version}"
+    result = db.execute(insert(Broadcast).values(
+        title="KipClub", body=f"KipClub обновился до {version}. Посмотрите, что нового.",
+        url=f"/?update=1&release={version}", audience="all", club_ids="[]", session_ids="[]",
+        author_login="KipClub", idempotency_key=key,
+        web_sent=-1, web_failed=-1, fcm_sent=-1, fcm_failed=-1, apk_targets=-1,
+    ).on_conflict_do_nothing(index_elements=[Broadcast.idempotency_key]))
+    inserted = result.rowcount == 1
+    db.commit()
+    row = db.scalar(select(Broadcast).where(Broadcast.idempotency_key == key))
+    if inserted:
+        broadcast.dispatch(db, row)
+        audit.log("release_announcement", version=version, broadcast_id=row.id,
+                  web_sent=row.web_sent, web_failed=row.web_failed, fcm_sent=row.fcm_sent,
+                  fcm_failed=row.fcm_failed, apk_targets=row.apk_targets)
+    return {
+        "version": version, "broadcast_id": row.id, "duplicate": not inserted,
+        "dispatch": "recorded" if row.apk_targets >= 0 else "unconfirmed",
+        "web_sent": row.web_sent, "web_failed": row.web_failed, "fcm_sent": row.fcm_sent,
+        "fcm_failed": row.fcm_failed, "apk_targets": row.apk_targets,
+    }

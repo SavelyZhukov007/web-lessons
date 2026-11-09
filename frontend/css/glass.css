@@ -1,0 +1,224 @@
+.glass-surface,
+.glass-tabs,
+.glass-action,
+.glass-trigger {
+    --glass-fill: color-mix(in srgb, var(--surface-1) 86%, transparent);
+    --glass-stroke: color-mix(in srgb, var(--outline) 36%, transparent);
+    --glass-rim: rgb(255 255 255 / .52);
+    --glass-ease: cubic-bezier(.22, .68, .24, 1);
+}
+
+[data-theme="dark"] :is(.glass-surface, .glass-tabs, .glass-action, .glass-trigger) {
+    --glass-rim: rgb(255 255 255 / .12);
+}
+
+.glass-surface,
+.glass-tabs {
+    position: relative;
+    background: var(--surface-1);
+    background: var(--glass-fill, var(--surface-1));
+    border: 1px solid var(--glass-stroke, var(--line));
+    box-shadow: inset 0 1px 0 var(--glass-rim), 0 4px 14px rgb(0 0 0 / .08);
+    border-radius: 18px;
+}
+
+.glass-surface {
+    -webkit-backdrop-filter: blur(12px) saturate(1.25);
+    backdrop-filter: blur(12px) saturate(1.25);
+}
+
+.glass-surface[data-glass-backend="css-svg"] {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+.glass-optics {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: var(--glass-fill, var(--surface-1));
+    opacity: 0;
+}
+
+.glass-surface:not(.glass-tabs) > .glass-optics { z-index: -1; }
+.glass-tabs > .glass-optics { z-index: -2; }
+
+[data-glass-backend="css-svg"] > .glass-optics {
+    opacity: 1;
+    background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+}
+
+.glass-tabs {
+    --glass-active-fill: var(--primary);
+    --glass-active-ink: var(--on-primary);
+    display: flex;
+    align-items: stretch;
+    isolation: isolate;
+    gap: 3px;
+    padding: 3px;
+}
+
+.glass-indicator {
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    border-radius: 14px;
+    opacity: 0;
+    background: var(--glass-active-fill);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent), inset 0 1px 0 rgb(255 255 255 / .28);
+    transition: transform 240ms var(--glass-ease), width 240ms var(--glass-ease),
+        height 240ms var(--glass-ease), opacity 130ms ease;
+}
+
+.glass-indicator.is-visible { opacity: 1; }
+
+.glass-tabs > :is(button, a, label),
+.glass-tabs > label > span {
+    background: transparent;
+    color: var(--ink);
+    border: 0;
+    border-radius: 14px;
+    min-height: 44px;
+    transition: color 150ms ease, background-color 150ms ease;
+}
+
+.glass-tabs > :is([aria-current="page"], [aria-pressed="true"]),
+.glass-tabs > label:has(input:checked) > span {
+    color: var(--glass-active-ink);
+}
+
+.campus-page .segmented.glass-tabs {
+    border: 1px solid var(--glass-stroke, var(--line));
+    border-radius: 18px;
+    background: var(--glass-fill, var(--surface-1));
+    padding: 3px;
+}
+
+.campus-page .segmented.glass-tabs label + label { border: 0; }
+.campus-page .segmented.glass-tabs label > span {
+    min-height: 44px;
+    border-radius: 14px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.campus-page .segmented.glass-tabs input:checked + span {
+    color: var(--glass-active-ink);
+    background: transparent;
+    box-shadow: none;
+}
+.campus-page .segmented.glass-tabs input:checked + span::before { content: none; }
+.campus-page .segmented.glass-tabs input:focus-visible + span { outline-offset: -3px; outline-color: currentColor; }
+
+.glass-tabs:has(.glass-indicator:not(.is-visible)) > :is([aria-current="page"], [aria-pressed="true"]),
+.glass-tabs:has(.glass-indicator:not(.is-visible)) > label:has(input:checked) {
+    background: var(--glass-active-fill);
+}
+
+:is(.campus-page, .admin-page) .glass-action,
+.glass-action,
+.glass-trigger {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: .35em;
+    min-height: 44px;
+    padding: 5px 12px;
+    border: 1px solid var(--glass-stroke, var(--line));
+    border-radius: 14px;
+    background: var(--surface-1);
+    background: var(--glass-fill, var(--surface-1));
+    color: var(--ink);
+    box-shadow: inset 0 1px 0 var(--glass-rim);
+    text-decoration: none;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+:is(.campus-page, .admin-page) .glass-action:is([aria-expanded="true"], [aria-pressed="true"]),
+.glass-trigger[aria-expanded="true"],
+details[open] > .glass-trigger {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    border-color: var(--primary);
+}
+
+.glass-tabs > :is(button, a, label):focus-visible,
+.glass-action:focus-visible,
+.glass-action:focus-within,
+.glass-trigger:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+:is(.glass-action, .glass-trigger, .glass-surface)[hidden] { display: none; }
+
+.campus-page select.glass-select {
+    min-height: 44px;
+    border-radius: 14px;
+    background-color: var(--surface-1);
+    box-shadow: inset 0 1px 0 var(--glass-rim, rgb(255 255 255 / .22));
+    transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.campus-page select.glass-select:is(:focus, :has(option:checked:not([value=""]))) {
+    border-color: var(--primary);
+    background-color: var(--primary-container);
+    color: var(--on-primary-container);
+}
+
+@supports (appearance: base-select) {
+    select.glass-select,
+    select.glass-select::picker(select) { appearance: base-select; }
+    select.glass-select::picker(select) {
+        max-height: min(52dvh, 22rem);
+        padding: 4px;
+        border: 1px solid var(--outline-variant);
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--surface-1) 93%, transparent);
+        color: var(--ink);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+    }
+    select.glass-select option {
+        min-height: 44px;
+        padding: 5px 9px;
+        border-radius: 10px;
+        white-space: normal;
+    }
+    select.glass-select option:checked {
+        background: var(--primary-container);
+        color: var(--on-primary-container);
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        select.glass-select::picker(select):popover-open { animation: glass-appear 150ms ease-out both; }
+    }
+    @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+        select.glass-select::picker(select) { background: var(--surface-1); backdrop-filter: none; }
+    }
+}
+
+.campus-page details > summary.glass-trigger { cursor: pointer; min-height: 44px; }
+.campus-page details[open]:has(> .glass-trigger) > :not(summary) { animation: glass-appear 180ms var(--glass-ease) both; }
+@keyframes glass-appear { from { opacity: 0; transform: translateY(-5px); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .glass-indicator, .glass-action, .glass-trigger, .glass-tabs > :is(button, a, label), .campus-page select.glass-select { transition: none; }
+    .campus-page details[open]:has(> .glass-trigger) > :not(summary) { animation: none; }
+}
+
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+    .glass-surface, .glass-tabs, .glass-action, .glass-trigger {
+        --glass-fill: var(--surface-1);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+    .glass-optics { display: none; }
+}
+
+@media (forced-colors: active) {
+    .glass-tabs { --glass-active-fill: Highlight; --glass-active-ink: HighlightText; }
+    .glass-indicator { forced-color-adjust: none; }
+}

@@ -43,9 +43,6 @@ html.is-native #admin-main.m-swap { animation: m-fade-in var(--m-dur-medium) var
 
 /* ---- нижняя навигация: подвижный индикатор-«пилюля» ---- */
 html.is-native .bottom-nav { isolation: isolate; }
-html.is-native .bottom-nav.m-has-ind a[aria-current="page"] .bn-pill { background: transparent !important; }
-html.is-native .bottom-nav .m-ind { position: absolute; z-index: -1; top: 8px; left: 0; height: 30px; width: 56px; border-radius: 15px;
-  background: var(--primary-container); transition: transform var(--m-dur-medium) var(--m-ease-standard); will-change: transform; pointer-events: none; }
 html.is-native .bottom-nav .bn-label { transition: opacity var(--m-dur-short) var(--m-ease-standard); }
 
 /* ---- дни недели: подвижный индикатор выбранного дня + кросс-фейд списка ---- */

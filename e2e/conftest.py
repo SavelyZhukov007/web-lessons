@@ -96,9 +96,13 @@ class Page:
 def new_page(browser, server):
     contexts = []
 
-    def make(width=1366, height=768, **kw):
+    def make(width=1366, height=768, *, show_release=False, **kw):
         ctx = browser.new_context(viewport={"width": width, "height": height}, base_url=server, locale="ru-RU", timezone_id="Europe/Moscow", **kw)
         contexts.append(ctx)
+        # Feature checks share one test server/IP. Keep telemetry outside this rate-limited test fixture.
+        ctx.add_init_script("localStorage.setItem('kc.pingAt', String(Date.now()))")
+        if not show_release:
+            ctx.add_init_script("localStorage.setItem('kipclub.release.seen.v1.9.015', '1')")
         return Page(ctx.new_page())
 
     yield make
@@ -119,4 +123,5 @@ def admin(new_page):
     do_login(page)
     page.wait_for_url("**/admin/")
     page.wait_for_selector("#view-title")
+    page.wait_for_selector("main [aria-busy=true]", state="hidden")
     return page

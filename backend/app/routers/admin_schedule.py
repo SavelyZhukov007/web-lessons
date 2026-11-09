@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models.admin import Admin
-from ..services import audit, import_publish
+from ..services import audit, import_journal, import_publish
 from ..services import conflicts as engine
 from .admin import _confirmed_conflicts, require_admin, schedule_write_lock
 
@@ -94,15 +94,15 @@ def publish_import(
 
 
 @router.get("/import/publishes", dependencies=[Depends(require_admin)])
-def publish_history():
-    return {"items": list(reversed(import_publish.history()))}
+def publish_history(db: Session = Depends(get_db)):
+    return {"items": list(reversed(import_journal.history(db)))}
 
 
 @router.post("/import/publishes/{publish_id}/rollback", dependencies=[Depends(schedule_write_lock)])
-def rollback_publish(publish_id: int, admin: Admin = Depends(require_admin)):
+def rollback_publish(publish_id: int, db: Session = Depends(get_db), admin: Admin = Depends(require_admin)):
     try:
-        result = import_publish.rollback(publish_id)
-    except import_publish.ImportError_ as exc:
-        raise HTTPException(404, str(exc)) from exc
+        result = import_journal.rollback(db, publish_id, author=admin.login)
+    except import_journal.RollbackError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
     audit.log("import_rolled_back", admin_id=admin.id, publish_id=publish_id)
     return result

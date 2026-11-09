@@ -24,6 +24,7 @@ def init_script(kind: str, standalone: bool = True, share_files: bool = False) -
     return """
 (() => {
   const STANDALONE = %s, KIND = '%s', SHARE = %s;
+  localStorage.setItem('kipclub.release.seen.v1.9.015', '1');
   window.__calls = [];
   const rec = (n, a) => window.__calls.push([n, a === undefined ? null : a]);
   if (STANDALONE) {

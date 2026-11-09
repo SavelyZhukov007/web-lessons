@@ -78,3 +78,38 @@ def test_web_subscribers_not_notified(env, monkeypatch):
     publish(16, "2")
     run()
     assert called == []
+
+
+def test_manual_release_dispatch_is_shared_and_idempotent(env, tmp_path, monkeypatch, client):
+    from backend.app.routers import distribution
+
+    publish, sent, state = env
+    publish(30, "v1.7.830pbA")
+    assert run() is None
+    publish(31, "v1.9.014prA")
+    latest = tmp_path / "rel/latest.json"
+    notes = {"version": "v1.9.014", "announcement": "manual", "changelog": ["Обновление расписания"]}
+    latest.write_text(json.dumps({**json.loads(latest.read_text()), **notes, "version": "v1.9.014prA"}))
+    (tmp_path / "release-info.json").write_text(json.dumps(notes))
+    monkeypatch.setattr(distribution, "_frontend", lambda: tmp_path)
+    calls = []
+
+    def web(db, event, result):
+        calls.append(event.payload)
+        result.web_sent = 1
+
+    monkeypatch.setattr(delivery, "_send_web", web)
+    assert run() is None and sent == [] and json.loads(state.read_text())["versionCode"] == 31
+    with SessionLocal() as db:
+        result = rn.announce(db, notes["version"])
+    with SessionLocal() as db:
+        retry = rn.announce(db, notes["version"])
+    assert result["dispatch"] == "recorded"
+    assert result["web_sent"] == result["fcm_sent"] == 1
+    assert retry["duplicate"] and result["broadcast_id"] == retry["broadcast_id"]
+    assert len(calls) == len(sent) == 1
+    assert calls[0]["broadcast_id"] == result["broadcast_id"]
+    assert int(sent[0][1]["id"]) == result["broadcast_id"]
+    feed = client.get("/api/announcements?clubs=20").json()["items"]
+    assert feed[-1]["id"] == result["broadcast_id"]
+    assert feed[-1]["url"] == "/?update=1&release=v1.9.014"

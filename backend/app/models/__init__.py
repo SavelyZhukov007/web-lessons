@@ -5,6 +5,7 @@ from .broadcast import AppDevice, Broadcast
 from .category import Category
 from .club import Club
 from .import_draft import ImportDraft
+from .import_publication import ImportPublication, ScheduleRowRevision
 from .install import Install
 from .leader import Leader
 from .login_attempt import LoginAttempt
@@ -26,6 +27,8 @@ __all__ = [
     "Club",
     "Install",
     "ImportDraft",
+    "ImportPublication",
+    "ScheduleRowRevision",
     "Leader",
     "LoginAttempt",
     "AcademicPeriod",

@@ -38,15 +38,50 @@ export async function mount(root, { signal }) {
       title: item ? (isMove ? 'Изменить перенос' : 'Изменить отмену') : (isMove ? 'Перенести занятие' : 'Отменить занятие'),
       submitLabel: item ? 'Сохранить' : (isMove ? 'Перенести' : 'Отменить занятие'), danger: !isMove && !item,
       intro: item ? undefined : 'Подписчикам кружка уйдёт уведомление (если они его включили).',
-      fields, initial: item ?? {},
-      onSubmit: values => {
+      fields, initial: item ?? {}, inlineConflicts: true,
+      prepare: item ? undefined : (form, dialog) => {
+        const session = form.elements.session_id;
+        const original = form.elements.original_date;
+        const suggestions = h('div', { class: 'date-suggestions', 'aria-live': 'polite' });
+        original.closest('label').after(suggestions);
+        let pending;
+        dialog.addEventListener('close', () => pending?.abort(), { once: true });
+        async function updateDates() {
+          pending?.abort();
+          suggestions.replaceChildren();
+          if (!session.value) return;
+          const request = new AbortController();
+          pending = request;
+          suggestions.append(h('p', { class: 'field-hint' }, 'Ищем ближайшие даты…'));
+          try {
+            const dates = await exceptions.dates(session.value, { signal: request.signal });
+            if (request.signal.aborted) return;
+            suggestions.replaceChildren(h('p', { class: 'field-hint' },
+              dates.length ? 'Ближайшие даты по расписанию' : 'Подходящих будущих дат нет. Можно ввести дату вручную.'));
+            for (const date of dates) {
+              const button = h('button', { type: 'button', class: 'btn btn--tonal' }, formatDate(date));
+              button.addEventListener('click', () => {
+                original.value = date;
+                original.dispatchEvent(new Event('change', { bubbles: true }));
+              });
+              suggestions.append(button);
+            }
+          } catch {
+            if (!request.signal.aborted) suggestions.replaceChildren(
+              h('p', { class: 'field-hint' }, 'Не удалось загрузить даты. Введи дату вручную.'));
+          }
+        }
+        session.addEventListener('change', updateDates);
+        updateDates();
+      },
+      onSubmit: (values, tokens) => {
         checkWeekday(values);
         if (isMove && values.new_start_time >= values.new_end_time) throw new Error('Начало должно быть раньше конца.');
         if (item) {
           const patch = Object.fromEntries(Object.entries(values).filter(([k, v]) => v !== item[k]));
-          return exceptions.update(item.id, { ...patch, type: kind });
+          return exceptions.update(item.id, { ...patch, type: kind }, tokens);
         }
-        return isMove ? exceptions.move(values) : exceptions.cancel(values);
+        return isMove ? exceptions.move(values, tokens) : exceptions.cancel(values, tokens);
       },
     });
     if (saved) await refresh();

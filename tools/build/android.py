@@ -21,6 +21,11 @@ def publish_release(apk: Path, out: Path | None = None) -> Path:
     meta = {"file": target.name, "version": version.get("versionName") or shared.get("version"),
             "versionCode": version["versionCode"], "minSupported": version.get("minSupported", 1),
             "changelog": version.get("changelog", []), "sha256": hashlib.sha256(target.read_bytes()).hexdigest()}
+    release_info = ROOT / "frontend/release-info.json"
+    if release_info.is_file():
+        notes = json.loads(release_info.read_text(encoding="utf-8"))
+        if notes["version"] == "v" + shared["version"]:
+            meta.update(changelog=notes["changelog"], announcement=notes["announcement"])
     staging = dest / "latest.json.tmp"
     staging.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     staging.replace(dest / "latest.json")

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -123,6 +124,22 @@ def _restore(args: argparse.Namespace) -> int:
     return 0
 
 
+def _announce_release(args: argparse.Namespace) -> int:
+    from backend.app.database import SessionLocal
+    from backend.app.services import release_notify
+
+    if not args.send:
+        print("Укажите --send после приёмки выпуска.", file=sys.stderr)
+        return 2
+    try:
+        with SessionLocal() as db:
+            print(json.dumps(release_notify.announce(db, args.version), ensure_ascii=False))
+    except (OSError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    return 0
+
+
 def _verify_backup(args: argparse.Namespace) -> int:
     from backend.app import cli
     try:
@@ -191,6 +208,11 @@ def make_parser() -> argparse.ArgumentParser:
     restore.add_argument("file")
     restore.add_argument("--yes", action="store_true", help="подтвердить перезапись текущей БД")
     restore.set_defaults(func=_restore)
+
+    announce = sub.add_parser("announce-release", help="однократное объявление после приёмки релиза")
+    announce.add_argument("version")
+    announce.add_argument("--send", action="store_true")
+    announce.set_defaults(func=_announce_release)
 
     verify = sub.add_parser("verify-backup", help="проверить, что бэкап открывается, цел и на актуальной ревизии схемы")
     verify.add_argument("file")

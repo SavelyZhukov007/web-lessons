@@ -90,7 +90,9 @@ def test_session_conflict_is_explained(admin):
 def test_cancel_checks_weekday_then_creates_and_removes(admin):
     go(admin, "exceptions")
     admin.click("button:has-text('Отменить занятие')")
-    admin.select_option("#f-session_id", label="Рисунок и живопись — Вт 14:00–16:00, 205")
+    option = admin.locator("#f-session_id option").filter(has_text="Рисунок и живопись — Вт 14:00–16:00")
+    admin.select_option("#f-session_id", option.get_attribute("value"))
+    admin.locator(".date-suggestions button").first.wait_for()
     admin.fill("#f-original_date", "2027-01-04")  # понедельник, а занятие по вторникам
     admin.fill("#f-comment", "e2e-отмена")
     admin.click("dialog button[type=submit]")

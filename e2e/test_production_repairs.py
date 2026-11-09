@@ -27,7 +27,7 @@ def test_club_calendar_link_downloads_the_current_week(new_page):
     page = new_page()
     club = page.request.get('/api/clubs').json()[0]
     page.goto(f"/club.html?id={club['id']}")
-    link = page.locator('a[href*="calendar.ics"]')
+    link = page.locator('a[href*="calendar.ics?week="]')
     expect(link).to_be_visible()
     assert 'week=' in link.get_attribute('href')
     with page.expect_download() as download:

@@ -1,6 +1,7 @@
 """schedule v2: occurrence_source, движок конфликтов, .ics, уведомления, публикация импорта."""
 from __future__ import annotations
 
+import json
 import random
 from datetime import date, timedelta
 
@@ -9,7 +10,7 @@ from sqlalchemy import text
 
 from backend.app.database import SessionLocal
 from backend.app.database import engine as db_engine
-from backend.app.services import calendar_export, import_publish
+from backend.app.services import calendar_export, import_journal, import_publish
 from backend.app.services import conflicts as ce
 from backend.app.services import occurrence_source as occ
 from backend.app.services.schedule import build_week
@@ -402,17 +403,19 @@ def test_import_rejected_on_conflict_and_db_untouched(admin_client):
     assert w
 
 
-def test_import_backup_and_rollback(admin_client, tmp_path):
+def test_import_point_rollback_preserves_later_unrelated_edit(admin_client):
     make_world(admin_client, weekday=4)
     before = _counts()
     r = admin_client.post("/api/admin/import/publish", json=dataset())
     pub = r.json()["publish"]
-    assert pub["backup"].startswith("pre-import-")
-    assert (tmp_path / "backups" / pub["backup"]).exists()
+    assert pub["rollback_available"]
+    later = _post(admin_client, "/api/admin/categories", {"name": "Позже", "color": "#123456"})
     assert _counts() != before
     rb = admin_client.post(f"/api/admin/import/publishes/{pub['id']}/rollback")
     assert rb.status_code == 200, rb.text
-    assert _counts() == before
+    assert _counts() == {**before, "categories": before["categories"] + 1}
+    assert any(c["id"] == later["id"] for c in admin_client.get("/api/admin/categories").json())
+    assert admin_client.post(f"/api/admin/import/publishes/{pub['id']}/rollback").status_code == 409
     hist = admin_client.get("/api/admin/import/publishes").json()["items"]
     assert hist[0]["rollback_of"] == pub["id"]
 
@@ -447,6 +450,7 @@ def test_backup_prefix_rotation_and_verified_restore(admin_client, tmp_path):
     assert _counts() != before
     assert cli.restore(pre)["integrity"] == "ok"
     assert _counts() == before
+    assert admin_client.get("/api/admin/categories").status_code == 401
     with pytest.raises(cli.CliError):
         cli.restore(tmp_path / "missing.sqlite3.gz")
 
@@ -460,11 +464,11 @@ def test_t3_draft_publish_is_journaled_and_rolls_back(admin_client):
     choice = {"row": 2, "action": "create", "category_id": world["category"]["id"], "leader_id": world["leader"]["id"], "room_ids": [world["room"]["id"]]}
     admin_client.put(f"/api/admin/imports/{draft['id']}/decisions", json={"decisions": [choice]})
     published = admin_client.post(f"/api/admin/imports/{draft['id']}/publish").json()
-    entry = next(i for i in import_publish.history() if i["id"] == published["publish_id"])
-    assert entry["draft_id"] == draft["id"] and entry["backup"] and entry["stats"]["sessions_created"] == 1
+    items = admin_client.get("/api/admin/import/publishes").json()["items"]
+    entry = next(i for i in items if i["id"] == published["publish_id"])
+    assert entry["draft_id"] == draft["id"] and entry["rollback_available"] and entry["stats"]["sessions_created"] == 1
     assert any(c["name"] == "Из черновика" for c in admin_client.get("/api/admin/clubs").json())
-    import_publish.rollback(published["publish_id"])
-    db_engine.dispose()
+    assert admin_client.post(f"/api/admin/import/publishes/{published['publish_id']}/rollback").status_code == 200
     assert all(c["name"] != "Из черновика" for c in admin_client.get("/api/admin/clubs").json())
 
 
@@ -510,3 +514,81 @@ def test_weekday_filter_keeps_ghost_of_class_moved_to_another_week(admin_client)
     # в неделе новой даты — по фактическому дню (среда)
     new_wed = admin_client.get("/api/schedule", params={"week": "2026-11-16", "weekday": 3}).json()
     assert [e["date"] for e in new_wed if e["status"] == "moved"] == ["2026-11-18"]
+
+
+
+def test_legacy_rollback_is_gone_without_restoring_snapshot(admin_client, tmp_path, monkeypatch):
+    from backend.app import cli
+
+    _post(admin_client, "/api/admin/categories", {"name": "Остаётся", "color": "#123456"})
+    backup_dir = tmp_path / "backups"
+    snapshot = cli.backup(backup_dir, prefix="pre-import")
+    (backup_dir / "import-publish.json").write_text(
+        json.dumps({"items": [{"id": 17, "backup": snapshot.name}]}), encoding="utf-8",
+    )
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("HTTP rollback attempted full database restore")
+
+    monkeypatch.setattr(cli, "restore", forbidden)
+    before = _counts()
+    path = "/api/admin/import/publishes/17/rollback"
+    assert admin_client.post(path).status_code == 410
+    assert admin_client.post("/api/admin/import/publishes/18/rollback").status_code == 404
+    assert admin_client.get("/api/admin/import/publishes").json()["items"][0]["rollback_available"] is False
+    assert _counts() == before
+    assert admin_client.post("/api/admin/logout").status_code in (200, 204)
+    assert admin_client.post(path).status_code == 401
+
+
+def test_publication_journal_failure_rolls_back_schedule(admin_client, monkeypatch):
+    def fail(*args, **kwargs):
+        raise RuntimeError("simulated journal failure")
+
+    monkeypatch.setattr(import_journal, "_new_entry", fail)
+    before = _counts()
+    assert admin_client.post("/api/admin/import/publish", json=dataset()).status_code == 500
+    assert _counts() == before
+    assert admin_client.get("/api/admin/import/publishes").json() == {"items": []}
+
+
+def test_import_rollback_rejects_later_dependencies(admin_client):
+    pub = admin_client.post("/api/admin/import/publish", json=dataset()).json()["publish"]
+    club_id = admin_client.get("/api/admin/clubs").json()[0]["id"]
+    with db_engine.begin() as conn:
+        conn.exec_driver_sql(
+            "INSERT INTO push_subscriptions (endpoint, p256dh, auth, club_id, created_at, announcements) "
+            "VALUES ('https://example.test', 'key', 'secret', ?, '2026-10-27 00:00:00', 1)",
+            (club_id,),
+        )
+    before = _counts()
+    assert admin_client.post(f"/api/admin/import/publishes/{pub['id']}/rollback").status_code == 409
+    assert _counts() == before
+    with db_engine.connect() as conn:
+        assert conn.exec_driver_sql("SELECT club_id FROM push_subscriptions").scalar() == club_id
+
+
+def test_prune_rollback_restores_cascaded_exception_and_links(admin_client):
+    ds = dataset()
+    original = ds["clubs"][0]["sessions"][0]
+    original["rooms"].append(ds["rooms"][1])
+    original["leaders"] = ["Сидорова Анна"]
+    assert admin_client.post("/api/admin/import/publish", json=ds).status_code == 200
+    with db_engine.connect() as conn:
+        sid = conn.exec_driver_sql("SELECT id FROM sessions WHERE start_time = '10:00'").scalar_one()
+    _post(admin_client, "/api/admin/exceptions/cancellations", {
+        "session_id": sid, "original_date": "2026-11-02", "type": "cancelled",
+    })
+    original["start"] = "09:00"
+    published = admin_client.post("/api/admin/import/publish", json=ds)
+    assert published.status_code == 200, published.text
+    with db_engine.connect() as conn:
+        assert not conn.exec_driver_sql("SELECT id FROM session_exceptions WHERE session_id = ?", (sid,)).all()
+    pub_id = published.json()["publish"]["id"]
+    undo = admin_client.post(f"/api/admin/import/publishes/{pub_id}/rollback")
+    assert undo.status_code == 200, undo.text
+    with db_engine.connect() as conn:
+        assert conn.exec_driver_sql("SELECT start_time FROM sessions WHERE id = ?", (sid,)).scalar_one() == "10:00"
+        assert conn.exec_driver_sql("SELECT count(*) FROM session_rooms WHERE session_id = ?", (sid,)).scalar_one() == 2
+        assert conn.exec_driver_sql("SELECT count(*) FROM session_leaders WHERE session_id = ?", (sid,)).scalar_one() == 1
+        assert conn.exec_driver_sql("SELECT type FROM session_exceptions WHERE session_id = ?", (sid,)).scalar_one() == "cancelled"

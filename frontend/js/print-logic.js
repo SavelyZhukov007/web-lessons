@@ -1,9 +1,8 @@
 // Логика печатной версии расписания (print.html) без DOM — покрыта node-тестами.
-import { addDays, dateKey, minutes, monday, parseDate } from './schedule-dates.js';
+import { addDays, dateKey, minutes, parseDate, scheduleLocation, movedFromSlot } from './schedule-dates.js';
 
 export const PRINT_DAYS = 6; // как на главном экране: Пн–Сб
-export const WEEK_MIN = '2000-01-03';
-export const WEEK_MAX = '2100-12-27';
+export { WEEK_MIN, WEEK_MAX } from './schedule-dates.js';
 export const STATUS_NAMES = { scheduled: 'По расписанию', moved: 'Перенесено', cancelled: 'Отменено' };
 
 const TIME = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
@@ -14,11 +13,9 @@ export function dateHuman(date) {
 
 /** Неделя из ?week=YYYY-MM-DD (любой день → понедельник); без параметра или вне диапазона — текущая. */
 export function weekFromQuery(search, today) {
-  const raw = new URLSearchParams(search || '').get('week');
-  const parsed = raw ? parseDate(raw) : null;
-  const start = monday(parsed || today);
-  const key = dateKey(start);
-  return key < WEEK_MIN || key > WEEK_MAX ? monday(today) : start;
+  const params = new URLSearchParams(search);
+  params.delete('day');
+  return scheduleLocation(params, today).week;
 }
 
 export function weekRange(weekStart) {
@@ -54,7 +51,7 @@ export function normalizeEvent(event) {
   };
 }
 
-/** Строки печати по дням недели: перенесённые в другую неделю стоят в исходном слоте с пометкой «Перенесено на …». */
+/** Строки печати по дням недели: перенесённые занятия стоят также в исходном слоте с пометкой «Перенесено на …». */
 export function buildPrintDays(data, weekStart) {
   const { start, end } = weekRange(weekStart);
   const first = dateKey(start), last = dateKey(end);
@@ -66,12 +63,14 @@ export function buildPrintDays(data, weekStart) {
     if (inWeek(e.date)) {
       let note = '';
       if (e.status === 'cancelled') note = STATUS_NAMES.cancelled;
-      else if (e.status === 'moved' && e.originalDate && e.originalDate !== e.date) note = `Перенесено с ${dateHuman(parseDate(e.originalDate))}`;
+      else if (movedFromSlot(raw)) note = `Перенесено с ${dateHuman(parseDate(e.originalDate))}${e.originalStart ? `, ${e.originalStart}` : ''}`;
       else if (e.status === 'moved') note = STATUS_NAMES.moved;
       rows.push({ ...e, slotDate: e.date, slotStart: e.start, slotEnd: e.end, note, ghost: false });
-    } else if (e.status === 'moved' && e.originalDate && inWeek(e.originalDate)) {
+    }
+    if (movedFromSlot(raw) && inWeek(e.originalDate)) {
       rows.push({
         ...e, slotDate: e.originalDate, slotStart: e.originalStart || e.start, slotEnd: e.originalEnd || e.end,
+        rooms: names(raw.original_room_names, e.rooms, 'Аудитория не указана'),
         note: `Перенесено на ${dateHuman(parseDate(e.date))}, ${e.start}`, ghost: true,
       });
     }

@@ -92,6 +92,7 @@ def latest_release() -> dict | None:
         "versionCode": _int(meta.get("versionCode")),
         "changelog": [str(x) for x in meta.get("changelog") or [] if str(x).strip()][:20] if isinstance(meta.get("changelog"), list) else [],
         "minSupported": _int(meta.get("minSupported")),
+        "announcement": meta.get("announcement"),
         "updated": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(timespec="seconds"),
     }
 

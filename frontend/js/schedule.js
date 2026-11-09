@@ -1,24 +1,16 @@
-import { getSchedule, getCategories, getLeaders, getRooms } from './api.js';
-import { DAY_NAMES, DAY_SHORT, parseDate, dateKey, addDays, monday, moscowToday, formatDate, minutes, eventGroups } from './schedule-dates.js';
+import { DAY_NAMES, parseDate, dateKey, addDays, formatDate, minutes, eventGroups, scheduleLocation, movedFromSlot } from './schedule-dates.js';
+import { currentStudyDay, mountScheduleUi } from './schedule-ui.js';
+import { eventShareControls } from './schedule-share.js';
 import { clubColor } from './event-colors.js';
 import { icon } from './icons.js';
 import { eventRoom } from './public-display.js';
-import { latestRequest } from './latest-request.js';
 import { runCascade } from './skeleton-cascade.js';
 
 const $ = selector => document.querySelector(selector);
 const content = $('#content');
 const mobile = window.matchMedia('(max-width: 999px)');
-const today = moscowToday();
-// Те же границы, что у API (понедельники недель): иначе сервер ответит 422
-const WEEK_MIN = '2000-01-03';
-const WEEK_MAX = '2100-12-27';
-const state = { week: monday(today), day: Math.min((today.getDay() + 6) % 7, 5), view: 'grid', filtersOpen: false, events: [], phase: 'loading', error: '' };
-const fields = { search: $('#search'), category_id: $('#category'), weekday: $('#weekday'), leader_id: $('#leader'), room_id: $('#room') };
+const state = { ...scheduleLocation(location.search, currentStudyDay()), view: 'grid', events: [], phase: 'loading', error: '' };
 const statusNames = { scheduled: 'По расписанию', moved: 'Перенос', cancelled: 'Отменено' };
-const scheduleRequest = latestRequest();
-let searchTimer;
-let referencesId = 0;
 const rooms = new Map();
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let activeCascade = null;
@@ -30,69 +22,14 @@ function node(tag, className, text) {
   return item;
 }
 
-function filters() {
-  return Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value.trim()]));
-}
-
-function hasFilters() { return Object.values(filters()).some(Boolean); }
-
-function visibleDays() { return fields.weekday.value ? [Number(fields.weekday.value) - 1] : [0, 1, 2, 3, 4, 5]; }
-
-function rangeLabel() {
-  const end = addDays(state.week, 5);
-  const startLabel = state.week.getMonth() === end.getMonth() ? String(state.week.getDate()) : formatDate(state.week);
-  return `${startLabel} — ${formatDate(end)}`;
-}
-
-function updateControls() {
-  $('#filter-options').hidden = mobile.matches && !state.filtersOpen;
-  $('#toggle-filters').setAttribute('aria-expanded', String(state.filtersOpen));
-  const filterCount = Object.entries(filters()).filter(([key, value]) => key !== 'search' && value).length;
-  $('#toggle-filters span').textContent = `${state.filtersOpen ? 'Скрыть' : 'Фильтры'}${filterCount ? ` · ${filterCount}` : ''}`;
-  $('#week-label').textContent = rangeLabel();
-  const end = addDays(state.week, 5);
-  $('#week-year').textContent = state.week.getFullYear() === end.getFullYear() ? String(state.week.getFullYear()) : `${state.week.getFullYear()} / ${end.getFullYear()}`;
-  $('#week-date').value = dateKey(addDays(state.week, state.day));
-  const printLink = $('#print-week');
-  if (printLink) printLink.href = `/print.html?week=${dateKey(state.week)}`; // печатная версия той же недели (Пн–Сб)
-  $('#prev-week').disabled = dateKey(addDays(state.week, -7)) < WEEK_MIN;
-  $('#next-week').disabled = dateKey(addDays(state.week, 7)) > WEEK_MAX;
-  $('#prev-day').disabled = state.day === 0 && $('#prev-week').disabled;
-  $('#next-day').disabled = state.day === 5 && $('#next-week').disabled;
-  $('#selected-day-label').textContent = `${DAY_NAMES[state.day]}, ${formatDate(addDays(state.week, state.day))}`;
-  $('#view-grid').setAttribute('aria-pressed', String(state.view === 'grid'));
-  $('#view-list').setAttribute('aria-pressed', String(state.view === 'list'));
-  // Сохраняем кнопки в DOM: фокус клавиатуры не теряется при выборе дня.
-  for (const [index, button] of [...$('#day-buttons').children].entries()) {
-    const date = addDays(state.week, index);
-    button.replaceChildren(node('span', '', DAY_SHORT[index]), node('strong', '', String(date.getDate())));
-    button.setAttribute('aria-label', `${DAY_NAMES[index]}, ${formatDate(date)}`);
-    button.setAttribute('aria-pressed', String(state.day === index));
-    button.classList.toggle('is-today', dateKey(date) === dateKey(today));
-  }
-}
-
-function safeEvents(data) {
-  const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-  if (!Array.isArray(data) || data.some(event => !event || typeof event.event_id !== 'string'
-    || !Number.isInteger(event.club_id) || event.club_id <= 0 || !parseDate(event.date)
-    || !timePattern.test(event.start_time) || !timePattern.test(event.end_time)
-    || minutes(event.start_time) >= minutes(event.end_time)
-    || !['club_name', 'leader_name', 'room_name', 'category_name'].every(key => typeof event[key] === 'string')
-    || !Object.hasOwn(statusNames, event.status))) {
-    throw new Error('Сервер вернул расписание в неожиданном формате. Попробуй обновить данные.');
-  }
-  const first = dateKey(state.week);
-  const last = dateKey(addDays(state.week, 5));
-  // перенесённое на другую неделю занятие остаётся: в старом слоте рисуется «Перенесено»
-  return data.filter(event => (event.date >= first && event.date <= last)
-    || (event.status === 'moved' && event.original_date >= first && event.original_date <= last));
+function visibleDays() {
+  const weekday = $('#weekday').value;
+  return weekday ? [Number(weekday) - 1] : [0, 1, 2, 3, 4, 5];
 }
 
 // «Перенесено»: перенесённое занятие оставляет в старом слоте приглушённую карточку со ссылкой «Актуальное время»
 function ghostEvents(events) {
-  return events.filter(e => e.status === 'moved' && parseDate(e.original_date)
-    && (e.date !== e.original_date || (e.original_start_time && e.original_start_time !== e.start_time)))
+  return events.filter(movedFromSlot)
     .map(e => ({ ...e, ghost: true, moved: e, date: e.original_date,
       start_time: e.original_start_time || e.start_time, end_time: e.original_end_time || e.end_time }));
 }
@@ -106,122 +43,9 @@ function ghostCard(ghost, compact = false) {
   time.append(node('s', '', `${ghost.start_time}–${ghost.end_time}`));
   const go = node('button', 'itc-ghost-link', `Актуальное время: ${formatDate(nd, { weekday: 'short', day: 'numeric', month: 'long' })}, ${e.start_time}`);
   go.type = 'button';
-  go.addEventListener('click', () => jumpTo(e));
+  go.addEventListener('click', () => ui.jumpTo(e));
   box.append(time, node('strong', 'event-name', e.club_name), node('span', 'event-badge', 'Перенесено'), go);
   return box;
-}
-
-let pendingJump = null;
-function jumpTo(e) {
-  const nd = parseDate(e.date);
-  state.day = Math.min((nd.getDay() + 6) % 7, 5);
-  if (fields.weekday.value) fields.weekday.value = String(state.day + 1);
-  pendingJump = e.event_id;
-  if (dateKey(monday(nd)) === dateKey(state.week)) { render(); flashPending(); } else showWeek(nd);
-}
-function flashPending() {
-  if (!pendingJump) return;
-  const el = [...content.querySelectorAll('.calendar-event[data-event-id]')].find(x => x.dataset.eventId === pendingJump);
-  if (!el) return;
-  pendingJump = null;
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  el.focus({ preventScroll: true });
-  el.classList.add('itc-flash');
-  setTimeout(() => el.classList.remove('itc-flash'), 1800);
-}
-
-async function loadSchedule() {
-  clearTimeout(searchTimer);
-  const request = scheduleRequest.begin();
-  state.phase = 'loading';
-  state.events = [];
-  render();
-  try {
-    const data = await getSchedule(dateKey(state.week), filters(), { signal: request.signal });
-    if (!request.isCurrent()) return;
-    state.events = safeEvents(data);
-    state.phase = 'ready';
-  } catch (error) {
-    if (!request.isCurrent() || error.name === 'AbortError') return;
-    state.phase = 'error';
-    state.error = error.message;
-  }
-  render();
-}
-
-function scheduleSearch() {
-  // Отменяем старый запрос сразу, ещё до задержки поиска.
-  scheduleRequest.cancel();
-  clearTimeout(searchTimer);
-  state.phase = 'loading';
-  state.events = [];
-  render();
-  searchTimer = setTimeout(loadSchedule, 250);
-}
-
-async function loadReferences() {
-  const id = ++referencesId;
-  const definitions = [
-    ['category_id', getCategories, 'направлений'],
-    ['leader_id', getLeaders, 'руководителей'],
-    ['room_id', getRooms, 'аудиторий'],
-  ];
-  $('#retry-references').disabled = true;
-  const results = await Promise.allSettled(definitions.map(([, get]) => get()));
-  if (id !== referencesId) return;
-  const failed = [];
-  results.forEach((result, index) => {
-    const [key, , title] = definitions[index];
-    const select = fields[key];
-    const data = result.status === 'fulfilled' ? result.value : null;
-    if (!Array.isArray(data) || data.some(item => !Number.isInteger(item.id) || item.id <= 0 || typeof item.name !== 'string')) {
-      failed.push(title);
-      return;
-    }
-    if (key === 'room_id') { rooms.clear(); for (const room of data) rooms.set(room.id, room); }
-    const selected = select.value;
-    select.replaceChildren(select.options[0]);
-    for (const item of data) {
-      const option = node('option', '', key === 'room_id' && item.building ? `${item.name} · ${item.building}` : item.name);
-      option.value = String(item.id);
-      select.append(option);
-    }
-    select.value = selected;
-    select.disabled = false;
-  });
-  $('#reference-error').hidden = failed.length === 0;
-  $('#reference-error span').textContent = `Не удалось загрузить список ${failed.join(', ')}. Доступные фильтры продолжают работать.`;
-  $('#retry-references').disabled = false;
-  if (state.phase === 'ready') render();
-}
-
-function showWeek(date) {
-  const week = monday(date);
-  if (dateKey(week) < WEEK_MIN || dateKey(week) > WEEK_MAX) return;
-  state.week = week;
-  loadSchedule();
-}
-
-function selectDay(day) {
-  state.day = day;
-  if (fields.weekday.value) {
-    fields.weekday.value = String(day + 1);
-    loadSchedule();
-  } else render();
-}
-
-function shiftDay(delta) {
-  const next = state.day + delta;
-  state.day = (next + 6) % 6;
-  if (fields.weekday.value) fields.weekday.value = String(state.day + 1);
-  if (next < 0 || next > 5) showWeek(addDays(state.week, delta * 7));
-  else if (fields.weekday.value) loadSchedule();
-  else render();
-}
-
-function resetFilters() {
-  for (const input of Object.values(fields)) input.value = '';
-  loadSchedule();
 }
 
 function details(event) {
@@ -243,8 +67,8 @@ function details(event) {
   const link = node('a', 'club-link', 'О кружке');
   link.append(icon('arrow'));
   link.href = `/club.html?id=${event.club_id}`;
-  target.append(link);
-  $('#event-dialog').showModal();
+  target.append(eventShareControls(event, link));
+  if (!$('#event-dialog').open) $('#event-dialog').showModal();
 }
 
 function eventCard(event, compact = false) {
@@ -406,7 +230,8 @@ function renderGrid(events, days, { skeleton = false } = {}) {
   for (const day of days) {
     const date = addDays(state.week, day);
     const heading = node('div', 'grid-day-heading');
-    heading.classList.toggle('is-today', dateKey(date) === dateKey(today));
+    heading.classList.toggle('is-today', dateKey(date) === dateKey(currentStudyDay()));
+    if (day === state.day && new URLSearchParams(location.search).has('day')) heading.setAttribute('aria-current', 'date');
     heading.append(node('span', '', DAY_NAMES[day]), node('strong', '', String(date.getDate())));
     headings.append(heading);
   }
@@ -425,7 +250,7 @@ function renderGrid(events, days, { skeleton = false } = {}) {
     track.setAttribute('role', 'group');
     track.setAttribute('aria-label', `${DAY_NAMES[day]}, ${formatDate(date)}`);
     track.style.height = `${height}px`;
-    track.classList.toggle('is-today', dateKey(date) === dateKey(today));
+    track.classList.toggle('is-today', dateKey(date) === dateKey(currentStudyDay()));
     const daily = events.filter(event => event.date === dateKey(date));
     if (daily.length === 0 && !skeleton) track.append(node('span', 'track-empty', 'Нет занятий'));
     for (const group of eventGroups(daily)) {
@@ -443,8 +268,8 @@ function renderGrid(events, days, { skeleton = false } = {}) {
   content.append(grid);
 }
 
-function render() {
-  updateControls();
+function render(direction = 0) {
+  ui.updateControls();
   activeCascade?.cancel();
   const leaving = state.phase !== 'loading' ? detachSkeleton() : null;
   content.replaceChildren();
@@ -455,12 +280,17 @@ function render() {
     return;
   }
   try { renderContent(); } finally { if (leaving) startCascade(leaving); }
+  const animation = direction && mobile.matches && !reducedMotion.matches && content.firstElementChild?.animate?.(
+    [{ opacity: .45, transform: 'translateX(' + direction * 14 + 'px)' }, { opacity: 1, transform: 'none' }],
+    { duration: 190, easing: 'ease-out' });
+  ui.focusPending(content, animation);
+
 }
 
 function renderContent() {
   if (state.phase === 'error') {
     $('#result-status').textContent = 'Расписание не загружено';
-    content.append(emptyState('Не получилось загрузить расписание', state.error, { label: 'Повторить попытку', run: loadSchedule }));
+    content.append(emptyState('Не получилось загрузить расписание', state.error, { label: 'Повторить попытку', run: () => ui.load({ refresh: true }) }));
     return;
   }
   const days = mobile.matches ? [state.day] : visibleDays();
@@ -469,52 +299,25 @@ function renderContent() {
   const events = real.concat(inDays(ghostEvents(state.events)));
   const active = real.filter(event => event.status !== 'cancelled').length;
   const cancelled = real.length - active;
-  $('#result-status').textContent = `${mobile.matches ? 'За день' : 'За выбранные дни'}: ${active} · отменено: ${cancelled}${hasFilters() ? ' · фильтры включены' : ''}`;
+  $('#result-status').textContent = `${mobile.matches ? DAY_NAMES[state.day] : 'За выбранные дни'}: ${active} · отменено: ${cancelled}${ui.hasFilters() ? ' · фильтры включены' : ''}`;
   if (events.length === 0) {
-    content.append(emptyState(hasFilters() ? 'Ничего не нашлось' : 'Занятий пока нет', hasFilters() ? 'Попробуй другое сочетание фильтров или сбрось их.' : 'Выбери другой день или неделю. Здесь появятся занятия, добавленные в расписание.', hasFilters() ? { label: 'Сбросить фильтры', run: resetFilters } : undefined));
+    const label = mobile.matches ? ` · ${DAY_NAMES[state.day]}, ${formatDate(addDays(state.week, state.day))}` : '';
+    const title = (ui.hasFilters() ? 'Ничего не нашлось' : 'Занятий пока нет') + label;
+    const help = ui.hasFilters()
+      ? (mobile.matches ? 'Выбери другой день или поменяй фильтры.' : 'Попробуй другое сочетание фильтров или сбрось их.')
+      : 'Выбери другой день или неделю. Здесь появятся занятия, добавленные в расписание.';
+    content.append(emptyState(title, help, ui.hasFilters() ? { label: 'Сбросить фильтры', run: () => $('#reset-filters').click() } : undefined));
   } else if (mobile.matches || state.view === 'list') renderList(events, days);
   else renderGrid(events, days);
-  flashPending();
 }
 
-for (let day = 0; day < 6; day++) {
-  const button = node('button');
-  button.type = 'button';
-  button.addEventListener('click', () => selectDay(day));
-  $('#day-buttons').append(button);
-}
-$('#prev-week').addEventListener('click', () => showWeek(addDays(state.week, -7)));
-$('#next-week').addEventListener('click', () => showWeek(addDays(state.week, 7)));
-$('#prev-day').addEventListener('click', () => shiftDay(-1));
-$('#next-day').addEventListener('click', () => shiftDay(1));
-$('#today').addEventListener('click', () => {
-  const current = moscowToday();
-  state.day = Math.min((current.getDay() + 6) % 7, 5);
-  if (fields.weekday.value) fields.weekday.value = String(state.day + 1);
-  showWeek(current);
+const ui = mountScheduleUi({
+  state, render, dayView: () => mobile.matches,
+  onRooms(data) { rooms.clear(); for (const room of data) rooms.set(room.id, room); },
 });
-$('#week-date').addEventListener('change', event => {
-  const date = parseDate(event.target.value);
-  if (!date || !event.target.validity.valid) { updateControls(); return; }
-  state.day = Math.min((date.getDay() + 6) % 7, 5);
-  if (fields.weekday.value) fields.weekday.value = String(state.day + 1);
-  showWeek(date);
-});
-for (const view of ['grid', 'list']) $(`#view-${view}`).addEventListener('click', () => { state.view = view; render(); });
-$('#schedule-filters').addEventListener('submit', event => { event.preventDefault(); loadSchedule(); });
-fields.search.addEventListener('input', scheduleSearch);
-for (const [key, field] of Object.entries(fields)) {
-  if (key === 'search') continue;
-  field.addEventListener('change', () => {
-    if (key === 'weekday' && field.value) state.day = Number(field.value) - 1;
-    loadSchedule();
-  });
+for (const view of ['grid', 'list']) {
+  $(`#view-${view}`).addEventListener('click', () => { state.view = view; render(); });
 }
-$('#reset-filters').addEventListener('click', resetFilters);
-$('#toggle-filters').addEventListener('click', () => { state.filtersOpen = !state.filtersOpen; updateControls(); });
-$('#retry-references').addEventListener('click', loadReferences);
-$('#close-event').addEventListener('click', () => $('#event-dialog').close());
-mobile.addEventListener('change', render);
-for (const key of ['category_id', 'leader_id', 'room_id']) fields[key].disabled = true;
-loadReferences();
-loadSchedule();
+mobile.addEventListener('change', () => render());
+ui.loadReferences();
+ui.load();

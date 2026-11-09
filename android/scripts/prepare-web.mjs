@@ -61,7 +61,7 @@ const ver = readVersion('android'); // номер — общий ../version.json
 const UPDATE_URL = (process.env.APP_UPDATE_URL || '').trim();
 writeFileSync(join(out, 'js', 'app-splash.js'), readFileSync(join(root, 'shim', 'app-splash.js'), 'utf8').replace('%%VERSION%%', ver.versionName));
 writeFileSync(join(out, 'js', 'app-update.js'), readFileSync(join(root, 'shim', 'app-update.js'), 'utf8').replace("'%%UPDATE_URL%%'", JSON.stringify(UPDATE_URL)));
-for (const f of ['app-schedule.js', 'app-admin.js', 'app-student.js', 'app-extras.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));
+for (const f of ['app-schedule.js', 'app-schedule-filters.js', 'app-admin.js', 'app-student.js', 'app-extras.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));
 for (const f of ['app-schedule.css', 'app-splash.css', 'app-student.css']) cpSync(join(root, 'shim', f), join(out, 'css', f));
 { // передний слой адаптивной иконки (как у системного сплэша); нет бренда — maskable-иконка сайта
   const fg = [process.env.BRAND_ANDROID_DIR && join(process.env.BRAND_ANDROID_DIR, 'res', 'mipmap-xxxhdpi', 'ic_launcher_foreground.png'),
@@ -107,6 +107,7 @@ const stripPwa = html => html
     let next = html.replace(/<head[^>]*>/i, m => `${m}\n    ${tags}`);
     if (name !== 'settings.html') next = next.replace(/<body[^>]*>/i, m => `${m}\n    ${SPLASH_HTML}`);
     if (name === 'index.html' && dir === out) {
+      next = next.replace('</body>', '<script type="module">import { startReleaseNotes } from "/js/release-notes.js"; startReleaseNotes();</script></body>');
       next = next.replace('<script type="module" src="/js/schedule.js"></script>', '<script type="module" src="/js/app-schedule.js"></script>')
         .replace('</head>', `    ${SCHEDULE_HEAD}\n</head>`);
     }

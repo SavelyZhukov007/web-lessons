@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="description" content="Расписание кружков КИПФИН: занятия, руководители, аудитории, отмены и переносы.">
     <title>Расписание — KipClub</title>
     <meta name="color-scheme" content="light dark">
@@ -23,24 +23,33 @@
     <link rel="stylesheet" href="/css/schedule.css?v=kc13">
     <link rel="stylesheet" href="/css/components.css">
     <link rel="stylesheet" href="/css/platform.css">
+    <link rel="stylesheet" href="/css/schedule-controls.css">
 </head>
 
 <body class="campus-page schedule-page">
     <a class="skip-link" href="#schedule-main">К содержимому</a>
     <header class="campus-header">
         <a class="campus-brand" href="/" aria-label="KipClub — главная"><span class="brand-mark" aria-hidden="true"></span><span>KipClub</span></a>
-        <nav aria-label="Основная навигация">
-            <a href="/" aria-current="page">Расписание</a>
-            <a href="/clubs.html">Все кружки</a>
-        </nav>
+        <h1 class="schedule-title">Расписание</h1>
         <a class="staff-link" href="/admin/login.html">Вход для сотрудников</a>
     </header>
     <main id="schedule-main" tabindex="-1">
-        <div class="page-command">
-            <h1>Расписание</h1>
+        <form id="schedule-filters" role="search" aria-label="Поиск по расписанию">
+            <label class="search-field"><span class="visually-hidden">Поиск по расписанию</span><span class="search-input"><svg
+                        class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m20 20-4.5-4.5 M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0" />
+                    </svg><input id="search" type="search" maxlength="200" data-schedule-search
+                        placeholder="Кружок, руководитель, аудитория" autocomplete="off" enterkeyhint="search"
+                        aria-controls="schedule-search-view"></span></label>
+            <button id="search-exit" class="glass-action" type="button" aria-label="Закрыть поиск" hidden>Закрыть</button>
+        </form>
+        <div id="schedule-stage">
+          <div id="schedule-overview">
+            <div class="page-command">
             <div class="week-toolbar">
                 <div class="week-navigation">
-                    <button id="prev-week" class="icon-button" type="button" aria-label="Предыдущая неделя"><svg
+                    <button id="prev-week" class="icon-button glass-action" type="button" aria-label="Предыдущая неделя"><svg
                             class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="m14 6-6 6 6 6" />
@@ -49,43 +58,40 @@
                         <h2 id="week-label">Расписание недели</h2>
                         <p id="week-year"></p>
                     </div>
-                    <button id="next-week" class="icon-button" type="button" aria-label="Следующая неделя"><svg
+                    <button id="next-week" class="icon-button glass-action" type="button" aria-label="Следующая неделя"><svg
                             class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="m10 6 6 6-6 6" />
                         </svg></button>
                 </div>
                 <div class="week-actions">
-                    <button id="today" type="button">Текущая неделя</button>
-                    <label class="date-picker"><span class="visually-hidden">Перейти к дате</span><input id="week-date"
-                            type="date" min="2000-01-03" max="2100-12-31"></label>
+                    <label class="date-picker glass-action" title="Перейти к дате"><span class="visually-hidden">Перейти к дате</span><svg
+                            class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3.5" y="5.5" width="17" height="15" rx="2" /><path d="M7.5 3.5v4m9-4v4M4 10h16" />
+                        </svg><input id="week-date" type="date" min="2000-01-03" max="2100-12-31"></label>
                     <a id="print-week" class="print-week-link" href="/print.html" target="_blank" rel="noopener">Печать</a>
                 </div>
             </div>
-            <div class="desktop-view" role="group" aria-label="Вид расписания">
+            <div class="desktop-view glass-tabs" role="group" aria-label="Вид расписания">
                 <button id="view-grid" type="button" aria-pressed="true">Неделя</button>
                 <button id="view-list" type="button" aria-pressed="false">Список</button>
             </div>
-        </div>
-        <div class="schedule-controls" aria-label="Управление расписанием">
-            <form id="schedule-filters" role="search" aria-label="Фильтры расписания">
-                <label class="search-field"><span class="visually-hidden">Поиск</span><span class="search-input"><svg
-                            class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
-                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="m20 20-4.5-4.5 M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0" />
-                        </svg><input id="search" type="search" maxlength="200"
-                            placeholder="Поиск" title="Кружок, руководитель или аудитория" autocomplete="off"></span></label>
-                <button id="toggle-filters" class="mobile-filter-toggle" type="button" aria-expanded="false"
+            </div>
+            <div id="schedule-actions" class="schedule-actions" aria-label="Управление расписанием">
+                <button id="toggle-filters" class="glass-action glass-trigger" type="button" aria-expanded="false"
                     aria-controls="filter-options" aria-label="Фильтры"><svg class="ui-icon " viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
                         aria-hidden="true">
                         <path d="M4 7h16M4 17h16M8 4v6M16 14v6" />
                     </svg><span>Фильтры</span></button>
-                <div id="filter-options" class="filter-options">
-                    <label>Направление<select id="category">
+                <button id="today" class="glass-action" type="button" hidden>Сегодня</button>
+            </div>
+            <div id="filter-options" class="filter-options glass-surface" hidden>
+                    <label>Направление<select id="category" class="glass-select">
                             <option value="">Все направления</option>
                         </select></label>
-                    <label>День<select id="weekday">
+                    <label>День<select id="weekday" class="glass-select">
                             <option value="">Все дни</option>
                             <option value="1">Понедельник</option>
                             <option value="2">Вторник</option>
@@ -94,39 +100,40 @@
                             <option value="5">Пятница</option>
                             <option value="6">Суббота</option>
                         </select></label>
-                    <label>Руководитель<select id="leader">
+                    <label>Руководитель<select id="leader" class="glass-select">
                             <option value="">Все руководители</option>
                         </select></label>
-                    <label>Аудитория<select id="room">
+                    <label>Аудитория<select id="room" class="glass-select">
                             <option value="">Все аудитории</option>
                         </select></label>
                     <button id="reset-filters" class="text-button" type="button">Сбросить</button>
-                </div>
-            </form>
+            </div>
+            <div id="filter-chips" class="filter-chips" aria-label="Активные фильтры" hidden></div>
+            <div id="my-next" class="my-next" hidden></div>
             <div id="reference-error" class="reference-error" role="status" hidden><span></span><button
                     id="retry-references" type="button">Повторить загрузку фильтров</button></div>
-        </div>
-        <div class="mobile-days">
-            <div id="day-buttons" role="group" aria-label="Дни выбранной недели"></div>
-            <div class="day-navigation">
-                <button id="prev-day" class="icon-button" type="button" aria-label="Предыдущий учебный день"><svg
-                        class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
-                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="m14 6-6 6 6 6" />
-                    </svg></button>
-                <h2 id="selected-day-label"></h2>
-                <button id="next-day" class="icon-button" type="button" aria-label="Следующий учебный день"><svg
-                        class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
-                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="m10 6 6 6-6 6" />
-                    </svg></button>
+            <div class="mobile-days glass-surface">
+                <div id="day-buttons" class="glass-tabs" role="group" aria-label="Учебные дни"></div>
             </div>
+            <div class="schedule-caption">
+                <h2 id="selected-day-label" class="visually-hidden">Расписание занятий</h2>
+                <p id="result-status" role="status" aria-live="polite" aria-atomic="true"></p>
+            </div>
+            <div id="content" class="schedule-content" aria-busy="true"></div>
+          </div>
+          <section id="schedule-search-view" aria-labelledby="schedule-search-title" hidden>
+            <div class="search-heading">
+                <h2 id="schedule-search-title">Поиск по расписанию</h2>
+                <a class="glass-action search-catalog" href="/clubs.html">Все кружки</a>
+            </div>
+            <div id="search-scope" class="glass-tabs" role="group" aria-label="Период поиска">
+                <button type="button" data-search-scope="day" aria-pressed="true">Этот день</button>
+                <button type="button" data-search-scope="week" aria-pressed="false">Вся неделя</button>
+            </div>
+            <p id="search-status" role="status" aria-live="polite"></p>
+            <div id="search-results"></div>
+          </section>
         </div>
-        <div class="schedule-caption">
-            <h2 class="visually-hidden">Расписание занятий</h2>
-            <p id="result-status" role="status" aria-live="polite" aria-atomic="true"></p>
-        </div>
-        <div id="content" class="schedule-content" aria-busy="true"></div>
         <noscript>
             <p class="schedule-notice">Для просмотра расписания включи JavaScript в браузере.</p>
         </noscript>

@@ -116,10 +116,6 @@
     padding-left: 38px;
 }
 
-.campus-page .mobile-filter-toggle {
-    display: none;
-}
-
 .reference-error,
 .schedule-notice {
     border-left: 3px solid var(--accent);
@@ -722,113 +718,6 @@
     #schedule-filters {
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 12px;
-    }
-
-    .campus-page .mobile-filter-toggle {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 9px;
-        font-size: calc(13px * var(--text-scale, 1));
-        padding: 10px 12px;
-    }
-
-    .filter-options {
-        grid-column: 1 / -1;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
-        padding: 18px 0;
-        border-bottom: 1px solid var(--line);
-    }
-
-    #reset-filters {
-        grid-column: 1 / -1;
-        justify-self: start;
-    }
-
-    .mobile-days {
-        display: block;
-        margin-top: 24px;
-    }
-
-    #day-buttons {
-        display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-        border-top: 1px solid var(--line);
-        border-bottom: 1px solid var(--line);
-    }
-
-    .campus-page #day-buttons button {
-        position: relative;
-        border: 0;
-        border-right: 1px solid var(--line);
-        border-radius: 0;
-        display: grid;
-        justify-items: center;
-        gap: 4px;
-        padding: 12px 2px;
-        min-height: 69px;
-    }
-
-    #day-buttons button:first-child {
-        border-left: 1px solid var(--line);
-    }
-
-    #day-buttons span {
-        font-size: calc(11px * var(--text-scale, 1));
-        color: var(--muted);
-    }
-
-    #day-buttons strong {
-        font-size: calc(21px * var(--text-scale, 1));
-        font-weight: 450;
-        font-variant-numeric: tabular-nums;
-        line-height: 1.2;
-    }
-
-    #day-buttons .is-today strong,
-    #day-buttons .is-today span {
-        color: var(--accent);
-    }
-
-    #day-buttons [aria-pressed="true"]::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 3px;
-        background: var(--ink);
-    }
-
-    #day-buttons .is-today[aria-pressed="true"]::after {
-        background: var(--accent);
-    }
-
-    #day-buttons [aria-pressed="true"] {
-        background: var(--quiet);
-    }
-
-    .day-navigation {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        margin: 22px 0 0;
-    }
-
-    .day-navigation h2 {
-        font-size: calc(20px * var(--text-scale, 1));
-        font-weight: 550;
-        letter-spacing: -.035em;
-        margin: 0;
-    }
-
-    .campus-page .day-navigation button {
-        width: 30px;
-        border: 0;
-        padding: 0;
     }
 
     .schedule-caption {

@@ -333,7 +333,7 @@
 @media (max-width: 1199px) {
 
     .campus-header,
-.campus-page main {
+    .campus-page main {
         padding-left: max(24px, var(--safe-left, 0px));
         padding-right: max(24px, var(--safe-right, 0px));
     }
@@ -346,7 +346,7 @@
 @media (max-width: 599px) {
 
     .campus-header,
-.campus-page main {
+    .campus-page main {
         padding-left: max(18px, var(--safe-left, 0px));
         padding-right: max(18px, var(--safe-right, 0px));
     }
@@ -438,6 +438,7 @@
     place-content: center;
     text-align: center;
 }
+
 /* 320–400 px: «Программирование» целиком не помещается при 8vw — уменьшаем и разрешаем перенос как крайнюю меру */
 @media (max-width: 400px) {
     .public-title h1 {
@@ -453,31 +454,86 @@
     height: calc(28px * var(--text-scale, 1));
     flex: none;
 }
-.campus-brand .brand-mark + span + small { margin-left: 6px; }
+
+.campus-brand .brand-mark+span+small {
+    margin-left: 6px;
+}
 
 .app-update-notice {
-    position: fixed; z-index: 2147482600;
-    top: max(8px, env(safe-area-inset-top, 0px)); left: 12px; right: 12px;
-    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
-    padding: 12px 16px; background: var(--surface-1); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+    position: fixed;
+    z-index: 2147482600;
+    top: max(8px, env(safe-area-inset-top, 0px));
+    left: 12px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface-1);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
 }
-.app-update-notice[hidden] { display: none; }
-.app-update-notice span { flex: 1 1 220px; }
-.change-room { display: block; font-weight: 600; }
-.detail-content, .detail-content > *, .club-card { min-width: 0; overflow-wrap: anywhere; }
+
+.app-update-notice[hidden] {
+    display: none;
+}
+
+.app-update-notice span {
+    flex: 1 1 220px;
+}
+
+.change-room {
+    display: block;
+    font-weight: 600;
+}
+
+.detail-content,
+.detail-content>*,
+.club-card {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 @media (max-width: 599px) {
-    .schedule-page .page-command { gap: 12px; margin-bottom: 14px; }
-    .schedule-page .page-command > h1 { font-size: calc(28px * var(--text-scale, 1)); margin: 0; }
-    .schedule-page .week-toolbar { gap: 10px; }
-    .schedule-page .mobile-days { margin-top: 12px; }
-    .schedule-page .week-actions { gap: 8px; }
+    .schedule-page .page-command {
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .schedule-page .page-command>h1 {
+        font-size: calc(28px * var(--text-scale, 1));
+        margin: 0;
+    }
+
+    .schedule-page .week-toolbar {
+        gap: 10px;
+    }
+
+    .schedule-page .mobile-days {
+        margin-top: 12px;
+    }
+
+    .schedule-page .week-actions {
+        gap: 8px;
+    }
 }
 
 /* ---------- Шапка (kc10): все элементы на одной центральной линии; на узких экранах — только знак, крупнее ---------- */
-.campus-header { align-items: center; }
-.campus-header > * { align-self: center; }
-.campus-header .settings-button { flex: none; }
+.campus-header {
+    align-items: center;
+}
+
+.campus-header>* {
+    align-self: center;
+}
+
+.campus-header .settings-button {
+    flex: none;
+}
+
 @media (max-width: 599px) {
     .campus-header {
         flex-wrap: nowrap;
@@ -486,16 +542,58 @@
         padding-bottom: 8px;
         gap: 12px;
     }
-    .campus-brand { flex-direction: row; align-items: center; gap: 0; }
-    .campus-brand > span:not(.brand-mark),
-    .campus-brand small { display: none; }
-    .campus-brand .brand-mark { width: calc(40px * var(--text-scale, 1)); height: calc(40px * var(--text-scale, 1)); }
-    .campus-header nav { height: auto; align-items: center; align-self: center; margin-left: auto; gap: 14px; min-width: 0; }
-    .campus-header nav a { min-height: 44px; font-size: calc(13px * var(--text-scale, 1)); }
-    .staff-link { display: none; } /* на телефоне — в «Настройках» (Вход для сотрудников) */
+
+    .campus-brand {
+        flex-direction: row;
+        align-items: center;
+        gap: 0;
+    }
+
+    .campus-brand>span:not(.brand-mark),
+    .campus-brand small {
+        display: none;
+    }
+
+    .campus-brand .brand-mark {
+        width: calc(40px * var(--text-scale, 1));
+        height: calc(40px * var(--text-scale, 1));
+    }
+
+    .campus-header nav {
+        height: auto;
+        align-items: center;
+        align-self: center;
+        margin-left: auto;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    .campus-header nav a {
+        min-height: 44px;
+        font-size: calc(13px * var(--text-scale, 1));
+    }
+
+    .staff-link {
+        display: none;
+    }
+
+    /* на телефоне — в «Настройках» (Вход для сотрудников) */
 }
+
 @media (max-width: 380px) {
-    .campus-header nav { gap: 10px; }
+    .campus-header nav {
+        gap: 10px;
+    }
 }
-.app-update-notice .app-update-close { flex: 0 0 auto; min-width: 40px; min-height: 40px; padding: 8px; }
-.app-update-notice .app-update-close svg { width: 20px; height: 20px; }
+
+.app-update-notice .app-update-close {
+    flex: 0 0 auto;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 8px;
+}
+
+.app-update-notice .app-update-close svg {
+    width: 20px;
+    height: 20px;
+}

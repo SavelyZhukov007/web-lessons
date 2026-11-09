@@ -5,6 +5,7 @@ import { loadAll, broadcasts } from '../api.js';
 import { pageHeader, loading, confirmDialog, dataTable, dayShort } from '../kit.js';
 import { TITLE_MAX, BODY_MAX, buildPayload, filterClubs, audienceLabel, formatMsk, reachText, deliveryText, newIdempotencyKey } from '../broadcast-logic.js';
 import { readDraft, writeDraft, clearDraft, markUnsaved } from '../../draft-state.js';
+import { animatePanel, bindGlassIndicator } from '../../glass.js';
 
 export async function mount(root, { signal }) {
   root.replaceChildren(pageHeader('Рассылки'), loading());
@@ -31,7 +32,7 @@ export async function mount(root, { signal }) {
   const bodyCount = counter(BODY_MAX);
   const titleInput = h('input', { id: 'bc-title', type: 'text', maxlength: TITLE_MAX, required: true, autocomplete: 'off', placeholder: 'Например: Собрание руководителей' });
   const bodyInput = h('textarea', { id: 'bc-body', maxlength: BODY_MAX, required: true, rows: 5, placeholder: 'Коротко и по делу: что, когда, где.' });
-  const linkSelect = h('select', { id: 'bc-url' },
+  const linkSelect = h('select', { id: 'bc-url', class: 'glass-select' },
     h('option', { value: '' }, 'Без ссылки — откроется расписание'),
     h('option', { value: '/clubs.html' }, 'Каталог кружков'),
     clubs.map(c => h('option', { value: `/club.html?id=${c.id}` }, `Кружок: ${c.name}`)));
@@ -49,9 +50,9 @@ export async function mount(root, { signal }) {
   const chips = h('div', { class: 'bc-picked', 'aria-label': 'Выбранные кружки' });
   const list = h('div', { class: 'bc-club-list', id: 'bc-club-list', role: 'group', 'aria-label': 'Кружки' });
   const picked = h('p', { class: 'field-hint', role: 'status' });
-  const toggleAll = h('button', { type: 'button', class: 'btn btn--text btn--small bc-expand', 'aria-expanded': 'false', 'aria-controls': 'bc-club-list' });
+  const toggleAll = h('button', { type: 'button', class: 'glass-action glass-trigger bc-expand', 'aria-expanded': 'false', 'aria-controls': 'bc-club-list' });
   let expanded = false;
-  toggleAll.addEventListener('click', () => { expanded = !expanded; renderClubs(); });
+  toggleAll.addEventListener('click', () => { expanded = !expanded; renderClubs(); animatePanel(list, expanded); });
   const clubsBox = h('div', { class: 'bc-clubs' },
     chips,
     h('label', { class: 'field', for: 'bc-search' }, h('span', { class: 'field-label' }, 'Найти кружок'), search), list, toggleAll, picked);
@@ -99,6 +100,7 @@ export async function mount(root, { signal }) {
   function renderAudience() {
     audienceSlot.replaceChildren(...(state.audience === 'clubs' ? [clubsBox] : [h('p', { class: 'field-hint' }, 'Получат все, кто включил уведомления.')]));
     if (state.audience === 'clubs') renderClubs();
+    animatePanel(audienceSlot, true);
   }
 
   // --- охват и предпросмотр ---
@@ -146,12 +148,14 @@ export async function mount(root, { signal }) {
   for (const el of [titleInput, bodyInput]) el.addEventListener('input', () => { fresh(); errorBox.hidden = true; update(); });
   linkSelect.addEventListener('change', () => { fresh(); update(); });
 
+  const audience = h('div', { class: 'segmented glass-tabs bc-audience', role: 'radiogroup', 'aria-label': 'Кому отправить' },
+    audienceRadio('all', 'Всем'), audienceRadio('clubs', 'Кружкам'));
+  const updateAudienceIndicator = bindGlassIndicator(audience, () => audience.querySelector('input:checked')?.closest('label'), { signal });
   const form = h('form', { class: 'form-grid bc-form', id: 'bc-form', novalidate: true },
     h('label', { class: 'field', for: 'bc-title' }, h('span', { class: 'field-label' }, 'Заголовок *'), titleInput), titleCount,
     h('label', { class: 'field', for: 'bc-body' }, h('span', { class: 'field-label' }, 'Текст *'), bodyInput), bodyCount,
     h('label', { class: 'field', for: 'bc-url' }, h('span', { class: 'field-label' }, 'По нажатию открыть'), linkSelect),
-    h('fieldset', { class: 'field' }, h('legend', { class: 'field-label' }, 'Кому'),
-      h('div', { class: 'segmented bc-audience', role: 'radiogroup', 'aria-label': 'Кому отправить' }, audienceRadio('all', 'Всем'), audienceRadio('clubs', 'Кружкам')), audienceSlot),
+    h('fieldset', { class: 'field' }, h('legend', { class: 'field-label' }, 'Кому'), audience, audienceSlot),
     errorBox,
     h('div', { class: 'form-actions' }, send));
 
@@ -179,6 +183,7 @@ export async function mount(root, { signal }) {
       titleInput.value = ''; bodyInput.value = ''; linkSelect.value = '';
       state.audience = 'all'; state.clubIds.clear(); state.sessionIds.clear(); state.query = ''; search.value = ''; expanded = false;
       form.querySelector('input[value="all"]').checked = true;
+      updateAudienceIndicator();
       fresh(); renderAudience(); update();
       try { const items = await broadcasts.list({ signal }); if (!signal?.aborted) renderHistory(items); }
       catch (error) { if (!signal?.aborted) historyNote.textContent = 'Объявление отправлено. Журнал не обновился — нажмите «Обновить журнал». Повторно отправлять не нужно.'; }

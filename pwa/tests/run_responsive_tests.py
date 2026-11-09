@@ -17,8 +17,9 @@ SHOTS = Path(os.environ.get("SHOTS_DIR", "/workspace/itc/shots_de"))
 SHOTS.mkdir(parents=True, exist_ok=True)
 # (имя, платформа, ширина, высота, dpr, масштаб текста)
 DEVICES = [
+    ("iphone-320", "ios", 320, 640, 2, 1),
     ("iphone-se", "ios", 375, 667, 2, 1),
-    ("iphone-15", "ios", 393, 852, 3, 1),
+    ("iphone-15", "ios", 390, 852, 3, 1),
     ("iphone-16-pro-max", "ios", 440, 956, 3, 1),
     ("android-360", "android", 360, 800, 3, 1),
     ("fold-840", "android", 840, 900, 2.625, 1),
@@ -54,7 +55,8 @@ PROBE = r"""
   }
   for (const el of document.querySelectorAll('a[href], button, input:not([type=hidden]), select, [role=tab], summary')) {
     if (!visible(el) || el.closest('.event-facts, p, li > a.club-link, .itc-sheet-card p')) continue;
-    const r = el.getBoundingClientRect();
+    const target = el.matches('input[type=checkbox], input[type=radio]') ? (el.labels?.[0] || el) : el;
+    const r = target.getBoundingClientRect();
     if (r.bottom < 0 || r.top > H * 3) continue;
     const isText = el.tagName === 'A' && getComputedStyle(el).display === 'inline';
     if (!isText && (r.height < 40 || r.width < 40)) out.small.push(label(el) + ` ${Math.round(r.width)}x${Math.round(r.height)}`);
@@ -67,7 +69,9 @@ PROBE = r"""
     for (const el of document.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea'))
       if (visible(el) && parseFloat(getComputedStyle(el).fontSize) < 16) out.zoomInputs.push(label(el) + ' ' + getComputedStyle(el).fontSize);
   for (const el of document.querySelectorAll('button, .btn, .itc-chip, [role=tab], .bn-label, h1, h2')) {
-    if (!visible(el)) continue; const s = getComputedStyle(el);
+    if (!visible(el) || el.closest('.visually-hidden, [aria-hidden=true]')) continue;
+    const s = getComputedStyle(el);
+    if (s.clipPath !== 'none' || (el.clientWidth <= 1 && el.clientHeight <= 1)) continue;
     if (el.scrollWidth > el.clientWidth + 2 && s.textOverflow !== 'ellipsis' && /(hidden|clip)/.test(s.overflowX)) out.clipped.push(label(el));
   }
   // контент под фиксированной нижней навигацией в конце прокрутки
@@ -97,7 +101,7 @@ try:
         state = c0.storage_state()
         c0.close()
         for name, kind, w, h, dpr, scale in DEVICES:
-            for scheme in ["light", "dark"] if name in ("iphone-15", "android-360") else ["light"]:
+            for scheme in ["light", "dark"] if name in ("iphone-320", "iphone-15", "android-360", "fold-840") else ["light"]:
                 c = br.new_context(
                     viewport={"width": w, "height": h},
                     device_scale_factor=dpr,

@@ -118,7 +118,17 @@ self.addEventListener('fetch', event => {
         const response = await fetch(new Request(request, { cache: 'reload' }));
         if (response.ok) await cache.put(request, response.clone());
         return response;
-      } catch { return (await cache.match(request)) || Response.error(); }
+      } catch {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        // First offline navigation may ask for an asset with a version query
+        // or different browser-supplied Vary headers than precaching did.
+        if (PRECACHE.includes(url.pathname)) {
+          const bundled = await cache.match(url.pathname, { ignoreVary: true });
+          if (bundled) return bundled;
+        }
+        return Response.error();
+      }
     })());
   }
 });
@@ -147,7 +157,9 @@ self.addEventListener('notificationclick', event => {
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of windows) {
-      if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
+      const current = new URL(client.url);
+      if (target.searchParams.has('release') && current.pathname.startsWith('/admin/')) continue;
+      if (current.origin === self.location.origin && 'focus' in client) {
         await client.focus();
         if ('navigate' in client) { try { await client.navigate(target.href); } catch { /* ignore */ } }
         return;

@@ -33,6 +33,8 @@ class ScheduleEvent(BaseModel):
     original_date: date
     comment: str = ""
     # только для status="moved": исходное время (до переноса) — приложение рисует «Перенесено» в старом слоте
+    original_room_ids: list[int] | None = None
+    original_room_names: list[str] | None = None
     original_start_time: time | None = None
     original_end_time: time | None = None
     # schedule v2 (occurrence_source): чётность недели и все ресурсы occurrence

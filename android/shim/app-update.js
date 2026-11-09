@@ -102,7 +102,8 @@
   // при запуске (после экрана загрузки, чтобы не мешать первому контенту) и раз в сутки
   function boot() {
     // нажатие на push «Доступно обновление» открывает /?update=1 — сразу экран обновления
-    if (/[?&]update=1(&|$)/.test(location.search)) {
+    var params = new URLSearchParams(location.search);
+    if (params.get('update') === '1' && !params.has('release')) {
       sessionStorage.setItem('itc.updateChecked', '1');
       try { history.replaceState(null, '', location.pathname + location.search.replace(/([?&])update=1(&|$)/, '$1').replace(/[?&]$/, '') + location.hash); } catch (e) {}
       setTimeout(function () { check({ manual: true }); }, 1200);

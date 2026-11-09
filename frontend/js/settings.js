@@ -1,3 +1,4 @@
+import { bindSheetDismiss } from './sheet-gesture.js';
 // Диалог «Настройки»: тема, акцент, размер текста, «Объявления» (если в браузере включены уведомления) (+ адрес сервера в Android-приложении).
 // Подключается на каждой странице: <script type="module" src="/js/settings.js">. Кнопка-шестерёнка добавляется в шапку сама.
 import { h, icon, toast, installRipple } from './ui.js';
@@ -190,22 +191,35 @@ function build() {
   const fb = h('button', { type: 'button', class: 'list-row', dataset: { feedbackOpen: '' } }, h('span', {}, 'Обратная связь'));
   fb.addEventListener('click', async () => { dialog.close(); (await import('./feedback.js')).openFeedback(document.querySelector('[data-settings-button]')); });
   body.append(h('section', { class: 'sheet-section' }, h('h3', {}, 'Помощь'), h('div', { class: 'list-group' }, fb)));
-  if (window.ClubsUpdates) body.append(h('section', { class: 'sheet-section' }, h('h3', {}, 'Версия приложения'),
-    h('button', { type: 'button', class: 'btn btn--tonal', onclick: () => { dialog.close(); window.ClubsUpdates.check({ manual: true }); } }, 'Проверить обновления')));
+  const whatsNew = h('button', { type: 'button', class: 'btn btn--tonal' }, 'Что нового');
+  whatsNew.addEventListener('click', async () => {
+    dialog.close();
+    const { showRelease } = await import('./release-notes.js');
+    if (!await showRelease({ opener: document.querySelector('[data-settings-button]') })) toast('Список изменений пока недоступен');
+  });
+  body.append(h('section', { class: 'sheet-section' }, h('h3', {}, 'Версия приложения'),
+    h('div', { class: 'sheet-actions' }, whatsNew, window.ClubsUpdates &&
+      h('button', { type: 'button', class: 'btn btn--tonal', onclick: () => { dialog.close(); window.ClubsUpdates.check({ manual: true }); } }, 'Проверить обновления'))));
   const foot = h('div', { class: 'sheet-foot' }, reset, done);
   dialog.replaceChildren(h('div', { class: 'sheet-head sheet-head--center' }, h('span', { 'aria-hidden': 'true' }), title, close), body, foot);
 }
-function rebuild() { build(); }
+function rebuild() {
+  const top = dialog.querySelector('.sheet-body')?.scrollTop || 0;
+  build();
+  dialog.querySelector('.sheet-body').scrollTop = top;
+}
 
 function open(opener) {
   if (!dialog) {
     dialog = h('dialog', { class: 'sheet sheet--bottom', id: 'settings-dialog', 'aria-labelledby': 'settings-title' });
-    dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }); // клик по подложке
+    dialog.dataset.swipeDismiss = 'settings';
+    bindSheetDismiss(dialog, { scrollBody: () => dialog.querySelector('.sheet-body') });
     document.body.append(dialog);
   }
+  if (dialog.open) return;
   build();
   dialog.showModal();
-  dialog.querySelector('input:checked')?.focus();
+  dialog.querySelector('[aria-label="Закрыть настройки"]')?.focus({ preventScroll: true });
   dialog.addEventListener('close', () => opener?.focus(), { once: true });
 }
 

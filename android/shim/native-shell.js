@@ -123,7 +123,7 @@
   function closeMenu() { }
   // ---------- 13. Поиск в расписании на Android: Enter/«Найти» на клавиатуре, русская IME-композиция, клавиатура не закрывает результаты
   function wireSearch() {
-    doc.querySelectorAll('input[type="search"]:not([data-native-search]), input#search:not([data-native-search])').forEach(function (inp) {
+    doc.querySelectorAll('input[type="search"]:not([data-native-search], [data-schedule-search])').forEach(function (inp) {
       inp.setAttribute('data-native-search', '');
       inp.setAttribute('enterkeyhint', 'search');
       if (inp.type !== 'search') inp.type = 'search';
@@ -353,6 +353,8 @@
   // ---------- 9. Кнопка/жест «Назад»: окно → панель фильтров → предыдущий экран → свернуть на корневом
   function isRoot() { return location.pathname === '/' || location.pathname === '/index.html'; }
   function onBack(ev) {
+    var settingsBack = doc.querySelector('.itc-settings.in .itc-set-back');
+    if (settingsBack) { settingsBack.click(); return; }
     var sheet = doc.querySelector('#itc-sheet, #app-update-sheet:not([data-forced])');
     if (sheet) { var c0 = sheet.querySelector('.itc-close, [data-later]'); if (c0) c0.click(); else sheet.remove(); return; }
     var dlg = doc.querySelectorAll('dialog[open]');
@@ -362,6 +364,8 @@
       else { var c = new Event('cancel', { cancelable: true }); if (d.dispatchEvent(c)) d.close(); }
       return;
     }
+    var searchExit = doc.querySelector('#search-exit:not([hidden])');
+    if (searchExit) { searchExit.click(); return; }
     var filt = doc.querySelector('#toggle-filters[aria-expanded="true"]');
     if (filt && filt.offsetParent) { filt.click(); return; }
     var path = location.pathname;

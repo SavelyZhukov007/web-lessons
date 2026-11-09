@@ -1,7 +1,9 @@
 // Оболочка админки: проверка сессии, шапка/навигация, hash-роутер (#/clubs, #/reference/rooms …), перенаправление на вход при 401.
 import { h, icon } from '../ui.js';
-import { getAdminStatus, logout } from './api.js';
+import { exceptions, getAdminStatus, logout } from './api.js';
 import { guarded } from './kit.js';
+import { dateKey, moscowToday } from '../schedule-dates.js';
+import { bindGlassIndicator, mountGlassOptics } from '../glass.js';
 
 const ROUTES = {
   '': { title: 'Обзор', icon: 'home', load: () => import('./views/dashboard.js') },
@@ -17,6 +19,8 @@ const ROUTES = {
 const LOGIN = '/admin/login.html';
 let admin;
 let controller;
+let updateBottomIndicator;
+let changesKnown = false;
 const main = document.querySelector('#admin-main');
 
 // ADM-06: после входа вернёмся на тот же раздел (#/clubs и т.п.)
@@ -31,7 +35,7 @@ function parseHash() {
 function buildChrome() {
   const links = Object.entries(ROUTES).filter(([, r]) => !r.hidden);
   const nav = h('nav', { class: 'admin-nav', 'aria-label': 'Разделы админки' }, links.map(([key, r]) => h('a', { href: `#/${key}`, dataset: { route: key } }, r.title)));
-  const bottom = h('nav', { class: 'bottom-nav', 'aria-label': 'Разделы админки (мобильная навигация)' },
+  const bottom = h('nav', { class: 'bottom-nav glass-tabs glass-surface', 'aria-label': 'Разделы админки (мобильная навигация)' },
     links.map(([key, r]) => h('a', { href: `#/${key}`, 'aria-label': r.title, dataset: { route: key } }, h('span', { class: 'bn-pill' }, icon(r.icon)), h('span', { class: 'bn-label' }, r.mobileTitle || r.title))));
   // «Сменить пароль» и «Выйти» — в «Настройках» (шестерёнка), см. js/settings.js → window.ClubsAdmin
   const slot = h('div', { class: 'admin-tools', dataset: { settingsSlot: '' } });
@@ -43,6 +47,25 @@ function buildChrome() {
   document.querySelector('#admin-header').replaceChildren(
     h('a', { class: 'campus-brand', href: '/', 'aria-label': 'На сайт' }, h('span', { class: 'brand-mark', 'aria-hidden': 'true' }), h('span', {}, 'KipClub'), h('small', {}, 'Администрирование')), nav, slot);
   document.body.append(bottom);
+  updateBottomIndicator = bindGlassIndicator(bottom, () => bottom.querySelector('[aria-current="page"]'));
+  mountGlassOptics(bottom);
+  const changeLinks = [nav, bottom].map(element => element.querySelector('[data-route="exceptions"]'));
+  const badges = changeLinks.map(link => {
+    const badge = h('span', { class: 'admin-change-count', hidden: true, 'aria-hidden': 'true' });
+    (link.querySelector('.bn-pill') || link).append(badge);
+    return badge;
+  });
+  window.addEventListener('admin:schedule-changes', ({ detail }) => {
+    if (!Array.isArray(detail)) return;
+    changesKnown = true;
+    const today = dateKey(moscowToday());
+    const count = detail.filter(item => item.original_date >= today || item.new_date >= today).length;
+    badges.forEach((badge, index) => {
+      badge.hidden = !count;
+      badge.textContent = count > 99 ? '99+' : String(count);
+      changeLinks[index].setAttribute('aria-label', count ? `Изменения, предстоящих: ${count}` : 'Изменения');
+    });
+  });
   // Высота зависит от переноса подписей и размера шрифта, а не от фиксированных 72px.
   if ('ResizeObserver' in window) new ResizeObserver(() => {
     document.body.style.setProperty('--bottom-nav-h', `${bottom.getBoundingClientRect().height}px`);
@@ -53,6 +76,7 @@ function markCurrent(route) {
   for (const a of document.querySelectorAll('[data-route]')) {
     if (a.dataset.route === route) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
+  updateBottomIndicator();
 }
 
 async function render() {
@@ -67,6 +91,7 @@ async function render() {
     const view = await ROUTES[route].load();
     if (current.signal.aborted) return;
     await view.mount(main, { signal: current.signal, admin, param });
+    if (!changesKnown && !current.signal.aborted) exceptions.list({ signal: current.signal }).catch(() => {});
   } catch (error) {
     if (error?.name === 'AbortError' || current.signal.aborted) return;
     if (error?.status === 401) return; // уведомление admin:unauthorized уже перенаправило на вход

@@ -32,3 +32,7 @@
 @media (max-width: 480px) {
   .storage-notice { align-items: stretch; flex-direction: column; gap: 10px; }
 }
+
+/* Settings own the viewport while open. Restore the notice when they close. */
+body:has(#itc-sheet, dialog[open]) .storage-notice { visibility: hidden; }
+.admin-page .storage-notice { bottom: max(var(--admin-notice-offset, 16px), env(safe-area-inset-bottom)); }

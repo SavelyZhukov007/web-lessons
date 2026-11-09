@@ -193,6 +193,15 @@
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Разработчик</span></span><span class="itc-row-val">ИТС КИПФИН</span></div></div>' +
       (DEV ? '<h2>Для разработчиков</h2><div class="itc-group" data-ext="dev"></div>' : '') +
       '</div></div>', 'itc-ob-scroll itc-settings');
+    import('/js/sheet-gesture.js').then(function (module) {
+      if (!s.isConnected) return;
+      var panel = s.querySelector('.itc-set');
+      module.bindSheetDismiss(panel, {
+        scrollBody: function () { return s; },
+        close: function () { s.close(); },
+        isOpen: function () { return s.classList.contains('in'); },
+      });
+    }).catch(function () { /* кнопка «Назад» работает независимо от жеста */ });
     exts.forEach(function (fn) { try { fn(s.querySelector('[data-ext="dev"]'), { row: row, close: s.close, section: 'dev', screen: s }); } catch (e) { console.warn(e); } });
     s.querySelector('[data-haptics]').addEventListener('change', function () { Haptics.set(this.checked); if (this.checked) Haptics.tap(); });
     // Тема: тумблер «Системная тема» + кнопка-иконка (светлая ⇄ тёмная), видна при выключенном тумблере

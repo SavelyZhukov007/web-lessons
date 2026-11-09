@@ -224,23 +224,28 @@ try:
             dl.value.suggested_filename == "club-1-week.ics" and "BEGIN:VCALENDAR" in text and "END:VCALENDAR" in text,
         )
 
-        # 5. офлайн: SW + кэш данных; баннер «Нет сети»
-        pg.goto("/")
-        pg.wait_for_selector("#itc-my-toggle")
-        pg.wait_for_load_state("networkidle")
-        pg.evaluate("navigator.serviceWorker.ready")
-        pg.wait_for_timeout(800)
-        pg.reload()
-        pg.wait_for_load_state("networkidle")
-        pg.wait_for_timeout(500)
+        # 5. Первый запуск, затем офлайн сразу после активации SW. Поиск ещё не открывали.
+        c.close()
+        c = ctx("android", w=360, h=800)
+        pg = c.new_page()
+        pg.goto("/?day=2026-11-10")
+        pg.wait_for_selector('#content[aria-busy="false"] .event-name')
+        controlled = pg.evaluate("""() => navigator.serviceWorker.controller ? true : Promise.race([
+            new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', () => resolve(true), {once: true})),
+            new Promise(resolve => setTimeout(() => resolve(false), 12000))])""")
+        check("офлайн: SW управляет первой страницей", controlled)
         c.set_offline(True)
         pg.reload()
-        pg.wait_for_timeout(2500)
+        pg.wait_for_selector('#content[aria-busy="false"] .event-name')
         check("офлайн: страница открылась из кэша SW", pg.locator("#schedule-filters").count() == 1)
         check("офлайн: баннер «Нет сети»", pg.locator("#itc-offline-banner").is_visible())
         txt = pg.evaluate("(document.querySelector('#result-status') || document.body).innerText") or ""
         check("офлайн: расписание показано из кэша", pg.locator(".event-name").count() > 0 and "Ошибка" not in txt, txt[:80])
         pg.screenshot(path=str(SHOTS / "d-offline-android360-light.png"))
+        pg.fill("#search", "hj,jnjnt[ybrf")
+        mark = pg.locator(".search-result-name mark").first
+        mark.wait_for()
+        check("офлайн: первый поиск находит кружок по другой раскладке", mark.inner_text() == "Робототехника")
         c.set_offline(False)
         c.close()
 

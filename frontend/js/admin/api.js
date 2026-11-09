@@ -67,9 +67,22 @@ export const imports = {
 };
 export const exceptions = {
   ...crud('exceptions'),
-  cancel: body => request('/api/admin/exceptions/cancellations', send('POST', { type: 'cancelled', ...body })),
-  move: body => request('/api/admin/exceptions/moves', send('POST', { type: 'moved', ...body })),
+  list: async options => {
+    const items = await request('/api/admin/exceptions', options);
+    if (!options?.signal?.aborted) window.dispatchEvent(new CustomEvent('admin:schedule-changes', { detail: items }));
+    return items;
+  },
+  dates: (sessionId, options) => request(`/api/admin/sessions/${sessionId}/exception-dates`, options),
+  update: (id, body, tokens) => exceptionWrite(`/api/admin/exceptions/${id}`, send('PATCH', body), tokens),
+  cancel: (body, tokens) => exceptionWrite('/api/admin/exceptions/cancellations', send('POST', { type: 'cancelled', ...body }), tokens),
+  move: (body, tokens) => exceptionWrite('/api/admin/exceptions/moves', send('POST', { type: 'moved', ...body }), tokens),
 };
+
+function exceptionWrite(path, options, tokens) {
+  if (!tokens) return request(path, options);
+  if (tokens.length) options.headers['X-Confirmed-Conflicts'] = tokens.join(',');
+  return baseRequest(path, options);
+}
 
 /** Все справочники и расписание одним пакетом — нужны почти каждой вкладке (названия вместо id). */
 export async function loadAll(options) {

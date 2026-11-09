@@ -1,6 +1,8 @@
 /* ===== Общие компоненты: кнопки, поля, карточки, диалоги, segmented, snackbar, бейджи =====
    Один набор разметки, внешний вид — через токены и классы .platform-* (см. platform.css). */
 
+@import url("./glass.css");
+
 .campus-page {
     font-family: var(--font-ui);
 }
@@ -324,6 +326,7 @@ dialog.sheet::backdrop {
 }
 
 .sheet-body {
+    min-height: 0;
     padding: 8px 20px 20px;
     overflow-y: auto;
     display: grid;
@@ -418,7 +421,7 @@ dialog.sheet::backdrop {
     cursor: pointer;
 }
 
-.segmented span {
+.segmented label > span {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -474,7 +477,7 @@ dialog.sheet::backdrop {
     border-left: 0;
 }
 
-.platform-ios .segmented span {
+.platform-ios .segmented label > span {
     border-radius: 7px;
     min-height: 32px;
     padding: 4px 12px;
@@ -840,7 +843,7 @@ dialog .list-row--danger, dialog .list-row--danger span { color: var(--danger, #
 .feedback-sheet .fb-form { display: grid; gap: 18px; }
 .feedback-sheet .segmented { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; box-sizing: border-box; }
 .feedback-sheet .segmented label { display: flex; min-width: 0; }
-.feedback-sheet .segmented span { flex: 1 1 auto; min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; }
+.feedback-sheet .segmented label > span { flex: 1 1 auto; min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; }
 .fb-under { display: flex; gap: 8px; align-items: flex-start; }
 .fb-under .field-error { flex: 1; margin: 0; }
 .fb-counter { margin-left: auto; font-size: .9em; color: var(--on-surface-muted); white-space: nowrap; }
@@ -868,3 +871,22 @@ dialog .list-row--danger, dialog .list-row--danger span { color: var(--danger, #
 .fb-status--error { color: var(--danger); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fb-success { text-align: center; display: grid; gap: 12px; justify-items: center; padding: 24px 0; }
 .fb-tech { margin: 0; font-size: .8em; color: var(--on-surface-muted); }
+
+.release-changes { margin: 0; padding-inline-start: 1.4em; }
+.release-changes li + li { margin-top: 0.75em; }
+.sheet-section .sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (pointer: coarse) {
+    .campus-page .btn--small { min-height: 44px; }
+    .campus-page .campus-brand, .campus-page .public-back { min-height: 44px; }
+}
+.app-update-notice .app-update-close {
+    flex: 0 0 auto;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px;
+}
+.app-update-notice .app-update-close svg { width: 20px; height: 20px; }
+
+#settings-dialog .sheet-body { overscroll-behavior-y: contain; }
+#settings-dialog :is(.sheet-head, .sheet-foot) { flex: none; }

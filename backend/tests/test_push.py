@@ -319,3 +319,13 @@ def test_vapid_files_are_gitignored():
     ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     for name in ("vapid_keys.json", "jwt_secret.key", ".env"):
         assert name in ignore
+
+
+
+@pytest.fixture(autouse=True)
+def freeze_schedule_clock(monkeypatch):
+    from datetime import date
+
+    from backend.app.services import occurrence_source
+
+    monkeypatch.setattr(occurrence_source, "today_msk", lambda: date(2026, 11, 1))

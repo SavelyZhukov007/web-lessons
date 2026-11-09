@@ -24,6 +24,31 @@ export function monday(date) {
   return addDays(date, -((date.getDay() + 6) % 7));
 }
 
+export const WEEK_MIN = '2000-01-03';
+export const WEEK_MAX = '2100-12-27';
+
+export function scheduleLocation(search, today) {
+  const params = new URLSearchParams(search);
+  const day = parseDate(params.get('day'));
+  const requestedWeek = monday(parseDate(params.get('week')) || day || today);
+  const key = dateKey(requestedWeek);
+  const validWeek = key >= WEEK_MIN && key <= WEEK_MAX;
+  const week = validWeek ? requestedWeek : monday(today);
+  const selected = day && day.getDay() !== 0 && dateKey(monday(day)) === dateKey(week)
+    ? day : dateKey(week) === dateKey(monday(today)) ? today : week;
+  return { week, day: Math.min((selected.getDay() + 6) % 7, 5) };
+}
+
+export function movedFromSlot(event) {
+  return event.status === 'moved' && parseDate(event.original_date) && (
+    event.original_date !== event.date
+    || (event.original_start_time && event.original_start_time !== event.start_time)
+    || (event.original_end_time && event.original_end_time !== event.end_time)
+    || (event.original_room_ids?.length &&
+      event.original_room_ids.join(',') !== (event.room_ids || [event.room_id]).join(','))
+  );
+}
+
 export function moscowToday() {
   const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));

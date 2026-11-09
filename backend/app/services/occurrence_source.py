@@ -592,8 +592,11 @@ def occurrence_event(snap: Snapshot, occ: Occurrence) -> dict | None:
     category = snap.categories.get(club.category_id)
     leader_names = [snap.leaders[i].name for i in occ.leader_ids if i in snap.leaders]
     # формат T2 (services.schedule._location_payload): «аудитория · корпус», дистант не занимает аудиторию
-    room_names = [" · ".join(filter(None, [snap.rooms[i].name, getattr(snap.rooms[i], "building", None)]))
-                  for i in occ.room_ids if i in snap.rooms]
+    def location_names(room_ids):
+        return [" · ".join(filter(None, [snap.rooms[i].name, getattr(snap.rooms[i], "building", None)]))
+                for i in room_ids if i in snap.rooms]
+
+    room_names = location_names(occ.room_ids)
     session = snap.sessions.get(occ.source_session_id)
     status = {"moved_in": "moved"}.get(occ.status, occ.status)
     event = {
@@ -627,6 +630,10 @@ def occurrence_event(snap: Snapshot, occ: Occurrence) -> dict | None:
     if occ.status == "moved_in":
         event["original_start_time"] = occ.original_start
         event["original_end_time"] = occ.original_end
+        if session is not None:
+            original_rooms = rooms_of(snap, session)
+            event["original_room_ids"] = list(original_rooms)
+            event["original_room_names"] = location_names(original_rooms)
     return event
 
 

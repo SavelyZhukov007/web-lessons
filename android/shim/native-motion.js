@@ -69,64 +69,19 @@
     if (a) markBack();
   }, true);
 
-  // ---------- 2. вкладки админки: кросс-фейд + движение индикатора ----------
+  // ---------- 2. вкладки админки: кросс-фейд содержимого ----------
   var adminMain = function () { return doc.getElementById('admin-main'); };
   window.addEventListener('hashchange', function () {
     var m = adminMain(); if (!m) return;
     m.classList.remove('m-swap'); void m.offsetWidth; m.classList.add('m-swap');
     busy(DUR.m);
   });
-  function indicator(container, sel, cls, fit) {
-    if (!container) return;
-    var cur = container.querySelector(sel);
-    var ind = container.querySelector(':scope > .m-ind');
-    if (!cur) { if (ind) ind.style.opacity = '0'; return; }
-    if (!ind) { ind = doc.createElement('span'); ind.className = 'm-ind'; ind.setAttribute('aria-hidden', 'true'); container.appendChild(ind); container.classList.add(cls || 'm-has-ind'); }
-    var cr = container.getBoundingClientRect(), r = (fit ? fit(cur) : cur).getBoundingClientRect();
-    ind.style.opacity = '1';
-    ind.style.width = r.width + 'px'; ind.style.height = r.height + 'px'; ind.style.top = (r.top - cr.top) + 'px';
-    ind.style.transform = 'translateX(' + (r.left - cr.left + container.scrollLeft) + 'px)';
-  }
-  function navIndicators() {
-    doc.querySelectorAll('.bottom-nav').forEach(function (n) {
-      if (getComputedStyle(n).position !== 'static') indicator(n, 'a[aria-current="page"]', 'm-has-ind', function (a) { return a.querySelector('.bn-pill') || a; });
-    });
-  }
-
-  // ---------- 3. смена дня: кросс-фейд списка ----------
-  doc.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('#day-buttons > button, #prev-day, #next-day, #view-grid, #view-list');
-    if (!b) return;
-    var c = doc.getElementById('content');
-    if (c) { c.classList.remove('m-xfade'); void c.offsetWidth; c.classList.add('m-xfade'); }
-    requestAnimationFrame(function () {
-      navIndicators();
-      var sel = doc.querySelector('#day-buttons > button[aria-pressed="true"]');
-      if (sel) anim(sel, [{ opacity: .55 }, { opacity: 1 }], DUR.m, EASE.dec); // без scale: ячейка не может «залипнуть» увеличенной
-    });
-  });
-
-  // ---------- 4. панель фильтров: плавное раскрытие/сворачивание ----------
   var replaying = false;
-  doc.addEventListener('click', function (e) {
-    var t = e.target.closest && e.target.closest('#toggle-filters');
-    if (!t || replaying) return;
-    var panel = doc.getElementById('filter-options');
-    if (!panel) return;
-    if (t.getAttribute('aria-expanded') === 'true') {
-      e.preventDefault(); e.stopImmediatePropagation(); busy(DUR.s);
-      anim(panel, [{ opacity: 1, transform: 'scaleY(1)' }, { opacity: 0, transform: 'scaleY(.85) translateY(-8px)' }], DUR.s, EASE.acc).then(function () {
-        replaying = true; t.click(); replaying = false;
-      });
-    } else {
-      setTimeout(function () { if (!panel.hidden) { busy(DUR.m); anim(panel, [{ opacity: 0, transform: 'scaleY(.85) translateY(-8px)' }, { opacity: 1, transform: 'none' }], DUR.m, EASE.dec); } }, 0);
-    }
-  }, true);
 
   // ---------- 5. аккордеоны <details> ----------
   doc.addEventListener('click', function (e) {
     var s = e.target.closest && e.target.closest('details > summary');
-    if (!s || replaying) return;
+    if (!s || replaying || s.classList.contains('glass-trigger')) return;
     var d = s.parentElement, body = Array.prototype.filter.call(d.children, function (x) { return x !== s; });
     if (!d.open) {
       setTimeout(function () { body.forEach(function (b) { anim(b, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], DUR.m, EASE.dec); }); }, 0);
@@ -156,7 +111,7 @@
     if (sheet.dataset.mSwipe) return; sheet.dataset.mSwipe = '1';
     var y0 = null, dy = 0, t0 = 0;
     sheet.addEventListener('touchstart', function (e) {
-      if (sheet.scrollTop > 0 || e.touches.length !== 1) { y0 = null; return; }
+      if ((sheet.querySelector('.sheet-body') || sheet).scrollTop > 1 || e.touches.length !== 1) { y0 = null; return; }
       y0 = e.touches[0].clientY; dy = 0; t0 = Date.now();
     }, { passive: true });
     sheet.addEventListener('touchmove', function (e) {
@@ -164,6 +119,7 @@
       dy = Math.max(0, e.touches[0].clientY - y0);
       sheet.style.transform = dy ? 'translateY(' + dy + 'px)' : '';
     }, { passive: true });
+    sheet.addEventListener('touchcancel', function () { y0 = null; sheet.style.transform = ''; });
     sheet.addEventListener('touchend', function () {
       if (y0 == null) return; y0 = null;
       var fast = dy > 40 && dy / Math.max(1, Date.now() - t0) > 0.5;
@@ -173,7 +129,7 @@
     });
   }
   function wireSheets() {
-    doc.querySelectorAll('dialog.sheet--bottom[open]').forEach(function (d) { swipeToDismiss(d, function () { d.close(); }); });
+    doc.querySelectorAll('dialog.sheet--bottom[open]:not([data-swipe-dismiss])').forEach(function (d) { swipeToDismiss(d, function () { d.close(); }); });
     doc.querySelectorAll('.itc-sheet .itc-sheet-card').forEach(function (card) {
       var wrap = card.parentElement;
       if (wrap.dataset.mPatched) return; wrap.dataset.mPatched = '1';
@@ -271,11 +227,10 @@
   var pend = false;
   function onMut() {
     if (pend) return; pend = true;
-    requestAnimationFrame(function () { pend = false; collect(); wireSheets(); navIndicators(); });
+    requestAnimationFrame(function () { pend = false; collect(); wireSheets(); });
   }
   function boot() {
     new MutationObserver(onMut).observe(doc.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-current', 'aria-pressed', 'open'] });
-    window.addEventListener('resize', navIndicators);
     onMut();
   }
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();

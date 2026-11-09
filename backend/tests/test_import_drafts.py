@@ -26,7 +26,8 @@ def test_import_preview_publish_and_repeat_protection(admin_client):
     published = admin_client.post(f"/api/admin/imports/{draft['id']}/publish")
     assert published.status_code == 200, published.text
     assert published.json()["created"] == 1
-    assert admin_client.post(f"/api/admin/imports/{draft['id']}/publish").status_code == 409
+    retry = admin_client.post(f"/api/admin/imports/{draft['id']}/publish")
+    assert retry.status_code == 200 and retry.json() == published.json()
 
 
 def test_import_conflict_rolls_back_earlier_rows(admin_client):

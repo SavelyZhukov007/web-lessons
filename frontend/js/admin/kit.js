@@ -77,7 +77,7 @@ function showDialog(dialog) {
  * Пока запрос идёт, кнопка блокируется; ошибка (включая 409 с конфликтами) показывается внутри диалога, данные остаются.
  * Резолвится результатом onSubmit или null при отмене.
  */
-export function formDialog({ title, fields, initial = {}, submitLabel = 'Сохранить', intro, onSubmit, danger = false }) {
+export function formDialog({ title, fields, initial = {}, submitLabel = 'Сохранить', intro, onSubmit, danger = false, prepare, inlineConflicts = false }) {
   return new Promise(resolve => {
     let result = null;
     let submitting = false;
@@ -96,14 +96,19 @@ export function formDialog({ title, fields, initial = {}, submitLabel = 'Сох�
       if (spec.hint) form.append(h('p', { class: 'field-hint', id: `f-${spec.name}-hint` }, spec.hint));
     }
     const initialValues = Object.fromEntries(fields.map(spec => [spec.name, spec.type === 'multiselect' ? (initial[spec.name] || []) : spec.type === 'checkbox' ? !!initial[spec.name] : spec.numeric || spec.type === 'number' ? (initial[spec.name] ?? null) : String(initial[spec.name] ?? '').trim()]));
+    let confirmations = [];
     const preserve = () => {
       const values = readForm(form, fields);
       const dirty = JSON.stringify(values) !== JSON.stringify(initialValues);
       markUnsaved(form, dirty);
       if (canStore) { if (dirty) writeDraft(draftKey, values); else clearDraft(draftKey); }
     };
-    form.addEventListener('input', preserve);
-    form.addEventListener('change', preserve);
+    const edited = () => {
+      preserve();
+      if (inlineConflicts) { confirmations = []; feedback.replaceChildren(); }
+    };
+    form.addEventListener('input', edited);
+    form.addEventListener('change', edited);
     if (draft) markUnsaved(form, true);
     const cancel = h('button', { type: 'button', class: 'btn btn--text' }, 'Отмена');
     const submit = h('button', { type: 'submit', class: `btn ${danger ? 'btn--danger' : 'btn--filled'}` }, submitLabel);
@@ -117,8 +122,7 @@ export function formDialog({ title, fields, initial = {}, submitLabel = 'Сох�
     cancel.addEventListener('click', () => dialog.close());
     dialog.addEventListener('cancel', event => { if (submitting) event.preventDefault(); });
     dialog.addEventListener('close', () => { if (canStore && !keepDraft) clearDraft(draftKey); resolve(result); }, { once: true });
-    form.addEventListener('submit', async event => {
-      event.preventDefault();
+    async function save(tokens = []) {
       if (submitting) return;
       feedback.replaceChildren();
       for (const el of form.elements) el.removeAttribute?.('aria-invalid');
@@ -137,17 +141,29 @@ export function formDialog({ title, fields, initial = {}, submitLabel = 'Сох�
       form.inert = true;
       preserve();
       try {
-        result = (await onSubmit(readForm(form, fields))) ?? true;
+        result = (await onSubmit(readForm(form, fields), inlineConflicts ? tokens : undefined)) ?? true;
         dialog.close();
       } catch (error) {
         feedback.replaceChildren(errorNode(error));
+        const token = error?.status === 409 && error.detail?.confirmation_token;
+        if (inlineConflicts && token && Array.isArray(error.detail.conflicts) && !tokens.includes(token)) {
+          const edit = h('button', { type: 'button', class: 'btn btn--text' }, 'Исправить');
+          edit.addEventListener('click', () => form.querySelector('input[type=date], input, select')?.focus());
+          const confirm = h('button', { type: 'button', class: 'btn btn--tonal' }, 'Сохранить с пересечением');
+          confirm.addEventListener('click', () => save([...tokens, token]));
+          confirmations = tokens;
+          feedback.append(h('div', { class: 'sheet-actions' }, edit, confirm));
+          requestAnimationFrame(() => { if (confirm.isConnected) confirm.focus({ preventScroll: true }); });
+        }
         feedback.scrollIntoView({ block: 'nearest' });
         if (error?.status === 401) { keepDraft = true; dialog.close(); }
       } finally {
         submitting = false; dialog.dataset.busy = 'false'; submit.disabled = false; cancel.disabled = false; form.inert = false;
         dialog.querySelector('[aria-label="Закрыть"]').disabled = false;
       }
-    });
+    }
+    form.addEventListener('submit', event => { event.preventDefault(); save(confirmations); });
+    prepare?.(form, dialog);
     showDialog(dialog);
     dialog.querySelector('input:not([type=checkbox]), select, textarea')?.focus();
   });

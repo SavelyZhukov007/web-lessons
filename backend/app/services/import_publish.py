@@ -4,17 +4,14 @@
   (корпус, номер) аудитории, названию категории; повторная публикация того же набора
   ничего не меняет и дублей не создаёт;
 * одной транзакцией; перед записью — проверка движком конфликтов (новые пересечения → отказ);
-* перед публикацией — автоматический бэкап (cli.backup, префикс pre-import), откат —
-  восстановлением этого снимка (rollback()).
+* изменения и журнал точечного отката фиксируются в одной транзакции.
 """
 from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import inspect, select, text
@@ -26,6 +23,7 @@ from ..models.leader import Leader
 from ..models.room import Room
 from ..models.session import ClubSession
 from . import conflicts as engine
+from . import import_journal
 from . import occurrence_source as occ_src
 
 TIME_RE = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
@@ -47,40 +45,6 @@ def norm(value: Any) -> str:
     s = re.sub(r"[«»\"'“”]", "", s)
     s = re.sub(r"\s*\.\s*", ". ", s)
     return re.sub(r"\s+", " ", s).strip().casefold().rstrip(".").strip()
-
-
-def backup_dir() -> Path:
-    env = os.getenv("CLUBS_BACKUP_DIR")
-    if env:
-        return Path(env)
-    if Path("/backups").is_dir() and os.access("/backups", os.W_OK):
-        return Path("/backups")
-    from ..database import DB_PATH
-
-    return Path(DB_PATH).parent / "backups"
-
-
-def _journal() -> Path:
-    return backup_dir() / "import-publish.json"
-
-
-def history() -> list[dict]:
-    try:
-        return json.loads(_journal().read_text("utf-8")).get("items", [])
-    except (OSError, ValueError):
-        return []
-
-
-def _record(item: dict) -> dict:
-    items = history()
-    item["id"] = max((i.get("id", 0) for i in items), default=0) + 1
-    items.append(item)
-    path = _journal()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"items": items[-200:]}, ensure_ascii=False, indent=1), "utf-8")
-    tmp.replace(path)
-    return item
 
 
 # --------------------------------------------------------------------------- валидация
@@ -203,6 +167,7 @@ def _apply(db: Session, dataset: dict, *, prune: bool) -> dict:
     db.flush()
 
     touched_sessions: set[int] = set()
+    pruned_sessions = []
     for item in dataset["clubs"]:
         cat_key = norm(item["category"])
         category = categories.get(cat_key)
@@ -274,8 +239,11 @@ def _apply(db: Session, dataset: dict, *, prune: bool) -> dict:
         if prune:
             for sig, session in list(existing.items()):
                 if sig not in wanted:
-                    db.delete(session)
-                    stats["sessions_deleted"] += 1
+                    pruned_sessions.append(session)
+    # Insert every new session before pruning so SQLite cannot reuse a pruned session ID.
+    for session in pruned_sessions:
+        db.delete(session)
+    stats["sessions_deleted"] = len(pruned_sessions)
     db.flush()
     stats["touched_session_ids"] = sorted(touched_sessions)
     return stats
@@ -292,9 +260,17 @@ def _set_links(db: Session, table: str, owner_col: str, owner_id: int, value_col
     cols = _columns(db, table)
     if not cols or owner_col not in cols or value_col not in cols:
         return
-    db.execute(text(f"DELETE FROM {table} WHERE {owner_col} = :o"), {"o": owner_id})
     has_pos = "position" in cols
-    for pos, value in enumerate(dict.fromkeys(values)):
+    wanted = list(dict.fromkeys(values))
+    order = "position" if has_pos else value_col
+    current = db.scalars(
+        text(f"SELECT {value_col} FROM {table} WHERE {owner_col} = :o ORDER BY {order}"),
+        {"o": owner_id},
+    ).all()
+    if current == (wanted if has_pos else sorted(wanted)):
+        return
+    db.execute(text(f"DELETE FROM {table} WHERE {owner_col} = :o"), {"o": owner_id})
+    for pos, value in enumerate(wanted):
         if has_pos:
             db.execute(text(f"INSERT INTO {table} ({owner_col}, {value_col}, position) VALUES (:o, :v, :p)"), {"o": owner_id, "v": value, "p": pos})
         else:
@@ -304,15 +280,16 @@ def _set_links(db: Session, table: str, owner_col: str, owner_id: int, value_col
 # --------------------------------------------------------------------------- публикация / откат
 
 
-def publish(db: Session, dataset: dict, *, dry_run: bool = False, prune: bool = True, author: str = "", make_backup: bool = True, confirmed: frozenset[str] = frozenset()) -> dict:
+def publish(db: Session, dataset: dict, *, dry_run: bool = False, prune: bool = True, author: str = "", confirmed: frozenset[str] = frozenset()) -> dict:
     errors = validate(dataset)
     if errors:
         raise ImportError_("Набор не прошёл проверку", errors=errors)
-    before = occ_src.load_snapshot(db)
-    start, end = occ_src.default_window(before)
-    old_keys = {c.key for c in engine.detect(before, occ_src.snapshot_occurrences(before, start, end))}
-    backup_path = None
     try:
+        import_journal.begin(db)
+        rows_before = import_journal.capture(db) if not dry_run else None
+        before = occ_src.load_snapshot(db)
+        start, end = occ_src.default_window(before)
+        old_keys = {c.key for c in engine.detect(before, occ_src.snapshot_occurrences(before, start, end))}
         stats = _apply(db, dataset, prune=prune)
         after = occ_src.load_snapshot(db)
         touched = set(stats["touched_session_ids"])
@@ -333,57 +310,12 @@ def publish(db: Session, dataset: dict, *, dry_run: bool = False, prune: bool = 
         if dry_run:
             db.rollback()
             return {"dry_run": True, "stats": stats}
-    except Exception:
-        db.rollback()
-        raise
-    db.rollback()  # снимок делаем с чистой БД, затем применяем заново в той же логике
-    if make_backup:
-        from .. import cli
-
-        backup_path = cli.backup(backup_dir(), keep=30, prefix="pre-import")
-    try:
-        stats = _apply(db, dataset, prune=prune)
+        entry = import_journal.record(
+            db, rows_before, author=author,
+            stats={key: value for key, value in stats.items() if key != "touched_session_ids"},
+        )
         db.commit()
+        return {"dry_run": False, "stats": stats, "publish": entry}
     except Exception:
         db.rollback()
         raise
-    entry = _record({
-        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "author": author,
-        "backup": backup_path.name if backup_path else None,
-        "stats": {k: v for k, v in stats.items() if k != "touched_session_ids"},
-    })
-    return {"dry_run": False, "stats": stats, "publish": entry}
-
-
-def backup_before_draft() -> Path:
-    """Снимок БД перед публикацией черновика импорта T3 (/api/admin/imports/{id}/publish)."""
-    from .. import cli
-
-    return cli.backup(backup_dir(), keep=30, prefix="pre-import")
-
-
-def record_draft_publish(draft_id: int, backup_path: Path | None, *, created: int, skipped: int, author: str = "") -> dict:
-    """Запись в журнал публикаций: откат — POST /api/admin/import/publishes/{id}/rollback."""
-    return _record({
-        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "author": author,
-        "draft_id": draft_id,
-        "backup": backup_path.name if backup_path else None,
-        "stats": {"sessions_created": created, "skipped": skipped},
-    })
-
-
-def rollback(publish_id: int) -> dict:
-    item = next((i for i in history() if i.get("id") == publish_id), None)
-    if item is None or not item.get("backup"):
-        raise ImportError_("Публикация или её бэкап не найдены")
-    path = backup_dir() / item["backup"]
-    if not path.exists() or path.parent != backup_dir():
-        raise ImportError_("Файл бэкапа отсутствует")
-    from .. import cli
-
-    result = cli.restore(path)
-    _record({"created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-             "rollback_of": publish_id, "backup": None, "stats": {}})
-    return result

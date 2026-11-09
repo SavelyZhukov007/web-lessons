@@ -47,7 +47,7 @@ test('перенос в другую неделю: старый слот «Пе�
   assert.equal(ghost.slotStart, '10:00');
   const newWeek = buildPrintDays([moved], parseDate('2026-11-16'));
   const row = newWeek[2].rows[0];
-  assert.equal(row.note, 'Перенесено с 09.11.2026');
+  assert.equal(row.note, 'Перенесено с 09.11.2026, 10:00');
   assert.match(row.note, /^Перенесено с /u);
   assert.doesNotMatch(row.note, / c /);
 });
@@ -69,7 +69,15 @@ test('print.js/html: без отладки и заглушек, дата исх�
 
 test('главный экран: ссылка «Печать» ведёт на print.html?week=<понедельник>', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  const js = readFileSync(new URL('../js/schedule.js', import.meta.url), 'utf8');
+  const js = readFileSync(new URL('../js/schedule-ui.js', import.meta.url), 'utf8');
   assert.match(html, /id="print-week"[^>]*href="\/print\.html"[^>]*>Печать</);
-  assert.match(js, /printLink\.href = `\/print\.html\?week=\$\{dateKey\(state\.week\)\}`/);
+  assert.match(js, /\$\('print-week'\)\.href = `\/print\.html\?week=\$\{dateKey\(state\.week\)\}`/);
+});
+
+
+test('перенос внутри одной недели печатает исходный и новый слоты', () => {
+  const e = { ...base, status: 'moved', original_date: '2026-11-10', original_start_time: '09:00',
+    original_end_time: '10:00' };
+  const rows = buildPrintDays([e], MON)[1].rows;
+  assert.deepEqual(rows.map(r => [r.slotStart, r.ghost]), [['09:00', true], ['10:00', false]]);
 });

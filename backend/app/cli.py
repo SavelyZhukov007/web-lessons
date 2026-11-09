@@ -247,7 +247,7 @@ def restore(path: Path, *, target: Path | None = None) -> dict:
     """Вернуть БД из бэкапа (.sqlite3 или .gz) через Online Backup API, проверив его до и после.
 
     Пишет в живую БД поверх (WAL-безопасно); перед этим проверяет integrity_check копии.
-    Вызывать при остановленной записи (сервер остановлен или под schedule_write_lock).
+    Вызывать при остановленном сервере. Архивные сессии администраторов отзываются до копирования.
     """
     if not path.exists():
         raise CliError(f"Файл не найден: {path}")
@@ -261,11 +261,14 @@ def restore(path: Path, *, target: Path | None = None) -> dict:
             with gzip.open(path, "rb") as f_in, plain.open("wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
         else:
-            shutil.copy2(path, plain)
+            shutil.copyfile(path, plain)
         src = sqlite3.connect(str(plain))
         try:
             if src.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise CliError("Бэкап повреждён: integrity_check не ok")
+            if src.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'admin_sessions'").fetchone():
+                src.execute("DELETE FROM admin_sessions")
+                src.commit()
             dst = sqlite3.connect(str(target))
             try:
                 src.backup(dst)

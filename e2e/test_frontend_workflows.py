@@ -108,6 +108,7 @@ def test_dense_schedule_and_long_names_remain_readable(new_page):
         route.fulfill(json=events)
     page.route('**/api/schedule?*', dense)
     page.goto('/')
+    page.locator('#view-list').click()
     expect(page.locator('.schedule-list .calendar-event')).to_have_count(40)
     assert page.locator('.week-grid').count() == 0
     assert page.locator('footer, .grid-crowded').count() == 0
@@ -163,8 +164,8 @@ def test_pwa_update_waits_for_draft_and_then_loads_fresh_assets(browser):
         page.wait_for_function('() => navigator.serviceWorker.getRegistration().then(r => !!r.waiting)')
         page.locator('#bc-title').fill('')
         page.locator('#bc-body').fill('')
-        expect(page.locator('.app-update-notice button')).to_be_enabled()
-        page.locator('.app-update-notice button').click()
+        expect(page.get_by_role('button', name='Обновить', exact=True)).to_be_enabled()
+        page.get_by_role('button', name='Обновить', exact=True).click()
         page.wait_for_function("() => getComputedStyle(document.documentElement).getPropertyValue('--qa-build').trim() === 'updated'")
         expect(page.locator('#bc-title')).to_have_value('')
         assert not errors, errors

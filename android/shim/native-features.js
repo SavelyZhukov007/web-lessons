@@ -68,6 +68,7 @@
   window.fetch = function (input, init) {
     var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
     var path = apiPath(input);
+    var unfiltered = init && init.itcUnfilteredSchedule;
     if (path && method !== 'GET' && path.indexOf('/api/admin') === 0) {
       // правка в админке → кэш публичных данных устарел (иначе каталог/расписание показали бы старое до TTL)
       return baseFetch(input, init).then(function (r) { if (r.ok) dropCaches(); return r; });
@@ -81,7 +82,8 @@
       return r.clone().json().then(function (body) {
         var stamp = r.headers.get('X-Clubs-Cached-At') || new Date().toISOString();
         jset(CACHE + path, { t: Date.parse(stamp), b: body });
-        return filterMine(path, body) === body ? r : jsonResponse(filterMine(path, body), {
+        var events = unfiltered ? body : filterMine(path, body);
+        return events === body ? r : jsonResponse(events, {
           'X-Clubs-Cached-At': stamp, 'X-Clubs-Offline': r.headers.get('X-Clubs-Offline') || '0' });
       }, function () { return r; });
     }, function (err) {
@@ -89,7 +91,7 @@
       var hit = jget(CACHE + path, null);
       if (!hit || Date.now() - hit.t > 48 * 3600e3) { setOffline(true); throw err; }
       setOffline(true);
-      return jsonResponse(filterMine(path, hit.b), { 'X-ITC-Cached': String(hit.t),
+      return jsonResponse(unfiltered ? hit.b : filterMine(path, hit.b), { 'X-ITC-Cached': String(hit.t),
         'X-Clubs-Offline': '1', 'X-Clubs-Cached-At': new Date(hit.t).toISOString() });
     });
   };
@@ -199,37 +201,25 @@
     new MutationObserver(decorate).observe(document.body, { childList: true, subtree: true });
   }
   function pageSchedule() {
-    var form = document.getElementById('schedule-filters');
-    if (!form || document.getElementById('itc-my-toggle')) return;
+    var row = document.getElementById('schedule-actions');
+    if (!row || document.getElementById('itc-my-toggle')) return;
     var q = new URLSearchParams(location.search);
     if (q.get('my') === '1') LS.setItem(MODE_KEY, '1');
-    var APPROW = document.getElementById('app-row2'); // экран расписания APK (app-schedule.js): чипы — в строке «Сегодня … фильтры»
-    var bar = el('div', { class: 'itc-mybar' });
-    var s = el('button', { type: 'button', id: 'itc-notify-open', class: 'itc-chip icon' + (APPROW ? ' itc-ctl' : ''), 'aria-label': PWA ? 'Уведомления' : 'Напоминания и виджеты' }, BELL);
+    var s = el('button', { type: 'button', id: 'itc-notify-open', class: 'glass-action', 'aria-label': PWA ? 'Уведомления' : 'Напоминания и виджеты' }, BELL);
     s.addEventListener('click', openSheet);
-    var t;
+    var t = el('button', { type: 'button', id: 'itc-my-toggle', class: 'glass-action' });
+    function paint() {
+      var n = Follows.all().length;
+      t.setAttribute('aria-pressed', String(myMode()));
+      t.innerHTML = STAR + '<span>Мои кружки</span>' + (n ? '<span class="my-follow-count">· ' + n + '</span>' : '');
+    }
     function toggleMine() {
       if (!Follows.all().length && !myMode()) { toast('Отметьте кружки звёздочкой ☆ в каталоге'); paint(); return; }
       LS.setItem(MODE_KEY, myMode() ? '0' : '1'); paint(); reload(); document.dispatchEvent(new CustomEvent('itc:mymode'));
     }
-    if (APPROW) {
-      // APK: «Мои кружки» — переключатель внутри панели фильтров; в строке — только колокольчик и фильтры
-      var opts = document.getElementById('filter-options');
-      t = el('label', { class: 'itc-only-mine', id: 'itc-my-toggle' }, '<span class="itc-only-mine-text"></span><input type="checkbox" role="switch" class="itc-switch">');
-      t.querySelector('input').addEventListener('change', toggleMine);
-      opts.insertBefore(t, opts.firstChild);
-      var paint = function () { var n = Follows.all().length; t.querySelector('input').checked = myMode();
-        t.querySelector('.itc-only-mine-text').textContent = 'Только мои кружки' + (n ? ' · ' + n : ''); };
-      bar.append(s);
-      APPROW.insertBefore(bar, APPROW.querySelector('.app-filter-btn'));
-    } else {
-      t = el('button', { type: 'button', id: 'itc-my-toggle', class: 'itc-chip' });
-      paint = function () { var n = Follows.all().length; t.setAttribute('aria-pressed', String(myMode()));
-        t.innerHTML = STAR + '<span>Мои кружки' + (n ? ' · ' + n : '') + '</span>'; t.setAttribute('aria-label', 'Мои кружки' + (n ? ': ' + n : '')); };
-      t.addEventListener('click', toggleMine);
-      bar.append(t, s);
-      form.parentNode.insertBefore(bar, form);
-    }
+    t.addEventListener('click', toggleMine);
+    row.insertBefore(t, document.getElementById('toggle-filters'));
+    row.insertBefore(s, document.getElementById('today'));
     document.addEventListener('itc:follows', function () { paint(); if (myMode()) reload(); });
     paint();
     if (myMode()) reload();

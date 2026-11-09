@@ -85,7 +85,9 @@ export function startUpdates() {
   document.addEventListener('close', reconsider, true);
   if (sw) sw.addEventListener('controllerchange', async () => {
     if (!hadController) { hadController = true; return; } // первый install уже соответствует открытой странице
-    nextBuild = await buildId() || nextBuild;
+    const id = await buildId();
+    if (!applying && id && id === loadedBuild && !registration?.waiting) return;
+    nextBuild = id || nextBuild;
     pending = true;
     if (hasUnsavedWork()) { applying = false; showPending(); } else if (applying) reload(); else showPending();
   });
@@ -100,7 +102,10 @@ export function startUpdates() {
         registration.addEventListener('updatefound', () => {
           const worker = registration.installing;
           worker?.addEventListener('statechange', () => {
-            if (worker.state === 'installed' && sw.controller) { pending = true; showPending(); }
+            if (worker.state === 'installed' && sw.controller && registration.waiting === worker) {
+              pending = true;
+              showPending();
+            }
           });
         });
       } catch (error) { console.warn('Service worker не зарегистрирован:', error); }

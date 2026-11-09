@@ -314,12 +314,22 @@ def _validate_original_date(db: Session, session: ClubSession, original_date: da
             f"original_date {original_date.isoformat()} — это {WEEKDAYS[original_date.isoweekday() - 1]}, "
             f"а занятие проходит по дням: {WEEKDAYS[session.weekday - 1]}",
         )
-    if session.period_id:
-        period = db.get(AcademicPeriod, session.period_id)
-        days = set(db.scalars(select(NoClassDay.date).where(NoClassDay.period_id == session.period_id)))
-        info = {"start_date": period.start_date, "end_date": period.end_date, "even_week_start": period.even_week_start}
-        if not original_occurs({"weekday": session.weekday, "one_off_date": session.one_off_date, "repeat": session.repeat}, original_date, info, days):
-            raise HTTPException(409, "На эту дату занятие не запланировано с учётом периода, повторения и каникул")
+    info, days = _original_date_rules(db, session)
+    if not original_occurs(_session_pattern(session), original_date, info, days):
+        raise HTTPException(409, "На эту дату занятие не запланировано с учётом периода, повторения и каникул")
+
+
+def _original_date_rules(db: Session, session: ClubSession) -> tuple[dict | None, set[str]]:
+    if not session.period_id:
+        return None, set()
+    period = db.get(AcademicPeriod, session.period_id)
+    days = set(db.scalars(select(NoClassDay.date).where(NoClassDay.period_id == session.period_id)))
+    info = {"start_date": period.start_date, "end_date": period.end_date, "even_week_start": period.even_week_start}
+    return info, days
+
+
+def _session_pattern(session: ClubSession) -> dict:
+    return {"weekday": session.weekday, "one_off_date": session.one_off_date, "repeat": session.repeat}
 
 
 def _reject_existing_exception(db: Session, session_id: int, original_date: date, exclude_id: int | None = None) -> None:
@@ -1032,6 +1042,32 @@ def list_exceptions(db: Session = Depends(get_db)):
     )
 
 
+@router.get("/sessions/{session_id}/exception-dates", dependencies=[Depends(require_admin)])
+def list_exception_dates(session_id: int, db: Session = Depends(get_db)) -> list[date]:
+    from ..services.occurrence_source import today_msk
+
+    session = _get_or_404(db, ClubSession, session_id, "Регулярное занятие не найдено")
+    pattern = _session_pattern(session)
+    info, days = _original_date_rules(db, session)
+    today = today_msk()
+    existing = set(db.scalars(select(SessionException.original_date).where(SessionException.session_id == session_id)))
+    if session.one_off_date:
+        day = date.fromisoformat(session.one_off_date)
+        return [day] if day >= today and session.one_off_date not in existing and original_occurs(pattern, day, info, days) else []
+
+    first = max(today, date.fromisoformat(info["start_date"])) if info else today
+    end = date.fromisoformat(info["end_date"]) if info else date.max
+    day = first + timedelta(days=(session.weekday - first.isoweekday()) % 7)
+    available = []
+    while day <= end and len(available) < 8:
+        if day.isoformat() not in existing and original_occurs(pattern, day, info, days):
+            available.append(day)
+        if (end - day).days < 7:
+            break
+        day += timedelta(days=7)
+    return available
+
+
 @router.post(
     "/exceptions/cancellations",
     response_model=SessionExceptionRead,
@@ -1368,18 +1404,22 @@ def update_import_decisions(draft_id: int, payload: ImportDecisions, db: Session
     return _draft_data(item)
 
 
-@router.post("/imports/{draft_id}/publish", dependencies=[Depends(require_admin), Depends(schedule_write_lock)])
-def publish_import(draft_id: int, db: Session = Depends(get_db)):
+@router.post("/imports/{draft_id}/publish", dependencies=[Depends(schedule_write_lock)])
+def publish_import(draft_id: int, db: Session = Depends(get_db), admin: Admin = Depends(require_admin)):
+    from ..services import import_journal
+
+    import_journal.begin(db)
     item = _get_or_404(db, ImportDraft, draft_id, "Черновик не найден")
     if item.status != "draft":
-        raise HTTPException(409, "Этот черновик уже опубликован")
+        entry = import_journal.find_draft(db, draft_id)
+        if entry is None:
+            raise HTTPException(409, "Этот черновик уже опубликован")
+        return _draft_publish_result(draft_id, entry)
     rows = {r["row"]: r for r in json.loads(item.rows_json)}
     decisions = json.loads(item.decisions_json)
     if {d["row"] for d in decisions} != set(rows):
         raise HTTPException(409, "Для каждой строки выберите создание или пропуск")
-    from ..services import import_publish as import_journal
-
-    backup_path = import_journal.backup_before_draft()  # schedule v2: снимок для отката публикации
+    before = import_journal.capture(db)
     created = 0
     new_clubs = {}
     for decision in decisions:
@@ -1433,6 +1473,19 @@ def publish_import(draft_id: int, db: Session = Depends(get_db)):
         db.flush()
         created += 1
     item.status = "published"
+    entry = import_journal.record(
+        db, before, author=admin.login, draft_id=draft_id,
+        stats={"sessions_created": created, "skipped": len(decisions) - created},
+    )
     db.commit()
-    entry = import_journal.record_draft_publish(item.id, backup_path, created=created, skipped=len(decisions) - created)
-    return {"id": item.id, "status": item.status, "created": created, "skipped": len(decisions) - created, "publish_id": entry.get("id")}
+    return _draft_publish_result(draft_id, entry)
+
+
+def _draft_publish_result(draft_id: int, entry: dict) -> dict:
+    return {
+        "id": draft_id,
+        "status": "published",
+        "created": entry["stats"]["sessions_created"],
+        "skipped": entry["stats"]["skipped"],
+        "publish_id": entry["id"],
+    }

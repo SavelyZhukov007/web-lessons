@@ -1,7 +1,7 @@
 // Не требует npm-пакетов: node --test frontend/tests/schedule-dates.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDate, dateKey, addDays, monday, moscowToday, eventLanes } from '../js/schedule-dates.js';
+import { parseDate, dateKey, addDays, monday, moscowToday, eventLanes, scheduleLocation } from '../js/schedule-dates.js';
 
 const event = (id, start, end) => ({ event_id: id, start_time: start, end_time: end });
 
@@ -58,4 +58,14 @@ test('Вложенные и одновременные интервалы пол
   assert.equal(layout.find(item => item.event.event_id === 'a').lanes, 3);
   assert.equal(layout.find(item => item.event.event_id === 'e').lanes, 1);
   assert.deepEqual(eventLanes([]), []);
+});
+
+
+test('ссылка на расписание восстанавливает неделю и выбранный день', () => {
+  const today = parseDate('2026-11-07');
+  const result = search => { const { week, day } = scheduleLocation(search, today); return [dateKey(week), day]; };
+  assert.deepEqual(result('?week=2026-11-09&day=2026-11-10'), ['2026-11-09', 1]);
+  assert.deepEqual(result('?week=2026-11-09&day=2026-11-17'), ['2026-11-09', 0]);
+  assert.deepEqual(result('?week=2101-01-04&day=bad'), ['2026-11-02', 5]);
+  assert.deepEqual(result('?week=2026-02-31&release=v1.9.014'), ['2026-11-02', 5]);
 });
