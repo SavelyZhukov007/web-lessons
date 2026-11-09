@@ -198,16 +198,17 @@
         '</div></div></div>' +
       '<div data-interface-settings></div>' +
       '<h2>Уведомления</h2><div class="itc-group">' + row('Настроить уведомления', { act: 'notifications', sub: 'Отмены, переносы, объявления и напоминания' }) + '</div>' + adminAcc +
-      '<h2>Помощь</h2><div class="itc-group">' + row('Обратная связь', { act: 'feedback' }) + '</div>' +
+      '<div data-final-settings></div><h2>Помощь</h2><div class="itc-group">' + row('Обратная связь', { act: 'feedback' }) + '<div data-campus-tour></div></div>' +
       '<h2>О приложении</h2><div class="itc-group">' + row('Проверить обновления', { act: 'update' }) +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Версия</span></span><span class="itc-row-val">' + esc(window.ITC_VERSION || '—') + '</span></div>' +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Разработчик</span></span><span class="itc-row-val">ИТС КИПФИН</span></div></div>' +
       (DEV ? '<h2>Для разработчиков</h2><div class="itc-group" data-ext="dev"></div>' : '') +
       '</div></div>', 'itc-ob-scroll itc-settings');
     var interfaceLifetime = new AbortController();
-    Promise.all([import('/js/sheet-gesture.js'), import('/js/interface-settings.js')]).then(function (modules) {
+    Promise.all([import('/js/sheet-gesture.js'), import('/js/interface-settings.js'),import('/js/settings-final.js')]).then(function (modules) {
       if (!s.isConnected) return;
       if (T && !interfaceLifetime.signal.aborted) s.querySelector('[data-interface-settings]').replaceChildren(modules[1].interfaceSettings(T, interfaceLifetime.signal));
+      modules[2].mountFinalSettings(s.querySelector('[data-final-settings]'),s.querySelector('[data-campus-tour]'));
       var panel = s.querySelector('.itc-set');
       modules[0].bindSheetDismiss(panel, {
         scrollBody: function () { return s; },

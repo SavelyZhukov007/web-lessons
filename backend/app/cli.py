@@ -1,6 +1,7 @@
 """Служебные команды (OPS-07, DB-04, DB-05): создание/сброс пароля админа, seed, бэкап, проверка конфигурации.
 Запуск: `python server.py admin|seed|backup|check-config ...` (см. server.py). Все команды неинтерактивны, если пароль передан через
 --password-stdin / переменную ADMIN_PASSWORD (иначе спрашиваем getpass)."""
+
 from __future__ import annotations
 
 import gzip
@@ -147,8 +148,13 @@ def seed(path: Path | None = None, *, dry_run: bool = False) -> dict:
                     raise CliError(f"Кружок «{name}»: нет {exc.args[0]!r} среди категорий/руководителей файла") from exc
                 obj = db.scalar(select(Club).where(Club.name == name, Club.category_id == category.id))
                 bucket = "existing" if obj else "created"
-                obj = obj or Club(name=name, description=item.get("description", ""), category_id=category.id,
-                                  leader_id=leader.id, is_active=bool(item.get("is_active", True)))
+                obj = obj or Club(
+                    name=name,
+                    description=item.get("description", ""),
+                    category_id=category.id,
+                    leader_id=leader.id,
+                    is_active=bool(item.get("is_active", True)),
+                )
                 if bucket == "created":
                     db.add(obj)
                 stats["clubs"][bucket] += 1
@@ -162,14 +168,23 @@ def seed(path: Path | None = None, *, dry_run: bool = False) -> dict:
                 weekday, start, end = int(item["weekday"]), item["start_time"], item["end_time"]
                 if not 1 <= weekday <= 7 or not start < end:
                     raise CliError(f"Занятие {item!r}: неверный день недели или время")
-                obj = db.scalar(select(ClubSession).where(ClubSession.club_id == club.id, ClubSession.room_id == room.id,
-                                                          ClubSession.weekday == weekday, ClubSession.start_time == start,
-                                                          ClubSession.end_time == end))
+                obj = db.scalar(
+                    select(ClubSession).where(
+                        ClubSession.club_id == club.id,
+                        ClubSession.room_id == room.id,
+                        ClubSession.weekday == weekday,
+                        ClubSession.start_time == start,
+                        ClubSession.end_time == end,
+                    )
+                )
                 if obj is None:
                     for other in db.scalars(select(ClubSession).where(ClubSession.weekday == weekday)):
                         if intervals_overlap(start, end, other.start_time, other.end_time) and (
-                                other.room_id == room.id or other.club.leader_id == club.leader_id):
-                            raise CliError(f"Занятие {item!r} пересекается с уже существующим (id={other.id}) по аудитории или руководителю")
+                            other.room_id == room.id or other.club.leader_id == club.leader_id
+                        ):
+                            raise CliError(
+                                f"Занятие {item!r} пересекается с уже существующим (id={other.id}) по аудитории или руководителю"
+                            )
                     obj = ClubSession(club_id=club.id, room_id=room.id, weekday=weekday, start_time=start, end_time=end)
                     db.add(obj)
                     db.flush()
@@ -182,16 +197,27 @@ def seed(path: Path | None = None, *, dry_run: bool = False) -> dict:
                     session, kind = sessions[item["session_id"]], item["type"]
                 except KeyError as exc:
                     raise CliError(f"Исключение {item!r}: неизвестная ссылка {exc.args[0]!r}") from exc
-                exists = db.scalar(select(SessionException).where(SessionException.session_id == session.id,
-                                                                  SessionException.original_date == item["original_date"]))
+                exists = db.scalar(
+                    select(SessionException).where(
+                        SessionException.session_id == session.id, SessionException.original_date == item["original_date"]
+                    )
+                )
                 if exists:
                     stats["session_exceptions"]["existing"] += 1
                     continue
                 new_room = rooms.get(item.get("new_room_id")) if kind == "moved" else None
-                db.add(SessionException(session_id=session.id, original_date=item["original_date"], type=kind,
-                                        new_date=item.get("new_date"), new_start_time=item.get("new_start_time"),
-                                        new_end_time=item.get("new_end_time"), new_room_id=new_room.id if new_room else None,
-                                        comment=item.get("comment", "")))
+                db.add(
+                    SessionException(
+                        session_id=session.id,
+                        original_date=item["original_date"],
+                        type=kind,
+                        new_date=item.get("new_date"),
+                        new_start_time=item.get("new_start_time"),
+                        new_end_time=item.get("new_end_time"),
+                        new_room_id=new_room.id if new_room else None,
+                        comment=item.get("comment", ""),
+                    )
+                )
                 stats["session_exceptions"]["created"] += 1
             if dry_run:
                 db.rollback()
@@ -236,6 +262,12 @@ def backup(dest: Path, *, keep: int = 14, compress: bool = True, prefix: str = "
         with raw.open("rb") as f_in, gzip.open(final, "wb", compresslevel=6) as f_out:
             shutil.copyfileobj(f_in, f_out)
         raw.unlink()
+    # Every daily/operational backup is actually restored into an isolated temporary SQLite database.
+    # No application startup, notification workers, token revocation or live DB replacement.
+    check = verify_backup(final)
+    if check["integrity"] != "ok" or check["foreign_key_errors"] or check["missing_tables"] or not check["restored"]:
+        raise CliError("Проверка восстановления бэкапа не пройдена; старые копии сохранены")
+    audit.log("backup_restore_verified", file=str(final), revision=check["revision"])
     # ротация только своего префикса: ночные clubs-*, pre-migrate-*, pre-import-* живут отдельно
     for old in sorted(dest.glob(f"{prefix}-[0-9]*.sqlite3*"), key=lambda p: (p.stat().st_mtime_ns, p.name), reverse=True)[keep:]:
         old.unlink()
@@ -277,6 +309,8 @@ def restore(path: Path, *, target: Path | None = None) -> dict:
                 dst.close()
         finally:
             src.close()
+    except (sqlite3.DatabaseError, OSError, EOFError) as exc:
+        raise CliError(f"Бэкап не удалось восстановить и проверить: {type(exc).__name__}") from exc
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
     if result != "ok":
@@ -296,6 +330,7 @@ def verify_backup(path: Path) -> dict:
     if not path.exists():
         raise CliError(f"Файл не найден: {path}")
     import tempfile
+
     tmpdir = Path(tempfile.mkdtemp(prefix="clubs-restore-"))
     try:
         target = tmpdir / "restore.sqlite3"
@@ -304,17 +339,42 @@ def verify_backup(path: Path) -> dict:
                 shutil.copyfileobj(f_in, f_out)
         else:
             shutil.copy2(path, target)
-        conn = sqlite3.connect(str(target))
-        try:
-            integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
-            has_version = conn.execute("SELECT 1 FROM sqlite_master WHERE name='alembic_version'").fetchone()
-            version = conn.execute("SELECT version_num FROM alembic_version").fetchone() if has_version else None
-            counts = {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-                      for t in ("categories", "leaders", "rooms", "clubs", "sessions", "session_exceptions", "admins")}
-        finally:
-            conn.close()
+        restored = tmpdir / "restored.sqlite3"
+        from contextlib import closing
+
+        with closing(sqlite3.connect(str(target))) as source, closing(sqlite3.connect(str(restored))) as destination:
+            source.backup(destination)
+        from .database import Base
         from .migrations import head_revision
-        return {"integrity": integrity, "revision": version[0] if version else None, "head": head_revision(), "rows": counts}
+
+        expected_tables = set(Base.metadata.tables)
+
+        def inspect_database(file):
+            with closing(sqlite3.connect(str(file))) as conn:
+                integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+                foreign_keys = conn.execute("PRAGMA foreign_key_check").fetchall()
+                has_version = conn.execute("SELECT 1 FROM sqlite_master WHERE name='alembic_version'").fetchone()
+                version = conn.execute("SELECT version_num FROM alembic_version").fetchone() if has_version else None
+                tables = [
+                    row[0]
+                    for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+                ]
+                counts = {t: conn.execute('SELECT COUNT(*) FROM "' + t.replace('"', '""') + '"').fetchone()[0] for t in tables}
+            return integrity, foreign_keys, version[0] if version else None, counts
+
+        original = inspect_database(target)
+        integrity, foreign_keys, version, counts = inspect_database(restored)
+        return {
+            "integrity": integrity,
+            "revision": version,
+            "head": head_revision(),
+            "rows": counts,
+            "foreign_key_errors": len(foreign_keys),
+            "missing_tables": sorted(expected_tables - counts.keys()),
+            "restored": original == (integrity, foreign_keys, version, counts),
+        }
+    except (sqlite3.DatabaseError, OSError, EOFError) as exc:
+        raise CliError(f"Бэкап не удалось восстановить и проверить: {type(exc).__name__}") from exc
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 

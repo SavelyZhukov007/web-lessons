@@ -65,6 +65,11 @@ try:
                 checks += 2
                 assert pg.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 checks += 1
+                rail_height=pg.locator('#day-buttons').bounding_box()['height']
+                pg.locator('#day-buttons .ribbon-hit[data-day-date="2026-11-11"]').tap()
+                expect(pg.locator('#day-buttons [aria-pressed="true"]')).to_have_attribute('data-day-date','2026-11-11')
+                assert pg.locator('#day-buttons').bounding_box()['height']==rail_height
+                checks+=2
                 top = pg.locator('#content').bounding_box()['y']
                 for day in ('2026-11-11', '2026-11-12', '2026-11-10'):
                     pg.evaluate('(day)=>ItcSchedule.goto(day)', day)
@@ -97,6 +102,21 @@ try:
                 expect(pg.locator('#prev-week')).to_have_css('backdrop-filter', 'none')
                 checks += 2
                 pg.screenshot(path=str(shots / f'android-perf-{width}-{scheme}.png'), animations='disabled')
+                pg.evaluate("Capacitor.Plugins.ItcNative={pinWidget:async({kind})=>{window.__pinned=kind;return {requested:true}}}")
+                pg.locator('.app-gear').click()
+                expect(pg.get_by_role('heading',name='Виджеты на рабочий стол',exact=True)).to_be_visible()
+                expect(pg.get_by_role('link',name='3D-тур КИПФИН',exact=False)).to_have_attribute('rel','noopener noreferrer')
+                privacy=pg.get_by_role('switch',name='Анонимная статистика и технические ошибки',exact=True)
+                expect(privacy).to_have_attribute('aria-checked','false')
+                privacy.click();assert pg.evaluate('KipUsage.consent()')
+                privacy.click();assert not pg.evaluate('KipUsage.consent()')
+                pg.locator('[data-widget-settings]').scroll_into_view_if_needed()
+                pg.screenshot(path=str(shots / f'final-19021-{width}-{scheme}-android-settings-actual.png'),animations='disabled')
+                pg.get_by_role('button',name='Следующее занятие',exact=True).click()
+                assert pg.evaluate('window.__pinned')=='next'
+                expect(pg.locator('[data-widget-settings] [role=status]')).to_contain_text('Подтвердите')
+                pg.locator('.itc-set-back').click()
+                checks+=8
                 assert not errors, errors
                 checks += 1
                 print(f'PASS Android shim {width} {scheme}', flush=True)

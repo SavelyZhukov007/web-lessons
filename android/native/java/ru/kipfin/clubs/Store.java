@@ -34,6 +34,7 @@ public final class Store {
         public long clubId;
         public String club, room, leader, status, date, start, end, originalDate, comment;
         public int color;
+        public Set<Long> roomIds = new HashSet<>(), leaderIds = new HashSet<>();
         public long startMs, endMs;
 
         public boolean cancelled() { return "cancelled".equals(status); }
@@ -44,8 +45,11 @@ public final class Store {
             e.sessionId = o.getLong("session_id");
             e.clubId = o.getLong("club_id");
             e.club = o.optString("club_name", "Занятие");
-            e.room = o.optString("room_name", "");
-            e.leader = o.optString("leader_name", "");
+            e.room = names(o.optJSONArray("room_names"),o.optString("room_name", ""));
+            e.leader = names(o.optJSONArray("leader_names"),o.optString("leader_name", ""));
+            e.roomIds = ids(o.optJSONArray("room_ids")); e.leaderIds = ids(o.optJSONArray("leader_ids"));
+            if(e.roomIds.isEmpty() && o.optLong("room_id",0)>0)e.roomIds.add(o.optLong("room_id"));
+            if(e.leaderIds.isEmpty() && o.optLong("leader_id",0)>0)e.leaderIds.add(o.optLong("leader_id"));
             e.status = o.optString("status", "scheduled");
             e.date = o.getString("date");
             e.start = o.getString("start_time");
@@ -59,6 +63,19 @@ public final class Store {
             return e;
         }
     }
+
+    static Set<Long> ids(JSONArray values) {
+        Set<Long> out=new HashSet<>();if(values!=null)for(int i=0;i<Math.min(100,values.length());i++){long id=values.optLong(i,0);if(id>0 && id<(1L<<53))out.add(id);}return out;
+    }
+    static String names(JSONArray values,String fallback) {
+        if(values==null || values.length()==0)return fallback;
+        List<String> out=new ArrayList<>();for(int i=0;i<values.length();i++){String name=values.optString(i,"");if(!name.isEmpty())out.add(name);}return String.join(", ",out);
+    }
+    static boolean widgetFavorites(Context c) {
+        return !follows(c).isEmpty() || !widgetIds(c,"widget_rooms").isEmpty() || !widgetIds(c,"widget_leaders").isEmpty();
+    }
+    static Set<Long> widgetIds(Context c,String key) {try{return ids(new JSONArray(prefs(c).getString(key,"[]")));}catch(JSONException ignored){return new HashSet<>();}}
+    static List<Event> widgetEvents(Context c) {return WidgetData.filter(events(c),follows(c),widgetIds(c,"widget_rooms"),widgetIds(c,"widget_leaders"));}
 
     static int parseColor(String hex) {
         if (hex != null && hex.matches("#[0-9a-fA-F]{6}")) return 0xFF000000 | Integer.parseInt(hex.substring(1), 16);
@@ -87,13 +104,15 @@ public final class Store {
 
     public static List<Event> parse(String json) {
         List<Event> out = new ArrayList<>();
+        java.util.Map<String,Event> unique = new java.util.LinkedHashMap<>();
         if (json == null || json.isEmpty()) return out;
         try {
             JSONArray a = new JSONArray(json);
             for (int i = 0; i < a.length(); i++) {
-                try { out.add(Event.from(a.getJSONObject(i))); } catch (JSONException ignored) { /* битая запись */ }
+                try { Event event=Event.from(a.getJSONObject(i)); unique.put(event.key,event); } catch (JSONException ignored) { /* битая запись */ }
             }
         } catch (JSONException ignored) { /* пусто */ }
+        out.addAll(unique.values());
         Collections.sort(out, (x, y) -> Long.compare(x.startMs, y.startMs));
         return out;
     }

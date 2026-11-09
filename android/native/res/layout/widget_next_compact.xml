@@ -16,6 +16,7 @@
         <TextView android:id="@+id/widget_when" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="Сегодня, 15:30–17:00" android:textColor="@color/widget_muted" android:textSize="13sp"
             android:maxLines="1" android:ellipsize="end" />
+        <ProgressBar android:id="@+id/widget_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="4dp" android:max="100" android:visibility="gone" android:importantForAccessibility="no" />
     </LinearLayout>
     <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content"
         android:layout_marginStart="8dp" android:background="@drawable/widget_chip" android:paddingStart="8dp" android:paddingEnd="8dp"

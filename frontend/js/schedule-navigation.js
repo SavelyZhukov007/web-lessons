@@ -62,7 +62,10 @@ export function createDayRibbon(rail, selectDate, shiftWeek) {
     const modeChanged = fixed !== fixedWeek();
     fixed = fixedWeek();
     const markers = dayMarkers(events);
-    const focusInRail = rail.contains(document.activeElement);
+    // Touch does not need programmatic focus relocation (expensive WebView AX/scroll work).
+    // Keyboard and TalkBack retain the correct current-day focus after the stable slot changes its date.
+    const activeElement = document.activeElement;
+    const focusInRail = rail.contains(activeElement) && (activeElement.matches(':focus-visible') || document.documentElement.dataset.nativeScreenReader === 'true');
     let rebuilt = false;
     const week = monday(date);
     const sameWindow = first && (fixed ? dateKey(first) === dateKey(week)
@@ -197,16 +200,22 @@ export function bindDaySwipe(content, step, enabled) {
 // Android path: fixed-width slots and one compositor transform, all geometry from ResizeObserver.
 // The ordinary web/PWA path remains unchanged until the native-only policy is installed.
 function createTransformRibbon(rail, selectDate, shiftWeek) {
-  const track = document.createElement('div'); track.className = 'ribbon-track';
+  const track = document.createElement('div'); track.className = 'ribbon-track'; track.setAttribute('aria-hidden', 'true');
   const pill = document.createElement('span'); pill.className = 'glass-indicator is-visible'; pill.setAttribute('aria-hidden', 'true');
   track.append(pill); rail.classList.add('ribbon-transform'); rail.append(track);
+  const hits = Array.from({ length: 6 }, (_, index) => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'ribbon-hit'; button.hidden = true;
+    button.style.setProperty('--ribbon-index', String(index));
+    button.addEventListener('click', () => { if (!button.disabled) selectDate(parseDate(button.dataset.dayDate)); });
+    rail.append(button); return button;
+  });
   let buttons = [], firstKey, currentKey, fixed, slot = 0, x = 0, pillX = 0, animation, pending, last;
   const fixedWeek = () => document.documentElement.dataset.dayNavigation === 'week';
   const easing = CSS.supports('animation-timing-function', 'linear(0, 1)')
     ? 'linear(0, .17, .44, .68, .85, .96, 1.02, 1.04, 1.03, 1.01, 1)' : 'cubic-bezier(.2,.8,.2,1)';
   function position(smooth) {
     if (!slot || !currentKey) return;
-    const index = buttons.findIndex(b => b.dataset.dayDate === currentKey);
+    const index = buttons.findIndex(b => b.dataset.ribbonDate === currentKey);
     if (index < 0) return;
     const target = fixed ? 0 : -(index - 2) * slot;
     // One read when interrupting an animation, never in an animation-frame loop.
@@ -230,43 +239,59 @@ function createTransformRibbon(rail, selectDate, shiftWeek) {
   }
   function update(date, today, events) {
     last = [date, today, events];
+    // Touch does not need programmatic focus relocation (expensive WebView AX/scroll work).
+    // Keyboard and TalkBack retain the correct current-day focus after the stable slot changes its date.
+    const activeElement = document.activeElement;
+    const focusInRail = rail.contains(activeElement) && (activeElement.matches(':focus-visible') || document.documentElement.dataset.nativeScreenReader === 'true');
     const key = dateKey(date), week = monday(date), mode = fixedWeek();
-    const contains = buttons.findIndex(b => b.dataset.dayDate === key);
+    const contains = buttons.findIndex(b => b.dataset.ribbonDate === key);
     const rebuild = fixed !== mode || !buttons.length || (mode ? firstKey !== dateKey(week) : contains < 5 || contains > 24);
     fixed = mode;
     if (rebuild) {
       const first = mode ? week : stepStudyDay(date, -14); firstKey = dateKey(first);
-      const focused = rail.contains(document.activeElement);
       buttons.forEach(b => b.remove()); buttons = [];
       for (let i = 0; i < (mode ? 6 : 30); i++) {
         const day = stepStudyDay(first, i), id = dateKey(day);
-        const button = document.createElement('button'); button.type = 'button'; button.dataset.dayDate = id;
-        button.dataset.dayLabel = dayLabel.format(day); button.disabled = !weekInRange(day);
+        const button = document.createElement('div'); button.className = 'ribbon-day'; button.dataset.ribbonDate = id;
+        button.dataset.dayLabel = dayLabel.format(day); button.dataset.disabled = String(!weekInRange(day));
         const label = document.createElement('span'); label.className = 'ribbon-weekday'; label.textContent = DAY_SHORT[day.getDay() - 1];
         const number = document.createElement('strong'); number.textContent = String(day.getDate());
         const dots = document.createElement('span'); dots.className = 'ribbon-dots'; dots.setAttribute('aria-hidden', 'true');
-        button.append(label, number, dots); button.addEventListener('click', () => selectDate(day)); buttons.push(button);
+        button.append(label, number, dots); buttons.push(button);
       }
       track.style.setProperty('--ribbon-count', String(buttons.length));
       track.append(...buttons);
-      if (focused) buttons.find(b => b.dataset.dayDate === key)?.focus({ preventScroll: true });
     }
     const changed = key !== currentKey; currentKey = key;
     const markers = dayMarkers(events), now = dateKey(today);
     for (const button of buttons) {
-      const id = button.dataset.dayDate, active = id === key;
-      if (button.getAttribute('aria-pressed') !== String(active)) button.setAttribute('aria-pressed', String(active));
-      button.tabIndex = active ? 0 : -1; button.classList.toggle('is-today', id === now);
+      const id = button.dataset.ribbonDate, active = id === key;
+      button.dataset.selected = String(active); button.classList.toggle('is-today', id === now);
       const types = [...(markers.get(id) || [])], suffix = types.map(t => markLabels[t]).join(', ');
       const label = `${button.dataset.dayLabel}${suffix ? `, ${suffix}` : ''}`;
-      if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+      button.dataset.accessible = label;
       const dots = button.querySelector('.ribbon-dots');
       if (dots.dataset.types !== suffix) {
         dots.dataset.types = suffix;
         dots.replaceChildren(...types.map(type => { const dot = document.createElement('i'); dot.className = `ribbon-dot ${type}`; return dot; }));
       }
     }
-    if (changed || rebuild) position(!rebuild);
+    const activeIndex = buttons.findIndex(b => b.dataset.ribbonDate === key);
+    const from = mode ? 0 : activeIndex - 2;
+    hits.forEach((hit, index) => {
+      const visual = buttons[from + index];
+      hit.hidden = !visual;
+      if (!visual) return;
+      const id = visual.dataset.ribbonDate, active = id === key;
+      const name = `${visual.dataset.accessible}${id === now ? ', сегодня' : ''}${active ? ', выбрано' : ''}`;
+      hit.dataset.dayDate = id; hit.disabled = visual.dataset.disabled === 'true';
+      hit.setAttribute('aria-label', name); hit.setAttribute('aria-pressed', String(active));
+      if (id === now) hit.setAttribute('aria-current', 'date'); else hit.removeAttribute('aria-current');
+      hit.tabIndex = active ? 0 : -1;
+      // A text fallback gives Android's AX serializer a real name even on WebViews with aria-label quirks.
+      if (hit.textContent !== name) { const text = document.createElement('span'); text.className = 'visually-hidden'; text.textContent = name; hit.replaceChildren(text); }
+    });
+    if (changed || rebuild) { position(!rebuild); if (focusInRail) hits.find(b => b.dataset.dayDate === key)?.focus({ preventScroll:true }); }
   }
   new ResizeObserver(entries => {
     const width = entries[0].contentRect.width;

@@ -1,7 +1,7 @@
 """OPS-07 / DB-04 / DB-05: служебные команды и server.py CLI."""
+
 import gzip
 import json
-import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -83,8 +83,9 @@ def test_seed_is_idempotent(tmp_path):
 
 
 def test_seed_is_atomic_on_bad_reference(tmp_path):
-    data = _data(clubs=[{"id": 1, "name": "Ок", "category_id": 1, "leader_id": 1},
-                        {"id": 2, "name": "Битый", "category_id": 99, "leader_id": 1}])
+    data = _data(
+        clubs=[{"id": 1, "name": "Ок", "category_id": 1, "leader_id": 1}, {"id": 2, "name": "Битый", "category_id": 99, "leader_id": 1}]
+    )
     with pytest.raises(cli.CliError, match="Битый"):
         cli.seed(_file(tmp_path, data))
     with SessionLocal() as db:
@@ -94,8 +95,11 @@ def test_seed_is_atomic_on_bad_reference(tmp_path):
 def test_seed_rejects_overlapping_sessions(tmp_path):
     data = _data(
         clubs=[{"id": 1, "name": "А", "category_id": 1, "leader_id": 1}, {"id": 2, "name": "Б", "category_id": 1, "leader_id": 1}],
-        sessions=[{"id": 1, "club_id": 1, "room_id": 1, "weekday": 1, "start_time": "10:00", "end_time": "11:00"},
-                  {"id": 2, "club_id": 2, "room_id": 1, "weekday": 1, "start_time": "10:30", "end_time": "11:30"}])
+        sessions=[
+            {"id": 1, "club_id": 1, "room_id": 1, "weekday": 1, "start_time": "10:00", "end_time": "11:00"},
+            {"id": 2, "club_id": 2, "room_id": 1, "weekday": 1, "start_time": "10:30", "end_time": "11:30"},
+        ],
+    )
     with pytest.raises(cli.CliError, match="пересекается"):
         cli.seed(_file(tmp_path, data))
 
@@ -129,7 +133,7 @@ def test_backup_roundtrip_and_rotation(tmp_path):
 def test_verify_backup_detects_garbage(tmp_path):
     path = tmp_path / "bad.sqlite3"
     path.write_bytes(b"not a database")
-    with pytest.raises(sqlite3.DatabaseError):
+    with pytest.raises(cli.CliError, match="восстановить"):
         cli.verify_backup(path)
     with pytest.raises(cli.CliError, match="не найден"):
         cli.verify_backup(tmp_path / "nope")
@@ -137,11 +141,14 @@ def test_verify_backup_detects_garbage(tmp_path):
 
 # ---------- server.py как процесс ----------
 
+
 def run_server(*args, env=None, stdin=None):
     import os
+
     full = {**os.environ, **(env or {})}
-    return subprocess.run([sys.executable, str(ROOT / "server.py"), *args], capture_output=True, text=True, cwd=ROOT,
-                          env=full, input=stdin, timeout=120)
+    return subprocess.run(
+        [sys.executable, str(ROOT / "server.py"), *args], capture_output=True, text=True, cwd=ROOT, env=full, input=stdin, timeout=120
+    )
 
 
 def test_server_cli_help_and_unknown_subcommand():
@@ -179,8 +186,16 @@ def test_server_cli_build_back_is_self_contained_and_clean(tmp_path):
     r = run_server("build", "back", "--out", str(tmp_path / "back"))
     assert r.returncode == 0, r.stderr
     pkg = tmp_path / "back" / "clubs-backend"
-    for need in ("server.py", "backend/app/main.py", "backend/migrations/versions/0003_refresh_token_rotation.py",
-                 "backend/requirements.lock.txt", "web/index.html", "deploy/.env.example", "RUN.md", "data/demo-data.json"):
+    for need in (
+        "server.py",
+        "backend/app/main.py",
+        "backend/migrations/versions/0003_refresh_token_rotation.py",
+        "backend/requirements.lock.txt",
+        "web/index.html",
+        "deploy/.env.example",
+        "RUN.md",
+        "data/demo-data.json",
+    ):
         assert (pkg / need).exists(), need
     assert not (pkg / "backend" / "tests").exists() and not list(pkg.rglob("requirements-dev*"))
     names = zipfile.ZipFile(tmp_path / "back" / "clubs-backend.zip").namelist()
@@ -198,3 +213,47 @@ def test_server_cli_build_android_reports_missing_tools(tmp_path):
     out = run_server("build", "android", "--check-only", env={"PATH": "/nonexistent", "CLUBS_TOOLCHAIN_ENV": ""})
     assert out.returncode == 1
     assert "Traceback" not in out.stderr and ("node" in out.stderr.lower() or "Node" in out.stderr)
+
+
+def test_backup_auto_restores_before_rotation(tmp_path, monkeypatch):
+    cli.seed(_file(tmp_path, _data()))
+    real = cli.verify_backup
+    reports = []
+
+    def checked(path):
+        report = real(path)
+        reports.append(report)
+        return report
+
+    monkeypatch.setattr(cli, "verify_backup", checked)
+    output = cli.backup(tmp_path / "verified")
+    assert output.exists() and reports[0]["restored"] and reports[0]["foreign_key_errors"] == 0
+    assert reports[0]["rows"]["usage_batches"] == 0
+
+
+def test_backup_failed_verification_keeps_previous_good_copy(tmp_path, monkeypatch):
+    cli.seed(_file(tmp_path, _data()))
+    dest = tmp_path / "keep"
+    old = cli.backup(dest)
+    monkeypatch.setattr(cli, "verify_backup", lambda p: {"integrity": "ok", "foreign_key_errors": 1, "restored": True})
+    with pytest.raises(cli.CliError, match="восстановления"):
+        cli.backup(dest, keep=1)
+    assert old.exists()
+
+
+def test_verify_restore_supports_previous_schema_without_touching_source(tmp_path):
+    import sqlite3
+    from contextlib import closing
+
+    source = tmp_path / "previous.sqlite3"
+    with closing(sqlite3.connect(source)) as db:
+        db.execute("CREATE TABLE alembic_version (version_num TEXT)")
+        db.execute("INSERT INTO alembic_version VALUES ('0016')")
+        db.execute("CREATE TABLE archived_data (value TEXT)")
+        db.execute("INSERT INTO archived_data VALUES ('keep')")
+        db.commit()
+    original = source.read_bytes()
+    result = cli.verify_backup(source)
+    assert result["restored"] and result["integrity"] == "ok" and result["revision"] == "0016"
+    assert result["rows"]["archived_data"] == 1 and "usage_batches" in result["missing_tables"]
+    assert source.read_bytes() == original

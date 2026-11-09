@@ -100,6 +100,27 @@ try:
         )
         check("разрешение на уведомления НЕ запрашивается при запуске", not calls(pg, "requestPermission"))
         pg.screenshot(path=str(SHOTS / "d-schedule-iphone15-light.png"))
+        pg.locator(".app-gear").click()
+        privacy = pg.get_by_role("switch", name="Анонимная статистика и технические ошибки", exact=True)
+        privacy.wait_for()
+        check("PWA settings: analytics off by default", privacy.get_attribute("aria-checked") == "false")
+        check(
+            "PWA settings: official 3D tour",
+            pg.get_by_role("link", name="3D-тур КИПФИН", exact=False).get_attribute("href")
+            == "https://tour.panoee.net/65e08e217a73f2feff4db099/65e08e717a73f212cb4db0ac",
+        )
+        check("PWA iOS: no unsupported native widget pin", pg.locator("[data-widget-settings]").count() == 0)
+        privacy.click()
+        check("PWA opt-in switches on", pg.evaluate("KipUsage.consent()"))
+        privacy.click()
+        check("PWA consent withdrawal", not pg.evaluate("KipUsage.consent()"))
+        close = (
+            pg.locator(".itc-set-back")
+            if pg.locator(".itc-settings").count()
+            else pg.get_by_role("button", name="Закрыть настройки", exact=True)
+        )
+        close.click()
+
         pg.goto("/club.html?id=1")
         pg.wait_for_selector(".itc-follow")
         pg.wait_for_timeout(400)

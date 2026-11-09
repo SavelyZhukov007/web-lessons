@@ -13,10 +13,12 @@ function makeWindow({ stored, systemDark = false, ua = 'Mozilla/5.0 (X11; Linux 
   const store = new Map(stored === undefined ? [] : [['clubs.prefs', typeof stored === 'string' ? stored : JSON.stringify(stored)]]);
   const sess = new Map(Object.entries(session));
   const listeners = {};
+  const documentListeners = {};
   const mqListeners = [];
   const mq = { matches: systemDark, addEventListener: (_, fn) => mqListeners.push(fn) };
   const win = {
     document: {
+      addEventListener: (type,fn) => { (documentListeners[type] ??= []).push(fn); },
       documentElement: { className: 'keep-me', setAttribute: (k, v) => { attrs[k] = v; } },
       head: { appendChild: m => { metas[m.name] = m; } },
       querySelector: sel => metas[/name="([^"]+)"/.exec(sel)?.[1]] ?? null,
@@ -35,7 +37,7 @@ function makeWindow({ stored, systemDark = false, ua = 'Mozilla/5.0 (X11; Linux 
     Capacitor: capacitor,
   };
   vm.runInNewContext(SRC, win);
-  return { win, attrs, metas, store, mq, mqListeners, listeners, theme: win.ClubsTheme };
+  return { win, attrs, metas, store, mq, mqListeners, listeners, documentListeners, theme: win.ClubsTheme };
 }
 
 test('по умолчанию: системная светлая тема, акцент brick, обычный размер, desktop', () => {
@@ -170,4 +172,13 @@ test('контраст: буква на аватаре — тёмная на ж�
       assert.ok(theme.contrast(d.logo, d.logoMark) >= 3, `${hex}/${t} logo`);
     }
   }
+});
+
+
+test('anti-zoom never swallows rapid interactive taps (including VoiceOver activation)',()=>{
+ const {documentListeners}=makeWindow();let prevented=0;
+ const button={target:{closest:sel=>sel.includes('button')?{}:null},preventDefault(){prevented++;}};
+ documentListeners.touchend[0](button);documentListeners.touchend[0](button);assert.equal(prevented,0);
+ const other=makeWindow();const plain={target:{closest:()=>null},preventDefault(){prevented++;}};
+ other.documentListeners.touchend[0](plain);other.documentListeners.touchend[0](plain);assert.equal(prevented,1);
 });

@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily KipClub backup and restore check (Moscow time)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Europe/Moscow
+RandomizedDelaySec=180
+Persistent=true
+Unit=kipclub-backup.service
+
+[Install]
+WantedBy=timers.target

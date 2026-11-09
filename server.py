@@ -148,7 +148,7 @@ def _verify_backup(args: argparse.Namespace) -> int:
         print(f"Ошибка: {exc}", file=sys.stderr)
         return 1
     print(report)
-    return 0 if report["integrity"] == "ok" and report["revision"] == report["head"] else 1
+    return 0 if (report["integrity"] == "ok" and report["revision"] == report["head"] and report["restored"] and not report["foreign_key_errors"] and not report["missing_tables"]) else 1
 
 
 def _check_config(_: argparse.Namespace) -> int:

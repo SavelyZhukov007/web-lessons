@@ -25,5 +25,7 @@
             android:layout_marginTop="6dp" android:background="@drawable/widget_chip" android:paddingStart="10dp"
             android:paddingEnd="10dp" android:paddingTop="2dp" android:paddingBottom="2dp" android:text="Перенесено"
             android:textColor="@color/widget_chip_fg" android:textSize="12sp" android:visibility="gone" />
+        <ProgressBar android:id="@+id/widget_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="4dp" android:max="100" android:visibility="gone" android:importantForAccessibility="no" />
+        <TextView android:id="@+id/widget_updated" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/widget_muted" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
     </LinearLayout>
 </LinearLayout>

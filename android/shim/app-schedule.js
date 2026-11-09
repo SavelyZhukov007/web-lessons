@@ -1,3 +1,4 @@
+import { campusTourLink } from './campus-tour.js';
 import { markLiveCard, favoriteControls } from './personal-schedule.js';
 // APK uses the same schedule controls as the web. It renders parallel
 // sessions as a slot and keeps the native splash and quick admin actions.
@@ -171,7 +172,7 @@ function details(e) {
   t.append(dl);
   if (e.comment) t.append(node('p', 'event-comment', e.comment));
   const a = node('a', 'club-link', 'О кружке'); a.append(icon('arrow')); a.href = `/club.html?id=${e.club_id}`; t.append(eventShareControls(e, a));
-  t.append(favoriteControls(e));
+  t.append(campusTourLink(), favoriteControls(e));
   const dlg = $('#event-dialog'); if (!dlg.open) dlg.showModal();
 }
 

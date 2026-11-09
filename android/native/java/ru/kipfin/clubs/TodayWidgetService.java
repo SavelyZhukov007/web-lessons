@@ -17,7 +17,7 @@ public class TodayWidgetService extends RemoteViewsService {
     static List<Store.Event> today(Context c) {
         String day = Store.mskDate(Format.now());
         List<Store.Event> out = new ArrayList<>();
-        for (Store.Event e : Store.mine(c)) if (day.equals(e.date) || (e.cancelled() && day.equals(e.originalDate))) out.add(e);
+        for (Store.Event e : Store.widgetEvents(c)) if (day.equals(e.date) || (e.cancelled() && day.equals(e.originalDate))) out.add(e);
         return out;
     }
 
@@ -42,6 +42,7 @@ public class TodayWidgetService extends RemoteViewsService {
             v.setTextViewText(R.id.row_start, e.start);
             v.setTextViewText(R.id.row_end, e.end);
             v.setTextViewText(R.id.row_title, e.club);
+            v.setContentDescription(R.id.row_container,WidgetData.accessible(e,now));
             v.setTextViewText(R.id.row_room, e.room);
             v.setInt(R.id.row_bar, "setBackgroundColor", e.color);
             int flags = e.cancelled() ? Paint.STRIKE_THRU_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG : Paint.ANTI_ALIAS_FLAG;

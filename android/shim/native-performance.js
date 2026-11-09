@@ -11,6 +11,7 @@
   root.dataset.nativePerf = 'true';
   function announce() {
     root.dataset.glassTier = tier;
+    root.dataset.nativeScreenReader = String(!!state.screenReader);
     api.tier = tier; api.powerSave = !!state.powerSave;
     window.dispatchEvent(new CustomEvent('itc:performancechange', { detail: { tier: tier, powerSave: api.powerSave } }));
   }

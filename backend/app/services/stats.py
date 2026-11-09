@@ -57,7 +57,8 @@ def summary(db: Session) -> dict:
         "scheduled": db.scalar(select(func.count()).select_from(BroadcastSchedule).where(BroadcastSchedule.status == "scheduled")) or 0,
         "uncertain": db.scalar(select(func.count()).select_from(BroadcastSchedule).where(BroadcastSchedule.status == "uncertain")) or 0,
     }
-    return {
+    from .usage import summary as usage_summary
+    return {"usage": usage_summary(db),
         "push_events": push_metrics,
         "total": sum(len(v) for v in groups.values()),
         "by_kind": {k: len(v) for k, v in groups.items()},

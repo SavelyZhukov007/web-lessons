@@ -1,3 +1,4 @@
+import { usage, resultBucket } from './usage.js';
 import { bindGlassIndicator, mountGlassOptics } from './glass.js';
 import { prefersReducedMotion } from './motion-preferences.js';
 import { addDays, dateKey, formatDate, parseDate } from './schedule-dates.js';
@@ -46,6 +47,9 @@ export function mountScheduleSearch({ state, filters, jumpTo }) {
   let pending;
   let indexedEvents;
   let lookup;
+  let engaged = false, picked = false, telemetryKey;
+
+  window.addEventListener('pagehide',()=>{ if (opened && engaged && !picked) { usage?.emit('search_abandon'); engaged = false; } });
 
   function switchView(visible, exiting) {
     for (const animation of transitions) animation.cancel();
@@ -69,7 +73,8 @@ export function mountScheduleSearch({ state, filters, jumpTo }) {
 
   function open() {
     if (opened) return;
-    opened = true;
+    opened = true; engaged = false; picked = false; telemetryKey = undefined;
+    usage?.emit('search_open');
     scope = 'day';
     paintScope();
     scroll = window.scrollY;
@@ -82,6 +87,7 @@ export function mountScheduleSearch({ state, filters, jumpTo }) {
 
   function close({ restore = true } = {}) {
     if (!opened) return false;
+    if (engaged && !picked) usage?.emit('search_abandon');
     opened = false;
     if (panel.contains(document.activeElement) || document.activeElement === exit || document.activeElement === input) {
       form.tabIndex = -1;
@@ -155,6 +161,9 @@ export function mountScheduleSearch({ state, filters, jumpTo }) {
       return hit.event.date >= dateKey(week) && hit.event.date <= dateKey(addDays(week, 5))
         && (!filters.weekday.value || dayOfWeek === Number(filters.weekday.value));
     });
+    engaged = true;
+    const measurementKey = query + '\0' + scope + '\0' + hits.length;
+    if (measurementKey !== telemetryKey) { telemetryKey = measurementKey; usage?.emit('search_results',resultBucket(hits.length)); }
     status.textContent = `${period} · ${hits.length ? `найдено: ${hits.length}` : 'ничего не нашлось'}`;
     results.replaceChildren();
     if (!hits.length) {
@@ -176,7 +185,7 @@ export function mountScheduleSearch({ state, filters, jumpTo }) {
       button.append(time, name, meta);
       const label = { cancelled: 'Отменено', moved: 'Перенос' }[event.status];
       if (label) button.append(node('span', `event-badge ${event.status}`, label));
-      button.onclick = () => { remember(); close({ restore: false }); jumpTo(event); };
+      button.onclick = () => { picked = true; usage?.emit('search_pick',resultBucket(hits.length)); remember(); close({ restore: false }); jumpTo(event); };
       const item = document.createElement('li');
       item.append(button);
       list.append(item);

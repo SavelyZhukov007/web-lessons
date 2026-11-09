@@ -1,3 +1,4 @@
+import './usage.js';
 // Tiny eager chrome; settings/notification forms are parsed only when opened.
 import { h, icon, toast, installRipple } from './ui.js';
 import { mountGlassEverywhere } from './glass.js';

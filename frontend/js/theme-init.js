@@ -178,7 +178,7 @@
       var lastTouch = 0;
       d.addEventListener('touchend', function (e) {
         var now = Date.now();
-        if (now - lastTouch < 300 && !(e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable]'))) e.preventDefault();
+        if (now - lastTouch < 300 && !(e.target && e.target.closest && e.target.closest('button, a, [role=button], [role=switch], [role=radio], input, textarea, select, [contenteditable]'))) e.preventDefault();
         lastTouch = now;
       }, { passive: false });
     }

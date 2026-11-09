@@ -75,6 +75,9 @@ public class ItcNativePlugin extends Plugin {
         if(call.hasOption("quietStart"))e.putString("quiet_start",call.getString("quietStart"));
         if(call.hasOption("quietEnd"))e.putString("quiet_end",call.getString("quietEnd"));
         if(call.hasOption("digestTime"))e.putString("digest_time",call.getString("digestTime"));
+        for(String key:new String[]{"favoriteRooms","favoriteLeaders"}) {
+            JSONArray values=call.getArray(key,null);if(values!=null)e.putString(key.equals("favoriteRooms")?"widget_rooms":"widget_leaders",new JSONArray(Store.ids(values)).toString());
+        }
         e.apply();
         Reminders.reschedule(getContext());
         Widgets.updateAll(getContext());
@@ -82,6 +85,15 @@ public class ItcNativePlugin extends Plugin {
         Push.refresh(getContext()); // FCM-токен + регистрация на сервере (только в сборке с FCM)
         Push.registerAsync(getContext());
         call.resolve(state());
+    }
+
+    @PluginMethod
+    public void configureWidgets(PluginCall call) {
+        android.content.SharedPreferences.Editor edit=Store.prefs(getContext()).edit();
+        for(String key:new String[]{"favoriteRooms","favoriteLeaders"}) {
+            JSONArray values=call.getArray(key,null);if(values!=null)edit.putString(key.equals("favoriteRooms")?"widget_rooms":"widget_leaders",new JSONArray(Store.ids(values)).toString());
+        }
+        edit.apply();Widgets.updateAll(getContext());call.resolve();
     }
 
     /** Opens the system editor; insertion requires the user's confirmation in Calendar. */

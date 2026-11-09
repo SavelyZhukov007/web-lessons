@@ -14,6 +14,7 @@
             android:gravity="end" android:text="Суббота, 24 октября" android:textColor="@color/widget_muted" android:textSize="13sp"
             android:maxLines="1" android:ellipsize="end" />
     </LinearLayout>
+    <TextView android:id="@+id/widget_updated" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/widget_muted" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
     <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
         <ListView android:id="@+id/widget_list" android:layout_width="match_parent" android:layout_height="match_parent"
             android:divider="@null" android:dividerHeight="0dp" android:scrollbars="none" />

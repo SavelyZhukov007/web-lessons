@@ -119,10 +119,12 @@
     var saved = jget(SETTINGS, {}), changes = saved.notifyChanges !== false;
     return Object.assign({ reminderMinutes: 15, notifyCancellations: changes, notifyMoves: changes, notifyAnnouncements: true, quietEnabled:false, quietStart:"22:00", quietEnd:"08:00", digestEnabled:false, digestTime:"08:00" }, saved);
   }
+  function widgetFavorites(kind) { return jget('kc.favorites.'+kind,[]).map(function(x){return x.id;}).filter(function(id){return Number.isSafeInteger(id)&&id>0;}).slice(0,100); }
+  window.addEventListener('kc:favorites',function(){if(N()&&N().configureWidgets)N().configureWidgets({favoriteRooms:widgetFavorites('rooms'),favoriteLeaders:widgetFavorites('leaders')}).catch(function(){});});
   function configureNative() {
     if (!N()) return Promise.resolve(null);
     var s = settings();
-    return N().configure({ follows: Follows.all(), server: DEMO ? '' : ((window.AppServer && window.AppServer.get()) || ''),
+    return N().configure({ follows: Follows.all(), favoriteRooms:widgetFavorites('rooms'),favoriteLeaders:widgetFavorites('leaders'), server: DEMO ? '' : ((window.AppServer && window.AppServer.get()) || ''),
       demo: DEMO, reminderMinutes: s.reminderMinutes, notifyChanges: s.notifyCancellations || s.notifyMoves,
       notifyCancellations: s.notifyCancellations, notifyMoves: s.notifyMoves, notifyAnnouncements: s.notifyAnnouncements !== false, quietEnabled:s.quietEnabled,quietStart:s.quietStart,quietEnd:s.quietEnd,digestEnabled:s.digestEnabled,digestTime:s.digestTime }).catch(function () { return null; });
   }

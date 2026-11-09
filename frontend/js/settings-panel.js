@@ -1,3 +1,5 @@
+import { privacySection, widgetSection } from './settings-final.js';
+import { campusTourLink } from './campus-tour.js';
 import { favoritesSection } from './personal-schedule.js';
 import { bindSheetDismiss } from './sheet-gesture.js';
 // Общие настройки для браузера и установленного PWA.
@@ -185,12 +187,12 @@ function build(opener) {
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Акцентный цвет'), swatches(prefs.accent, v => theme.set({ accent: v }))),
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Размер текста'),
       sizeSlider(prefs.textSize)),
-    interfaceSettings(theme, interfaceLifetime.signal), notificationsSection(opener), favoritesSection(h), accountSection(), serverSection(), demoSection());
+    interfaceSettings(theme, interfaceLifetime.signal), notificationsSection(opener), favoritesSection(h), widgetSection(), privacySection(), accountSection(), serverSection(), demoSection());
   const reset = h('button', { type: 'button', class: 'btn btn--text', onclick: () => { theme.set(theme.DEFAULTS); rebuild(opener); toast('Вид сброшен'); } }, 'Сбросить вид');
   const done = h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово');
   const fb = h('button', { type: 'button', class: 'list-row', dataset: { feedbackOpen: '' } }, h('span', {}, 'Обратная связь'));
   fb.addEventListener('click', async () => { dialog.close(); (await import('./feedback.js')).openFeedback(document.querySelector('[data-settings-button]')); });
-  body.append(h('section', { class: 'sheet-section' }, h('h3', {}, 'Помощь'), h('div', { class: 'list-group' }, fb)));
+  body.append(h('section', { class: 'sheet-section' }, h('h3', {}, 'Помощь'), h('div', { class: 'list-group' }, fb, campusTourLink())));
   const whatsNew = h('button', { type: 'button', class: 'btn btn--tonal' }, 'Что нового');
   whatsNew.addEventListener('click', async () => {
     dialog.close();

@@ -1,3 +1,4 @@
+import { campusTourLink } from './campus-tour.js';
 import { markLiveCard, favoriteControls } from './personal-schedule.js';
 import { DAY_NAMES, parseDate, dateKey, addDays, formatDate, minutes, eventGroups, scheduleLocation, movedFromSlot } from './schedule-dates.js';
 import { currentStudyDay, mountScheduleUi } from './schedule-ui.js';
@@ -63,7 +64,7 @@ function details(event) {
   ];
   if (event.status === 'moved' && parseDate(event.original_date)) facts.push(['Исходная дата', formatDate(parseDate(event.original_date), { year: 'numeric' })]);
   for (const [label, value] of facts) info.append(node('dt', '', label), node('dd', '', value));
-  target.append(info, favoriteControls(event));
+  target.append(info, campusTourLink(), favoriteControls(event));
   if (event.comment) target.append(node('p', 'event-comment', event.comment));
   const link = node('a', 'club-link', 'О кружке');
   link.append(icon('arrow'));

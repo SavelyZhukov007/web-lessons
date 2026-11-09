@@ -29,4 +29,5 @@
         box.remove();
     });
     main.prepend(box);
+    window.dispatchEvent(new CustomEvent('kc:usage', {detail:{metric:'install_banner'}}));
 })();

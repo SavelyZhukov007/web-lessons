@@ -16,6 +16,7 @@ from ..database import get_db
 from ..services import broadcast as broadcast_service
 from ..services import client_logs
 from ..services import stats as stats_service
+from ..services import usage as usage_service
 from .admin import require_admin
 
 router = APIRouter(tags=["app"])
@@ -134,3 +135,8 @@ def app_ping(body: PingIn, request: Request, db: Session = Depends(get_db)):
 @router.get("/api/admin/stats")
 def admin_stats(db: Session = Depends(get_db), _admin=Depends(require_admin)):
     return stats_service.summary(db)
+
+
+@router.post('/api/app/usage', status_code=202)
+def anonymous_usage(body: usage_service.BatchIn, db: Session = Depends(get_db)):
+    return usage_service.record(db, body)

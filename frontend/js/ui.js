@@ -45,14 +45,15 @@ export function installRipple() {
   document.addEventListener('pointerdown', event => {
     if (prefersReducedMotion()) return;
     const target = event.target.closest?.('.btn, .campus-page button, .settings-button');
-    if (!target || target.disabled) return;
+    if (!target || target.disabled || target.classList.contains('ribbon-hit')) return;
     const rect = target.getBoundingClientRect();
     const size = Math.max(rect.width, rect.height) * 2;
     const dot = h('span', { class: 'ripple', 'aria-hidden': 'true' });
     dot.style.width = dot.style.height = `${size}px`;
     dot.style.left = `${event.clientX - rect.left - size / 2}px`;
     dot.style.top = `${event.clientY - rect.top - size / 2}px`;
-    target.style.position ||= 'relative';
+    // Preserve CSS-positioned controls: assigning relative moves absolute hit targets during pointerdown.
+    if (getComputedStyle(target).position === 'static') target.style.position = 'relative';
     target.append(dot);
     dot.addEventListener('animationend', () => dot.remove(), { once: true });
   }, { passive: true });

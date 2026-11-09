@@ -24,6 +24,7 @@ export async function mount(root, { signal }) {
       stat('#/exceptions', upcoming.length, 'ближайших изменений', 'list'),
       stat('#/reference', data.rooms.length, 'аудиторий', 'book')),
     stats && usersCard(stats),
+    stats?.usage && usageCard(stats.usage),
     stats?.push_events && h('section', { class: 'card' }, h('h2', {}, 'Рассылки: транспорт и клиенты'),
       h('p', {}, `Принято транспортом: ${stats.push_events.accepted}; ошибок: ${stats.push_events.failed}.`),
       h('p', {}, `Подтверждённых показов: ${stats.push_events.shown}; открытий: ${stats.push_events.opened}.`),
@@ -49,4 +50,15 @@ function usersCard(s) {
     h('div', { class: 'table-wrap' }, h('table', { class: 'users-table' },
       h('thead', {}, h('tr', {}, h('th', {}, 'Активны'), h('th', {}, 'Всего'), ...KINDS.map(([, t]) => h('th', {}, t)))),
       h('tbody', {}, row('за день', 'day'), row('за неделю', 'week'), row('за месяц', 'month')))));
+}
+
+const USAGE_LABELS = {page_open:'Открытия страниц',install_banner:'Показ предложения установки',install_open:'Переход к установке',install_download:'Нажатия «Скачать APK»',install_prompt_available:'Доступность PWA-установки',install_prompt:'Открытия PWA-диалога',install_accept:'Принято в PWA-диалоге',install_decline:'Отказ в PWA-диалоге',installed:'События appinstalled',standalone_open:'Запуски установленного клиента',search_open:'Открытия поиска',search_results:'Показы результатов',search_pick:'Переходы из поиска',search_abandon:'Выходы без выбора'};
+function usageCard(data) {
+  const totals={};for(const row of data.events)totals[row.metric]=(totals[row.metric]||0)+row.count;
+  const table = (head,rows) => h('div',{class:'table-wrap'},h('table',{class:'users-table'},h('thead',{},h('tr',{},head.map(label=>h('th',{scope:'col'},label)))),h('tbody',{},rows)));
+  return h('section',{class:'card',dataset:{usageCard:''}},h('h2',{},'Анонимная аналитика и технические ошибки'),
+    h('p',{class:'field-hint'},`Только добровольное участие, последние ${data.retention_days} дней (с ${data.since}, МСК). Счётчики событий, не уникальные люди и не связанная воронка. Скачивание APK не подтверждает установку; на iOS appinstalled недоступен.`),
+    table(['Событие','Количество'],Object.entries(USAGE_LABELS).map(([key,label])=>h('tr',{},h('th',{scope:'row'},label),h('td',{},String(totals[key]||0))))),
+    h('h3',{},'Результаты поиска'),h('p',{},data.events.filter(r=>r.metric==='search_results').map(r=>`${{none:'0',one:'1',few:'2–5',many:'6+'}[r.bucket]||r.bucket}: ${r.count}`).join(' · ')||'Пока нет данных'),
+    h('h3',{},'Ошибки без текста и стека'),data.errors.length?table(['Тип / файл / строка','Платформа / сборка','Количество'],data.errors.map(r=>h('tr',{},h('th',{scope:'row'},`${r.code} · ${r.source}:${r.line}`),h('td',{},`${r.platform} · ${r.build}`),h('td',{},String(r.count))))):h('p',{},'Подтверждённых технических ошибок пока нет'));
 }

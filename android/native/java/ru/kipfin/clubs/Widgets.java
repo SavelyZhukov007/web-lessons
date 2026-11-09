@@ -45,9 +45,9 @@ final class Widgets {
         boolean compact = h < 100;
         RemoteViews v = new RemoteViews(c.getPackageName(), compact ? R.layout.widget_next_compact : R.layout.widget_next);
         long now = Format.now();
-        List<Store.Event> mine = Store.mine(c);
+        List<Store.Event> mine = Store.widgetEvents(c);
         Store.Event e = next(mine, now);
-        boolean all = Store.follows(c).isEmpty();
+        boolean all = !Store.widgetFavorites(c);
         if (e == null) {
             v.setTextViewText(R.id.widget_label, all ? "Расписание" : "Мои кружки");
             v.setTextViewText(R.id.widget_title, mine.isEmpty() && Store.prefs(c).getLong("updated", 0) == 0 ? "Откройте приложение, чтобы загрузить расписание" : "Ближайших занятий нет");
@@ -57,7 +57,7 @@ final class Widgets {
             v.setOnClickPendingIntent(R.id.widget_root, Notifier.open(c, "/", id));
         } else {
             boolean live = e.startMs <= now;
-            v.setTextViewText(R.id.widget_label, live ? "Идёт сейчас" : (all ? "Следующее занятие" : "Следующее в моих кружках"));
+            v.setTextViewText(R.id.widget_label, live ? "Идёт сейчас" : (all ? "Следующее занятие" : "Следующее в избранном"));
             v.setTextViewText(R.id.widget_title, e.club);
             v.setViewVisibility(R.id.widget_when, View.VISIBLE);
             v.setTextViewText(R.id.widget_when, (live ? "до " + e.end : Format.dayLabel(e.date) + ", " + e.start + "–" + e.end));
@@ -65,19 +65,32 @@ final class Widgets {
                 v.setViewVisibility(R.id.widget_room, e.room.isEmpty() ? View.GONE : View.VISIBLE);
                 v.setTextViewText(R.id.widget_room, e.room + (w >= 250 && !e.leader.isEmpty() ? " · " + e.leader : ""));
             }
-            v.setViewVisibility(R.id.widget_status, e.moved() ? View.VISIBLE : View.GONE);
-            v.setTextViewText(R.id.widget_status, "Перенесено");
+            String phase=WidgetData.phase(e,now);
+            v.setViewVisibility(R.id.widget_status, e.moved() || (e.startMs>now && e.startMs-now<=900000L) ? View.VISIBLE : View.GONE);
+            v.setTextViewText(R.id.widget_status,phase);
             v.setInt(R.id.widget_bar, "setBackgroundColor", e.color);
             v.setOnClickPendingIntent(R.id.widget_root, Notifier.open(c, "/club?id=" + e.clubId, id));
         }
+        v.setViewVisibility(R.id.widget_progress, e!=null && !e.cancelled() && e.startMs<=now && e.endMs>now ? View.VISIBLE : View.GONE);
+        if(e!=null)v.setProgressBar(R.id.widget_progress,100,WidgetData.progress(e,now),false);
+        String saved=savedLabel(c);
+        if(!compact)v.setTextViewText(R.id.widget_updated,saved);
+        v.setContentDescription(R.id.widget_root,(e==null?"Ближайших занятий нет":WidgetData.accessible(e,now))+". "+saved);
         m.updateAppWidget(id, v);
+    }
+
+    static String savedLabel(Context c) {
+        long at=Store.prefs(c).getLong("updated",0);if(at<=0)return "Данные ещё не загружены";
+        java.text.SimpleDateFormat format=new java.text.SimpleDateFormat("dd.MM HH:mm",java.util.Locale.ROOT);format.setTimeZone(Store.MSK);
+        return (System.currentTimeMillis()-at>86400000L?"Сохранено: ":"Данные: ")+format.format(new java.util.Date(at))+" МСК";
     }
 
     static void renderToday(Context c, AppWidgetManager m, int id) {
         RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget_today);
-        boolean all = Store.follows(c).isEmpty();
-        v.setTextViewText(R.id.widget_label, all ? "Сегодня" : "Сегодня · мои кружки");
+        boolean all = !Store.widgetFavorites(c);
+        v.setTextViewText(R.id.widget_label, all ? "Сегодня" : "Сегодня · избранное");
         v.setTextViewText(R.id.widget_date, Format.longToday());
+        v.setTextViewText(R.id.widget_updated,savedLabel(c));
         Intent svc = new Intent(c, TodayWidgetService.class).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id);
         svc.setData(android.net.Uri.parse(svc.toUri(Intent.URI_INTENT_SCHEME)));
         v.setRemoteAdapter(R.id.widget_list, svc);
@@ -92,15 +105,15 @@ final class Widgets {
     /** Перерисовка к ближайшей границе (начало/конец занятия, полночь), неточный будильник — батарею не тратим. */
     static void scheduleTick(Context c) {
         long now = System.currentTimeMillis();
-        long at = now + 3_600_000L;
-        for (Store.Event e : Store.mine(c)) {
-            if (e.startMs > now) { at = Math.min(at, e.startMs); break; }
-            if (e.endMs > now) at = Math.min(at, e.endMs);
-        }
-        long midnight = Store.epoch(Store.mskDate(now + 86_400_000L), "00:00");
-        at = Math.min(at, midnight) + 5_000;
+        AppWidgetManager widgets=AppWidgetManager.getInstance(c);
+        boolean any=widgets.getAppWidgetIds(new ComponentName(c,NextClassWidget.class)).length>0 || widgets.getAppWidgetIds(new ComponentName(c,TodayWidget.class)).length>0;
         Intent i = new Intent(c, NextClassWidget.class).setAction(NextClassWidget.ACTION_TICK);
         PendingIntent pi = PendingIntent.getBroadcast(c, 9001, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        ((AlarmManager) c.getSystemService(Context.ALARM_SERVICE)).set(AlarmManager.RTC, at, pi);
+        AlarmManager alarms=c.getSystemService(AlarmManager.class);
+        if(!any){alarms.cancel(pi);return;}
+        long at=WidgetData.nextTick(Store.widgetEvents(c),now);
+        long midnight = Store.epoch(Store.mskDate(now + 86_400_000L), "00:00");
+        at = Math.min(at, midnight) + 5_000;
+        alarms.set(AlarmManager.RTC, at, pi);
     }
 }

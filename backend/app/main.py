@@ -32,16 +32,21 @@ async def lifespan(app):
     if problems:
         raise RuntimeError("Небезопасная конфигурация production:\n - " + "\n - ".join(problems))
     prepare_database()
-    from .services import client_logs, mdns
-
-    client_logs.cleanup()
     import asyncio
+
+    from .services import client_logs, mdns
+    def _cleanup():
+        from .services import usage
+        client_logs.cleanup()
+        with SessionLocal() as db:
+            usage.cleanup(db)
+    await asyncio.to_thread(_cleanup)
 
     async def _daily():
         while True:
             await asyncio.sleep(24 * 3600)
             try:
-                client_logs.cleanup()
+                await asyncio.to_thread(_cleanup)
             except Exception:  # noqa: BLE001 — фоновая уборка не должна ронять сервер
                 pass
 

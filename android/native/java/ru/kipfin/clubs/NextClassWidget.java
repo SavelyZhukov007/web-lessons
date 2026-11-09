@@ -21,4 +21,5 @@ public class NextClassWidget extends AppWidgetProvider {
 
     @Override
     public void onAppWidgetOptionsChanged(Context c, AppWidgetManager m, int id, Bundle o) { Widgets.renderNext(c, m, id); }
+    @Override public void onDisabled(Context c) { Widgets.scheduleTick(c); }
 }

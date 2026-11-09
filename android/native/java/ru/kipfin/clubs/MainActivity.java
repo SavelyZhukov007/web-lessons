@@ -28,7 +28,9 @@ public class MainActivity extends BridgeActivity implements DisplayManager.Displ
     static volatile boolean webReady = false;
     private static final long MAX_SPLASH_MS = 2500;
     private DisplayManager displays;
+    private android.view.accessibility.AccessibilityManager accessibility;
     private volatile boolean observing;
+    private final android.view.accessibility.AccessibilityManager.TouchExplorationStateChangeListener accessibilityChange = enabled -> { if(observing)publishPerformanceState(); };
     private HandlerThread frameThread;
     private final FrameBudget frameBudget = new FrameBudget();
     private volatile boolean nativeGpuOverloaded;
@@ -64,6 +66,7 @@ public class MainActivity extends BridgeActivity implements DisplayManager.Displ
         registerPlugin(ItcPerformancePlugin.class);
         super.onCreate(state);
         NotificationReceipts.opened(this, getIntent());
+        accessibility = getSystemService(android.view.accessibility.AccessibilityManager.class);
         displays = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
         frameThread = new HandlerThread("kipclub-frame-budget", android.os.Process.THREAD_PRIORITY_BACKGROUND);
         frameThread.start();
@@ -91,12 +94,13 @@ public class MainActivity extends BridgeActivity implements DisplayManager.Displ
             if (Build.VERSION.SDK_INT >= 33) registerReceiver(powerChange, filter, Context.RECEIVER_NOT_EXPORTED);
             else registerReceiver(powerChange, filter);
             observing = true;
+            if(accessibility!=null)accessibility.addTouchExplorationStateChangeListener(accessibilityChange);
             getWindow().addOnFrameMetricsAvailableListener(gpuFrames, new Handler(frameThread.getLooper()));
         }
         refreshDisplayPolicy();
     }
     @Override public void onPause() {
-        if (observing) { observing = false; getWindow().removeOnFrameMetricsAvailableListener(gpuFrames); displays.unregisterDisplayListener(this); unregisterReceiver(powerChange); }
+        if (observing) { if(accessibility!=null)accessibility.removeTouchExplorationStateChangeListener(accessibilityChange); observing = false; getWindow().removeOnFrameMetricsAvailableListener(gpuFrames); displays.unregisterDisplayListener(this); unregisterReceiver(powerChange); }
         super.onPause();
     }
     @Override public void onDestroy() {
@@ -149,6 +153,7 @@ public class MainActivity extends BridgeActivity implements DisplayManager.Displ
         ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
         if (a != null) a.getMemoryInfo(memory);
         Display d = getWindowManager().getDefaultDisplay();
+        r.put("screenReader", accessibility!=null && accessibility.isTouchExplorationEnabled());
         r.put("nativeGpuOverloaded", nativeGpuOverloaded);
         r.put("powerSave", saving()); r.put("lowRam", a != null && a.isLowRamDevice());
         r.put("memoryGB", memory.totalMem / 1073741824.0);

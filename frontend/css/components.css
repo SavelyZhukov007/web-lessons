@@ -977,3 +977,10 @@ dialog .list-row--danger, dialog .list-row--danger span { color: var(--danger, #
 .personal-notification-form .preference-toggle { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; }
 .personal-notification-form input[type="number"] { width:76px; min-height:44px; }
 .personal-notification-form input[type="time"] { width:112px; min-height:44px; }
+
+/* Full 44px semantic hit target, with a centered 32px switch track. */
+:root [data-usage-settings] button.switch { background:transparent !important; border:0 !important; width:52px !important; min-width:52px !important; height:44px !important; min-height:44px !important; border-radius:16px !important; }
+:root [data-usage-settings] .switch::before { inset:0; }
+:root [data-usage-settings] .switch::after { content:""; position:absolute; inset:6px 0; border-radius:16px; background:var(--outline); pointer-events:none; }
+:root [data-usage-settings] .switch[aria-checked="true"]::after { background:var(--primary); }
+:root [data-usage-settings] .switch-thumb { top:10px; z-index:1; }

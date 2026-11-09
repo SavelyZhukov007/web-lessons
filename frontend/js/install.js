@@ -1,3 +1,4 @@
+import { usage } from './usage.js';
 import { isStandalone } from './push-support.js';
 
 const platform = window.ClubsTheme?.platform || 'desktop';
@@ -27,8 +28,10 @@ window.addEventListener('beforeinstallprompt', event => {
 });
 $('install-button').addEventListener('click', async () => {
   if (!deferred) return;
+  usage?.emit('install_prompt');
   deferred.prompt();
-  await deferred.userChoice.catch(() => null);
+  const choice = await deferred.userChoice.catch(() => null);
+  if (choice) usage?.emit(choice.outcome === 'accepted' ? 'install_accept' : 'install_decline');
   deferred = null;
   $('install-actions').hidden = true;
 });

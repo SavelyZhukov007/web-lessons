@@ -1,0 +1,10 @@
+[Unit]
+Description=KipClub Docker backup with isolated SQLite restore verification
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/clubs
+ExecStart=/usr/bin/docker compose exec -T app python server.py backup --dir /backups --keep 14 --prefix clubs
+TimeoutStartSec=15min
