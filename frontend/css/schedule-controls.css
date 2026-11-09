@@ -119,6 +119,11 @@
 .schedule-actions { margin: 0 0 8px; min-height: 44px; }
 .schedule-actions > * { flex-shrink: 0; }
 .schedule-actions #today { margin-inline-start: auto; }
+.schedule-actions #today[aria-pressed="true"] {
+    background: var(--primary);
+    color: var(--on-primary);
+    border-color: var(--primary);
+}
 .schedule-actions .glass-action { font-size: calc(13px * var(--text-scale, 1)); }
 .schedule-actions :is(.ui-icon, svg) { flex-shrink: 0; width: 18px; height: 18px; }
 .schedule-page #filter-options:not([hidden]) {

@@ -1,6 +1,7 @@
 """The date ribbon, schedule search and settings gestures use the real public UI."""
 from urllib.parse import parse_qs, urlsplit
 
+import pytest
 from playwright.sync_api import expect
 
 from .conftest import do_login
@@ -255,3 +256,50 @@ def test_liquid_glass_header_and_reduced_modes(new_page):
             page.locator('[data-day-date="2026-11-12"]').click()
             assert page.evaluate("document.querySelector('#day-buttons .glass-indicator').getAnimations().length") == 0
             assert not page.errors
+
+
+@pytest.mark.parametrize("width", [390, 320])
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_today_stays_visible_and_uses_the_active_accent(new_page, width, scheme):
+    page = new_page(width, 844, is_mobile=True, has_touch=True, color_scheme=scheme)
+    page.clock.set_fixed_time("2026-11-09T12:00:00+03:00")
+    page.goto("/?week=2026-11-09&day=2026-11-10")
+    expect(page.locator("#content")).to_have_attribute("aria-busy", "false")
+    page.locator(".storage-notice button").click()
+    today = page.get_by_role("button", name="Сегодня", exact=True)
+    expect(today).to_be_visible()
+    expect(today).to_have_attribute("aria-pressed", "false")
+    expect(page.locator('#day-buttons [aria-pressed="true"]')).to_have_attribute("data-day-date", "2026-11-10")
+    other_box = today.bounding_box()
+    actions = page.locator("#schedule-actions").bounding_box()
+    assert abs(other_box["x"] + other_box["width"] - actions["x"] - actions["width"]) < 1
+    assert other_box["width"] > 90  # растягивается на оставшееся место, не становится иконкой
+    shot(page, f"today-web-{width}-{scheme}-other.png")
+    today.click()
+    expect(today).to_be_visible()
+    expect(today).to_be_enabled()
+    expect(today).to_have_attribute("aria-pressed", "true")
+    expect(page.locator('#day-buttons [aria-pressed="true"]')).to_have_attribute("data-day-date", "2026-11-09")
+    primary = today.evaluate("el => { const p = document.createElement('i'); p.style.color = 'var(--primary)'; el.append(p); const c = getComputedStyle(p).color; p.remove(); return c; }")
+    expect(today).to_have_css("background-color", primary)
+    contrast = today.evaluate("""el => {
+        const hex = c => '#' + c.match(/\\d+/g).slice(0, 3).map(v => Number(v).toString(16).padStart(2, '0')).join('');
+        const s = getComputedStyle(el);
+        return ClubsTheme.contrast(hex(s.color), hex(s.backgroundColor));
+    }""")
+    assert contrast >= 4.5
+    assert today.bounding_box() == other_box  # выделение не меняет раскладку
+    today.click()  # повторное нажатие на активную кнопку тоже разрешено
+    expect(today).to_have_attribute("aria-pressed", "true")
+    shot(page, f"today-web-{width}-{scheme}-selected.png")
+    page.locator('[data-day-date="2026-11-10"]').click()
+    expect(today).to_be_visible()
+    expect(today).to_have_attribute("aria-pressed", "false")
+    page.reload()
+    expect(today).to_have_attribute("aria-pressed", "false")
+    today.click()
+    expect(today).to_have_attribute("aria-pressed", "true")
+    page.reload()
+    expect(today).to_be_visible()
+    expect(today).to_have_attribute("aria-pressed", "true")
+    assert not page.errors, page.errors

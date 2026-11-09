@@ -30,7 +30,7 @@ function springEasing() {
 
 // Капля: на ходу индикатор вытягивается по направлению движения и пружиной возвращается к форме.
 export function liquidStretch(pill, shift) {
-  if (!pill.animate || !motionAllowed()) return;
+  if (!pill.animate || !motionAllowed() || window.ItcPerformance?.enabled) return;
   const stretch = Math.min(0.32, Math.abs(shift) / Math.max(pill.offsetWidth * 4, 1));
   if (stretch < 0.02) return;
   pill.getAnimations?.().forEach(animation => { if (animation.id === 'glass-stretch') animation.cancel(); });
@@ -132,7 +132,7 @@ export async function mountGlassOptics(host, { signal } = {}) {
 
   let instance;
   let starting = false;
-  const disabled = () => reduced.matches || forced.matches || contrast.matches || document.documentElement.dataset.solidGlass === 'true';
+  const disabled = () => reduced.matches || forced.matches || contrast.matches || document.documentElement.dataset.solidGlass === 'true' || (window.ItcPerformance?.enabled && window.ItcPerformance.tier !== 'full');
   const stop = () => {
     instance?.destroy();
     instance = null;
@@ -165,13 +165,14 @@ export async function mountGlassOptics(host, { signal } = {}) {
   resize.observe(host);
   for (const mode of [reduced, forced, contrast]) mode.addEventListener('change', update, { signal });
   window.addEventListener('clubs:themechange', update, { signal });
+  window.addEventListener('itc:performancechange', update, { signal });
   signal?.addEventListener('abort', () => { stop(); resize.disconnect(); layer.remove(); }, { once: true });
 }
 
 export function animatePanel(panel, open) {
   for (const animation of panel.getAnimations?.() || []) animation.cancel();
   if (open && motionAllowed()) {
-    panel.animate?.([{ opacity: 0, transform: 'translateY(-8px) scale(.96)', filter: 'blur(3px)' }, { opacity: 1, transform: 'none', filter: 'none' }],
+    panel.animate?.([{ opacity: 0, transform: 'translateY(-8px) scale(.96)' }, { opacity: 1, transform: 'none' }],
       { duration: 420, easing: springEasing() });
   }
 }

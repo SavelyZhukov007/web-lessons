@@ -3,6 +3,7 @@
 Запуск: python -m pytest e2e -q"""
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
@@ -14,6 +15,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_RELEASE = json.loads((ROOT / "frontend/release-info.json").read_text(encoding="utf-8"))["version"]
 ADMIN_LOGIN, ADMIN_PASSWORD = "admin", "Demo-Pass-2026!"
 
 try:
@@ -102,7 +104,7 @@ def new_page(browser, server):
         # Feature checks share one test server/IP. Keep telemetry outside this rate-limited test fixture.
         ctx.add_init_script("localStorage.setItem('kc.pingAt', String(Date.now()))")
         if not show_release:
-            ctx.add_init_script("localStorage.setItem('kipclub.release.seen.v1.9.016', '1')")
+            ctx.add_init_script(f"localStorage.setItem('kipclub.release.seen.{CURRENT_RELEASE}', '1')")
         return Page(ctx.new_page())
 
     yield make

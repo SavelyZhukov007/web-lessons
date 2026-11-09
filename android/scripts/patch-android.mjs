@@ -40,6 +40,7 @@ const set = (attr, val) => {
 };
 set('android:usesCleartextTraffic', 'true'); // канал p: фактически решает networkSecurityConfig (API 24+); 'false' конфликтует с манифестом cordova-плагинов
 set('android:networkSecurityConfig', '@xml/network_security_config');
+set('android:hardwareAccelerated', 'true');
 if (!xml.includes('android.permission.INTERNET')) xml = xml.replace('</manifest>', '    <uses-permission android:name="android.permission.INTERNET" />\n</manifest>');
 // «Добавить в календарь» (@ebarooni/capacitor-calendar): запись событий в календарь устройства, запрос разрешения во время работы
 for (const perm of ['READ_CALENDAR', 'WRITE_CALENDAR']) if (!xml.includes('android.permission.' + perm)) xml = xml.replace('</manifest>', `    <uses-permission android:name="android.permission.${perm}" />\n</manifest>`);
@@ -154,6 +155,15 @@ $1buildTypes {`);
     g = g.replace(/(\n\s*release\s*\{)/, `$1\n            if (System.getenv('ANDROID_KEYSTORE')) signingConfig signingConfigs.clubsRelease`);
     writeFileSync(gradlePath, g);
   }
+}
+
+// R8/resource shrink for release only; native/bridge entry points are explicitly retained.
+{
+  cpSync(join(root, 'native', 'proguard-performance.pro'), join(root, 'android', 'app', 'proguard-performance.pro'));
+  let g = readFileSync(gradlePath, 'utf8').replace(/minifyEnabled\s+false/g, 'minifyEnabled true');
+  if (!g.includes('shrinkResources true')) g = g.replace(/(release\s*\{)/, '$1\n            shrinkResources true');
+  if (!g.includes("'proguard-performance.pro'")) g = g.replace(/('proguard-rules.pro')/, "$1, 'proguard-performance.pro'");
+  writeFileSync(gradlePath, g);
 }
 
 // ---- нативные функции (phase 2 C): «Мои кружки», напоминания, уведомления об изменениях, виджеты, ярлыки.

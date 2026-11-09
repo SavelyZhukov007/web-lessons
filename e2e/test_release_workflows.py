@@ -1,21 +1,26 @@
 """Release notes and shareable schedule links on a narrow viewport."""
+import json
+from pathlib import Path
+
 from playwright.sync_api import expect
+
+RELEASE = json.loads((Path(__file__).resolve().parents[1] / "frontend/release-info.json").read_text(encoding="utf-8"))["version"]
 
 
 def test_release_notes_open_once_and_from_announcement(new_page):
     page = new_page(390, 844, show_release=True)
     page.goto("/")
-    page.get_by_role("heading", name="Что нового в v1.9.016").wait_for()
+    page.get_by_role("heading", name=f"Что нового в {RELEASE}").wait_for()
     page.get_by_role("button", name="Понятно", exact=True).click()
     page.reload()
     page.wait_for_load_state("networkidle")
     assert not page.locator(".release-sheet").is_visible()
     page.get_by_role("button", name="Настройки", exact=True).click()
     page.get_by_role("button", name="Что нового", exact=True).click()
-    page.get_by_role("heading", name="Что нового в v1.9.016").wait_for()
+    page.get_by_role("heading", name=f"Что нового в {RELEASE}").wait_for()
     page.get_by_role("button", name="Понятно", exact=True).click()
-    page.goto("/?update=1&release=v1.9.016")
-    page.get_by_role("heading", name="Что нового в v1.9.016").wait_for()
+    page.goto(f"/?update=1&release={RELEASE}")
+    page.get_by_role("heading", name=f"Что нового в {RELEASE}").wait_for()
     assert not page.errors
 
 

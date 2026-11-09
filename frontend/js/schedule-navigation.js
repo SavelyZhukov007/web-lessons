@@ -35,6 +35,7 @@ export function dayMarkers(events) {
 // Keep a rolling set of buttons mounted, so keyboard focus and an animated
 // selection survive the Saturday–Monday transition.
 export function createDayRibbon(rail, selectDate, shiftWeek) {
+  if (window.ItcPerformance?.enabled) return createTransformRibbon(rail, selectDate, shiftWeek);
   const buttons = new Map();
   const indicator = bindGlassIndicator(rail, () => rail.querySelector('[aria-pressed="true"]'));
   mountGlassOptics(rail.parentElement);
@@ -158,7 +159,9 @@ export function createDayRibbon(rail, selectDate, shiftWeek) {
 
 export function bindDaySwipe(content, step, enabled) {
   let swipe;
+  const passive = !!window.ItcPerformance?.enabled;
   content.addEventListener('touchstart', event => {
+    window.ItcPerformance?.beginMotion(280);
     const touch = event.touches[0];
     swipe = enabled() && event.touches.length === 1 && touch.clientX > 24 && touch.clientX < innerWidth - 24
       ? { x: touch.clientX, y: touch.clientY, time: event.timeStamp, horizontal: false, dx: 0 }
@@ -176,8 +179,9 @@ export function bindDaySwipe(content, step, enabled) {
       swipe.horizontal = true;
     }
     swipe.dx = dx;
-    if (event.cancelable) event.preventDefault();
-  }, { passive: false });
+    window.ItcPerformance?.beginMotion(280);
+    if (!passive && event.cancelable) event.preventDefault();
+  }, { passive });
   content.addEventListener('touchcancel', () => { swipe = null; });
   content.addEventListener('touchend', event => {
     if (!swipe?.horizontal) { swipe = null; return; }
@@ -188,4 +192,98 @@ export function bindDaySwipe(content, step, enabled) {
       step(dx < 0 ? 1 : -1);
     }
   }, { passive: true });
+}
+
+// Android path: fixed-width slots and one compositor transform, all geometry from ResizeObserver.
+// The ordinary web/PWA path remains unchanged until the native-only policy is installed.
+function createTransformRibbon(rail, selectDate, shiftWeek) {
+  const track = document.createElement('div'); track.className = 'ribbon-track';
+  const pill = document.createElement('span'); pill.className = 'glass-indicator is-visible'; pill.setAttribute('aria-hidden', 'true');
+  track.append(pill); rail.classList.add('ribbon-transform'); rail.append(track);
+  let buttons = [], firstKey, currentKey, fixed, slot = 0, x = 0, pillX = 0, animation, pending, last;
+  const fixedWeek = () => document.documentElement.dataset.dayNavigation === 'week';
+  const easing = CSS.supports('animation-timing-function', 'linear(0, 1)')
+    ? 'linear(0, .17, .44, .68, .85, .96, 1.02, 1.04, 1.03, 1.01, 1)' : 'cubic-bezier(.2,.8,.2,1)';
+  function position(smooth) {
+    if (!slot || !currentKey) return;
+    const index = buttons.findIndex(b => b.dataset.dayDate === currentKey);
+    if (index < 0) return;
+    const target = fixed ? 0 : -(index - 2) * slot;
+    // One read when interrupting an animation, never in an animation-frame loop.
+    const moving = fixed ? pill : track;
+    let start = fixed ? pillX : x;
+    if (animation) {
+      start = new DOMMatrixReadOnly(getComputedStyle(animation.effect.target).transform).m41;
+      animation.cancel(); animation = null;
+    }
+    pill.style.transform = `translate3d(${index * slot}px,0,0)`;
+    track.style.transform = `translate3d(${target}px,0,0)`;
+    x = target; pillX = index * slot;
+    const end = fixed ? pillX : target;
+    if (smooth && start !== end && !prefersReducedMotion()) {
+      window.ItcPerformance?.beginMotion(340);
+      animation = moving.animate([{ transform: `translate3d(${start}px,0,0)` }, { transform: `translate3d(${end}px,0,0)` }], { duration: 320, easing });
+      animation.id = 'itc-ribbon';
+      const own = animation;
+      own.finished.then(() => { if (animation === own) animation = null; }, () => {});
+    }
+  }
+  function update(date, today, events) {
+    last = [date, today, events];
+    const key = dateKey(date), week = monday(date), mode = fixedWeek();
+    const contains = buttons.findIndex(b => b.dataset.dayDate === key);
+    const rebuild = fixed !== mode || !buttons.length || (mode ? firstKey !== dateKey(week) : contains < 5 || contains > 24);
+    fixed = mode;
+    if (rebuild) {
+      const first = mode ? week : stepStudyDay(date, -14); firstKey = dateKey(first);
+      const focused = rail.contains(document.activeElement);
+      buttons.forEach(b => b.remove()); buttons = [];
+      for (let i = 0; i < (mode ? 6 : 30); i++) {
+        const day = stepStudyDay(first, i), id = dateKey(day);
+        const button = document.createElement('button'); button.type = 'button'; button.dataset.dayDate = id;
+        button.dataset.dayLabel = dayLabel.format(day); button.disabled = !weekInRange(day);
+        const label = document.createElement('span'); label.className = 'ribbon-weekday'; label.textContent = DAY_SHORT[day.getDay() - 1];
+        const number = document.createElement('strong'); number.textContent = String(day.getDate());
+        const dots = document.createElement('span'); dots.className = 'ribbon-dots'; dots.setAttribute('aria-hidden', 'true');
+        button.append(label, number, dots); button.addEventListener('click', () => selectDate(day)); buttons.push(button);
+      }
+      track.style.setProperty('--ribbon-count', String(buttons.length));
+      track.append(...buttons);
+      if (focused) buttons.find(b => b.dataset.dayDate === key)?.focus({ preventScroll: true });
+    }
+    const changed = key !== currentKey; currentKey = key;
+    const markers = dayMarkers(events), now = dateKey(today);
+    for (const button of buttons) {
+      const id = button.dataset.dayDate, active = id === key;
+      if (button.getAttribute('aria-pressed') !== String(active)) button.setAttribute('aria-pressed', String(active));
+      button.tabIndex = active ? 0 : -1; button.classList.toggle('is-today', id === now);
+      const types = [...(markers.get(id) || [])], suffix = types.map(t => markLabels[t]).join(', ');
+      const label = `${button.dataset.dayLabel}${suffix ? `, ${suffix}` : ''}`;
+      if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+      const dots = button.querySelector('.ribbon-dots');
+      if (dots.dataset.types !== suffix) {
+        dots.dataset.types = suffix;
+        dots.replaceChildren(...types.map(type => { const dot = document.createElement('i'); dot.className = `ribbon-dot ${type}`; return dot; }));
+      }
+    }
+    if (changed || rebuild) position(!rebuild);
+  }
+  new ResizeObserver(entries => {
+    const width = entries[0].contentRect.width;
+    if (!width || slot === width / 6) return;
+    slot = width / 6;
+    cancelAnimationFrame(pending);
+    pending = requestAnimationFrame(() => { rail.style.setProperty('--ribbon-slot', `${slot}px`); position(false); });
+  }).observe(rail);
+  rail.addEventListener('keydown', event => {
+    const b = event.target.closest('[data-day-date]'); if (!b) return;
+    const offset = { ArrowLeft: -1, ArrowRight: 1, PageUp: -6, PageDown: 6 }[event.key];
+    if (!offset && event.key !== 'Home' && event.key !== 'End') return;
+    event.preventDefault(); const date = parseDate(b.dataset.dayDate);
+    const next = offset ? stepStudyDay(date, offset) : addDays(monday(date), event.key === 'Home' ? 0 : 5);
+    if (weekInRange(next)) selectDate(next);
+  });
+  bindDaySwipe(rail, delta => fixedWeek() ? shiftWeek(delta) : selectDate(stepStudyDay(parseDate(currentKey), delta)), () => true);
+  window.addEventListener('clubs:themechange', () => { if (last && fixed !== fixedWeek()) update(...last); });
+  return update;
 }

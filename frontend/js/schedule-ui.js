@@ -238,7 +238,7 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
     $('prev-week').disabled = !weekInRange(addDays(state.week, -7));
     $('next-week').disabled = !weekInRange(addDays(state.week, 7));
     $('selected-day-label').textContent = `${DAY_NAMES[state.day]}, ${formatDate(date)}`;
-    todayButton.hidden = dateKey(date) === dateKey(currentStudyDay());
+    todayButton.setAttribute('aria-pressed', String(dateKey(date) === dateKey(moscowToday())));
     const filterCount = Object.values(fields).filter(input => input.value).length;
     $('reset-filters').disabled = filterCount === 0;
     toggle.querySelector('span').textContent = `Фильтры${filterCount ? ` · ${filterCount}` : ''}`;

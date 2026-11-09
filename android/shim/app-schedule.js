@@ -108,10 +108,23 @@ function setStatus() {
   const c = d.filter(e => e.status === 'cancelled').length;
   status.textContent = `${DAY_NAMES[state.day]}: занятий ${d.length - c}${c ? `, отменено ${c}` : ''}`;
 }
-let pane = null, animating = null;
+let pane = null, animating = null, pendingDirection = 0, extentFrame;
+function releaseExtentAtTop() {
+  cancelAnimationFrame(extentFrame);
+  extentFrame = requestAnimationFrame(() => {
+    if (!animating && scrollY < 1) content.style.minHeight = '';
+  });
+}
+// A shorter day cannot pull a scrolled viewport upwards; release the reserve once the user returns to the top.
+window.addEventListener('scroll', releaseExtentAtTop, { passive: true });
+window.addEventListener('resize', releaseExtentAtTop, { passive: true });
 function render(dir = 0) {
   ui.updateControls(); setStatus();
   content.setAttribute('aria-busy', String(state.phase === 'loading'));
+  if (dir) pendingDirection = dir;
+  if (state.phase === 'loading' && pane) { pane.inert = true; return; }
+  if (pane) pane.inert = false;
+  dir = pendingDirection || dir; pendingDirection = 0;
   const kids = dayChildren();
   if (!pane || !pane.isConnected) { pane = node('div', 'app-pane'); content.replaceChildren(pane); }
   let transition;
@@ -119,29 +132,22 @@ function render(dir = 0) {
   else {
     // по ключу: те же узлы карточек переиспользуются, меняется только то, что изменилось
     const same = kids.length === pane.children.length && kids.every((k, i) => k === pane.children[i]);
-    if (!same) pane.replaceChildren(...kids);
+    if (!same) { animating?.cancel(); animating = null; pane.replaceChildren(...kids); }
   }
   if (state.phase === 'ready' || state.phase === 'error') contentReady();
   ui.focusPending(pane, transition);
 }
 function slide(kids, dir) {
-  if (animating) animating.finish();
-  const old = pane;
-  const previousHeight = content.offsetHeight;
-  const next = node('div', 'app-pane'); next.append(...kids);
-  content.style.minHeight = `${previousHeight}px`;
-  old.inert = true;
-  old.classList.add('app-pane-out'); content.append(next); pane = next;
-  const opts = { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' };
-  const a1 = old.animate([{ transform: 'none' }, { transform: `translateX(${-dir * 18}px)`, opacity: 0 }], opts);
-  const a2 = next.animate([{ transform: `translateX(${dir * 24}px)`, opacity: 0.4 }, { transform: 'none', opacity: 1 }], opts);
-  animating = a2;
-  const end = () => {
-    old.remove();
-    if (animating === a2) { animating = null; content.style.minHeight = ''; }
-  };
-  a2.finished.then(end, end); a1.finished.catch(() => {});
-  return a2;
+  if (animating) { animating.cancel(); animating = null; }
+  const previousHeight = content.offsetHeight; // one geometry read before any writes, never per animation frame
+  content.style.minHeight = `${previousHeight}px`; // retain the scroll extent when a shorter day replaces a long list
+  pane.replaceChildren(...kids);
+  window.ItcPerformance?.beginMotion(260);
+  const own = pane.animate([{ transform: `translateX(${dir * 14}px)`, opacity: .65 }, { transform: 'none', opacity: 1 }],
+    { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  animating = own;
+  own.finished.then(() => { if (animating === own) { animating = null; releaseExtentAtTop(); } }, () => {});
+  return own;
 }
 function contentReady() {
   if (firstContent) return; firstContent = true;

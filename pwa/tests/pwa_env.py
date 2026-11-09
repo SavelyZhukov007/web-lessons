@@ -2,6 +2,7 @@
 установленного PWA (standalone) на iPhone/Android. Эмулятор не нужен."""
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
@@ -12,6 +13,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+CURRENT_RELEASE = json.loads((ROOT / "frontend/release-info.json").read_text(encoding="utf-8"))["version"]
 CHROME = os.environ.get("CHROME_PATH", "/usr/bin/google-chrome")
 ADMIN, PASSWORD = "admin", "Demo-Pass-2026!"
 
@@ -21,10 +23,10 @@ ANDROID_UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML
 # Эмуляция standalone: iOS — navigator.standalone (как в Safari «На экран Домой»), Android — display-mode: standalone.
 # Плюс моки Notification / PushManager / Badging API, которые записывают вызовы (и была ли активация пользователем).
 def init_script(kind: str, standalone: bool = True, share_files: bool = False) -> str:
-    return """
+    return ("""
 (() => {
   const STANDALONE = %s, KIND = '%s', SHARE = %s;
-  localStorage.setItem('kipclub.release.seen.v1.9.016', '1');
+  localStorage.setItem('kipclub.release.seen.__CURRENT_RELEASE__', '1');
   window.__calls = [];
   const rec = (n, a) => window.__calls.push([n, a === undefined ? null : a]);
   if (STANDALONE) {
@@ -59,7 +61,7 @@ def init_script(kind: str, standalone: bool = True, share_files: bool = False) -
     navigator.serviceWorker.getRegistration = (...a) => gr(...a).then(patch);
   }
 })();
-""" % ("true" if standalone else "false", kind, "true" if share_files else "false")
+""" % ("true" if standalone else "false", kind, "true" if share_files else "false")).replace("__CURRENT_RELEASE__", CURRENT_RELEASE)
 
 
 def free_port() -> int:

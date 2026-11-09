@@ -74,7 +74,9 @@ const SPLASH_HTML = '<div id="itc-splash" role="progressbar" aria-label="Заг�
   '<div class="itc-splash-icon"><img src="/icons/splash-fg.png" alt="" width="240" height="240" decoding="sync"></div>' +
   '<div class="itc-splash-mid"><p class="itc-splash-phrase" aria-live="off">Открываем приложение…</p><div class="itc-splash-bar"><i></i></div></div>' +
   '<p class="itc-splash-foot"><span class="itc-splash-version">Версия ' + ver.versionName + '</span><b>Продукт ИТС КИПФИН</b></p></div>';
-const NATIVE = '<script>window.ITC_CHANNEL=' + JSON.stringify(ver.channel) + ';window.ITC_VERSION=' + JSON.stringify(ver.versionName) + '</script>' +
+for (const f of ['performance-policy.js', 'native-performance.js']) cpSync(join(root, 'shim', f), join(out, 'js', f));
+cpSync(join(root, 'shim', 'native-performance.css'), join(out, 'css', 'native-performance.css'));
+const NATIVE = '<script src="/js/performance-policy.js"></script><script src="/js/native-performance.js"></script><link rel="stylesheet" href="/css/native-performance.css">' + '<script>window.ITC_CHANNEL=' + JSON.stringify(ver.channel) + ';window.ITC_VERSION=' + JSON.stringify(ver.versionName) + '</script>' +
   '<script src="/js/app-splash.js"></script><link rel="stylesheet" href="/css/app-splash.css">' +
   '<script src="/js/native-shell.js"></script><script src="/js/native-features.js"></script><script src="/js/native-motion.js"></script>' +
   '<link rel="stylesheet" href="/css/app-student.css"><script src="/js/app-student.js"></script><script src="/js/app-extras.js" defer></script>' +

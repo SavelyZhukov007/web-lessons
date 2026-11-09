@@ -1,0 +1,29 @@
+/* Android-only adaptive material; never rewrites the user's reduced-transparency preference. */
+html[data-native-perf][data-glass-tier="light"] :is(.glass-surface, .glass-action, .glass-trigger, dialog.sheet, #event-dialog, .itc-sheet-card) {
+  -webkit-backdrop-filter: blur(5px) !important;
+  backdrop-filter: blur(5px) !important;
+}
+html[data-native-perf]:is([data-glass-tier="none"], [data-perf-motion]) :is(.glass-surface, .glass-tabs, .glass-action, .glass-trigger, dialog.sheet, #event-dialog, .itc-sheet-card) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-native-perf]:is([data-glass-tier="none"], [data-perf-motion]) :is(.glass-surface, .glass-tabs, dialog.sheet, #event-dialog, .itc-sheet-card) {
+  background: var(--surface-1) !important;
+}
+html[data-native-perf]:is([data-glass-tier="light"], [data-glass-tier="none"], [data-perf-motion]) .glass-optics { visibility: hidden !important; }
+html[data-native-perf] .glass-indicator { transition-property: transform, opacity !important; }
+html[data-native-perf] :is(.glass-action, .glass-trigger) { transition-property: transform, opacity !important; }
+html[data-native-perf] .glass-action:active { scale: none !important; transform: scale(.97); }
+html[data-native-perf] .app-pane { will-change: auto; }
+html[data-native-perf] .app-pane > :is(.calendar-event, .app-slot) { content-visibility: auto; contain-intrinsic-size: auto 160px; }
+html[data-native-perf] #content { touch-action: pan-y pinch-zoom; }
+/* The strip has exactly one cancellable transform animation. No smooth scroll + moving pill race. */
+html[data-native-perf] .schedule-page #day-buttons.ribbon-transform { display: block; overflow: hidden; touch-action: pan-y pinch-zoom; }
+html[data-native-perf] .ribbon-track { display: flex; position: relative; width: calc(var(--ribbon-slot) * var(--ribbon-count)); will-change: transform; }
+html[data-native-perf] .campus-page #day-buttons .ribbon-track > button {
+  flex: 0 0 var(--ribbon-slot); width: var(--ribbon-slot); min-width: 0;
+  display: grid; justify-items: center; align-content: center; gap: 2px;
+  min-height: 58px; padding: 5px 0; margin: 0; border: 0; border-radius: 14px; background: transparent;
+}
+html[data-native-perf] .ribbon-track > .glass-indicator { height: 100%; width: var(--ribbon-slot); opacity: 1; transition: none !important; scale: none !important; }
+html[data-native-perf] .campus-page #day-buttons .ribbon-track > button[aria-pressed="true"] { color: var(--glass-active-ink); }
