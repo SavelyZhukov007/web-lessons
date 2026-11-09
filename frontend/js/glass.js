@@ -20,6 +20,71 @@ function enableSpringMotion() {
   }).catch(() => {});
 }
 
+function motionAllowed() {
+  return !prefersReducedMotion() && document.documentElement.dataset.reduceMotion !== 'true';
+}
+
+function springEasing() {
+  return document.documentElement.style.getPropertyValue('--glass-spring') || 'cubic-bezier(.2, .76, .26, 1)';
+}
+
+// Капля: на ходу индикатор вытягивается по направлению движения и пружиной возвращается к форме.
+export function liquidStretch(pill, shift) {
+  if (!pill.animate || !motionAllowed()) return;
+  const stretch = Math.min(0.32, Math.abs(shift) / Math.max(pill.offsetWidth * 4, 1));
+  if (stretch < 0.02) return;
+  pill.getAnimations?.().forEach(animation => { if (animation.id === 'glass-stretch') animation.cancel(); });
+  const animation = pill.animate([
+    { scale: `${1 + stretch} ${1 - stretch * 0.45}`, transformOrigin: shift > 0 ? '100% 50%' : '0% 50%' },
+    { scale: '1 1', transformOrigin: '50% 50%' },
+  ], { duration: 460, easing: springEasing() });
+  animation.id = 'glass-stretch';
+}
+
+// Блик под пальцем: кнопки из стекла «загораются» в точке касания, как в iOS 26.
+let glintBound = false;
+export function bindGlassGlint(root = document) {
+  if (glintBound) return;
+  glintBound = true;
+  enableSpringMotion();
+  root.addEventListener('pointerdown', event => {
+    const target = event.target instanceof Element && event.target.closest('.glass-action, .glass-trigger, .glass-tabs > :is(button, a, label)');
+    if (!target) return;
+    const box = target.getBoundingClientRect();
+    if (!box.width || !box.height) return;
+    target.style.setProperty('--glass-hl-x', `${Math.round(((event.clientX - box.left) / box.width) * 100)}%`);
+    target.style.setProperty('--glass-hl-y', `${Math.round(((event.clientY - box.top) / box.height) * 100)}%`);
+  }, { passive: true, capture: true });
+}
+
+const mounted = new WeakSet();
+const GLASS_HOSTS = '.glass-surface, .glass-tabs, dialog.sheet, #event-dialog, .itc-sheet-card';
+let everywhere;
+
+// Оптика LiquidGlassJS на каждой стеклянной поверхности (панели, полосы, табы, шторки) — один раз на элемент.
+export function mountGlassEverywhere(root = document, { signal } = {}) {
+  if (root === document && everywhere) return everywhere;
+  bindGlassGlint();
+  const mount = host => {
+    if (mounted.has(host) || host.closest('[data-glass-static]')) return;
+    mounted.add(host);
+    mountGlassOptics(host, { signal });
+  };
+  const scan = node => {
+    if (!(node instanceof Element)) return;
+    if (node.matches(GLASS_HOSTS)) mount(node);
+    node.querySelectorAll?.(GLASS_HOSTS).forEach(mount);
+  };
+  scan(root instanceof Document ? root.documentElement : root);
+  const observer = new MutationObserver(records => {
+    for (const record of records) record.addedNodes.forEach(scan);
+  });
+  observer.observe(root instanceof Document ? root.body : root, { childList: true, subtree: true });
+  signal?.addEventListener('abort', () => observer.disconnect(), { once: true });
+  if (root === document) everywhere = observer;
+  return observer;
+}
+
 export function bindGlassIndicator(group, selected, { signal } = {}) {
   enableSpringMotion();
   const pill = document.createElement('span');
@@ -27,6 +92,7 @@ export function bindGlassIndicator(group, selected, { signal } = {}) {
   pill.setAttribute('aria-hidden', 'true');
   group.prepend(pill);
   let previous;
+  let lastLeft;
 
   function update() {
     const active = selected();
@@ -36,10 +102,14 @@ export function bindGlassIndicator(group, selected, { signal } = {}) {
       previous = active;
     }
     if (!active?.offsetWidth) { pill.classList.remove('is-visible'); return; }
+    const shift = lastLeft === undefined ? 0 : active.offsetLeft - lastLeft;
+    lastLeft = active.offsetLeft;
     pill.style.width = `${active.offsetWidth}px`;
     pill.style.height = `${active.offsetHeight}px`;
     pill.style.transform = `translate3d(${active.offsetLeft}px, ${active.offsetTop}px, 0)`;
+    const wasVisible = pill.classList.contains('is-visible');
     pill.classList.add('is-visible');
+    if (wasVisible && shift) liquidStretch(pill, shift);
   }
 
   const resize = new ResizeObserver(update);
@@ -50,6 +120,8 @@ export function bindGlassIndicator(group, selected, { signal } = {}) {
 }
 
 export async function mountGlassOptics(host, { signal } = {}) {
+  if (host.querySelector(':scope > .glass-optics')) return;
+  mounted.add(host);
   const reduced = matchMedia('(prefers-reduced-transparency: reduce)');
   const forced = matchMedia('(forced-colors: active)');
   const contrast = matchMedia('(prefers-contrast: more)');
@@ -98,10 +170,9 @@ export async function mountGlassOptics(host, { signal } = {}) {
 
 export function animatePanel(panel, open) {
   for (const animation of panel.getAnimations?.() || []) animation.cancel();
-  if (open && !prefersReducedMotion()) {
-    const easing = document.documentElement.style.getPropertyValue('--glass-spring') || 'cubic-bezier(.2,.8,.2,1)';
-    panel.animate?.([{ opacity: 0, transform: 'translateY(-5px) scale(.985)' }, { opacity: 1, transform: 'none' }],
-      { duration: 260, easing });
+  if (open && motionAllowed()) {
+    panel.animate?.([{ opacity: 0, transform: 'translateY(-8px) scale(.96)', filter: 'blur(3px)' }, { opacity: 1, transform: 'none', filter: 'none' }],
+      { duration: 420, easing: springEasing() });
   }
 }
 
@@ -112,7 +183,7 @@ export function toggleGlassPanel(panel, open) {
     animatePanel(panel, true);
     return;
   }
-  if (prefersReducedMotion() || !panel.animate) { panel.hidden = true; return; }
+  if (!motionAllowed() || !panel.animate) { panel.hidden = true; return; }
   animatePanel(panel, false);
   const exit = panel.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(-5px)' }],
     { duration: 140, easing: 'ease-out' });

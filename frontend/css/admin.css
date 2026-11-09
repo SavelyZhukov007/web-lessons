@@ -599,9 +599,9 @@ html .bc-pill .bc-pill-x:hover { background: rgba(0, 0, 0, .08) !important; }
 .admin-page .bc-form select.glass-select { border-radius: 14px; }
 /* «Пользователи» на «Обзоре» */
 .users-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.users-fig { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: var(--radius-m, 12px); background: var(--surface-2, var(--surface-1)); }
+.users-fig { display: flex; min-width: 0; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: var(--radius-m, 12px); background: var(--surface-2, var(--surface-1)); }
 .users-fig strong { font-size: calc(24px * var(--text-scale)); line-height: 1.1; }
-.users-fig span { color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+.users-fig span { color: var(--muted); font-size: calc(13px * var(--text-scale)); overflow-wrap: anywhere; hyphens: auto; }
 .users-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .users-table th, .users-table td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--outline-variant); }
 .users-table th:first-child { text-align: left; font-weight: 500; }

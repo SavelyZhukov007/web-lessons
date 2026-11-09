@@ -108,13 +108,15 @@ def _send_web(db: Session, ev: Event, r: Result) -> None:
         db.commit()
 
 
-def _send_fcm(db: Session, ev: Event, r: Result) -> None:
+def _send_fcm(db: Session, ev: Event, r: Result, only=None) -> None:
     if not fcm.enabled():
         return
     data = {"type": ev.kind, "tag": ev.tag, "title": ev.payload.get("title", ""), "body": ev.payload.get("body", ""),
             "url": ev.payload.get("url") or "/", **ev.data}
     dead: list[str] = []
     for d in fcm_targets(db, ev):
+        if only is not None and not only(d):
+            continue
         try:
             fcm.send_one(d.fcm_token, data, ev.tag)
             r.fcm_sent += 1

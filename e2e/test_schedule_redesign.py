@@ -216,3 +216,42 @@ def test_glass_broadcast_controls_keep_draft_and_show_future_count(new_page):
     audience.locator(".glass-indicator").evaluate("(el) => Promise.allSettled(el.getAnimations().map(animation => animation.finished))")
     shot(page, "kipclub-admin-glass-390.png")
     assert not page.errors, page.errors
+
+
+def test_liquid_glass_header_and_reduced_modes(new_page):
+    for width in (390, 320):
+        for scheme in ("light", "dark"):
+            page = new_page(width, 760, is_mobile=True, has_touch=True, color_scheme=scheme)
+            page.goto("/?week=2026-11-09&day=2026-11-10")
+            page.locator(".storage-notice button").click()
+            page.locator("#content .calendar-event[data-event-id]").first.wait_for()
+            layout = page.evaluate("""() => {
+                const box = s => document.querySelector(s).getBoundingClientRect();
+                const header = document.querySelector('.campus-header');
+                const style = getComputedStyle(header);
+                const pill = document.querySelector('#day-buttons .glass-indicator');
+                const selected = document.querySelector('#day-buttons [aria-pressed="true"]');
+                return { gap: box('.search-field').top - box('.campus-header').bottom, border: style.borderBottomWidth,
+                         blur: style.backdropFilter, mark: getComputedStyle(document.querySelector('.brand-mark')).filter,
+                         bell: !!document.querySelector('.campus-header #itc-notify-open + [data-settings-button]'),
+                         rail: box('.mobile-days').bottom - box('#day-buttons').bottom,
+                         ink: getComputedStyle(selected).color, pill: pill.classList.contains('is-visible') };
+            }""")
+            assert layout["gap"] <= 12 and layout["border"] == "0px", layout
+            assert layout["blur"] == "none" and layout["mark"] == "none", layout
+            assert layout["bell"] and layout["pill"] and layout["rail"] >= 0, layout
+            if scheme == "light":
+                assert layout["ink"] == "rgb(255, 255, 255)", layout
+            # стеклянный материал на кнопках, полосе дней и шторке; блик появляется в точке касания
+            assert page.evaluate("getComputedStyle(document.querySelector('#prev-week')).backdropFilter").startswith("blur(")
+            page.locator('[data-settings-button]').click()
+            sheet = page.locator("#settings-dialog")
+            expect(sheet).to_be_visible()
+            assert "blur(" in sheet.evaluate("el => getComputedStyle(el).backdropFilter") or sheet.get_attribute("data-glass-backend")
+            page.keyboard.press("Escape")
+            # «Непрозрачные панели» и «Меньше движения» выключают стекло и пружины
+            page.evaluate("window.ClubsTheme.set({ solidGlass: true, reduceMotion: true })")
+            assert page.evaluate("getComputedStyle(document.querySelector('#prev-week')).backdropFilter") == "none"
+            page.locator('[data-day-date="2026-11-12"]').click()
+            assert page.evaluate("document.querySelector('#day-buttons .glass-indicator').getAnimations().length") == 0
+            assert not page.errors

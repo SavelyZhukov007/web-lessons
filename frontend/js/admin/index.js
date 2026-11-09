@@ -3,7 +3,7 @@ import { h, icon } from '../ui.js';
 import { exceptions, getAdminStatus, logout } from './api.js';
 import { guarded } from './kit.js';
 import { dateKey, moscowToday } from '../schedule-dates.js';
-import { bindGlassIndicator, mountGlassOptics } from '../glass.js';
+import { bindGlassIndicator, mountGlassEverywhere, mountGlassOptics } from '../glass.js';
 
 const ROUTES = {
   '': { title: 'Обзор', icon: 'home', load: () => import('./views/dashboard.js') },
@@ -49,6 +49,7 @@ function buildChrome() {
   document.body.append(bottom);
   updateBottomIndicator = bindGlassIndicator(bottom, () => bottom.querySelector('[aria-current="page"]'));
   mountGlassOptics(bottom);
+  mountGlassEverywhere();
   const changeLinks = [nav, bottom].map(element => element.querySelector('[data-route="exceptions"]'));
   const badges = changeLinks.map(link => {
     const badge = h('span', { class: 'admin-change-count', hidden: true, 'aria-hidden': 'true' });

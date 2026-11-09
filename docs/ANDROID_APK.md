@@ -10,7 +10,7 @@
 | Что | Статус |
 |---|---|
 | Debug APK собран **в моей песочнице (Linux)**: JDK 21, Node 22, Android SDK 36, Gradle 8.14.3, Capacitor 8.5.3, compileSdk/targetSdk 36, minSdk 24 | ✅ `builds/android/clubs-schedule-debug.apk`, 4 404 259 байт, sha256 `bb34fe6825121de7162ea0b956033a5b6598677f50ba7beb8e0ea8315cb80ac8` |
-| Веб-слой приложения (shim: нормализация адреса, «Проверить соединение», диалог настроек с блоком «Сервер», `APP_DEFAULT_SERVER`, вход админа по Bearer, **ротация refresh-токена**) — Playwright против живого сервера | ✅ 31/31 (`android/tests/run_shim_tests.py`) |
+| Веб-слой приложения (shim: нормализация адреса, «Проверить соединение», диалог настроек с блоком «Сервер», `APP_DEFAULT_SERVER`, вход админа по Bearer, **ротация refresh-токена**) — Playwright против живого сервера | ✅ покрывается `pwa/tests/run_pwa_tests.py` (та же оболочка в standalone) и `node --test android/tests/*.test.mjs`; старые Playwright-раннеры шима удалены в 1.9.016 |
 | Установка APK и запуск UI на эмуляторе Android 14 | см. §7 |
 | Сборка на **твоём Windows** (PowerShell 5, JDK 21.0.12 в `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot`, SDK 36 / build-tools 35 и 36) | ❌ **не проверялась** — у меня Linux. Автоопределение JDK/SDK под Windows написано по документации путей, но на Windows не запускалось |
 | Release/подписанный APK, Google Play | ❌ не делалось |
@@ -33,7 +33,7 @@ android/
   scripts/build-apk.mjs              проверки → npm ci → prepare-web → cap sync → gradlew assembleDebug → dist/*.apk
   shim/app-shim.js                   AppServer: адрес сервера, префикс /api/, Bearer
   shim/server-setup.js, settings.html  экран первого запуска «Сервер»
-  tests/run_shim_tests.py            Playwright-тесты веб-слоя (31 проверка)
+  tests/*.test.mjs                   node-тесты шима (версии, адрес сервера, офлайн, сессия админа)
   tests/device_test.py               смоук на эмуляторе/телефоне через CDP (adb forward)
 ```
 Общий диалог «Настройки» сайта (тема система/светлая/тёмная, акцент, размер текста) в приложении получает ещё и раздел **«Сервер»** (проверить / изменить / забыть адрес).
@@ -87,11 +87,12 @@ New-NetFirewallRule -DisplayName "Clubs 8000" -Direction Inbound -Protocol TCP -
 ```
 . toolchain/env.sh                                        # Linux; на Windows — Node 22+, Python с playwright
 node android/scripts/prepare-web.mjs
-SHOTS_DIR=/tmp/apkshots python android/tests/run_shim_tests.py        # 31 проверка веб-слоя
+(cd android && npm run test:web)                        # node-тесты шима
+python pwa/tests/run_pwa_tests.py                         # оболочка в standalone + покрытие pwa/*.js ≥ 90%
 python android/tests/device_test.py                       # на запущенном эмуляторе/телефоне (нужен websocket-client)
 ```
 
-## 6. Что проверяют тесты веб-слоя (31/31)
+## 6. Что проверяли тесты веб-слоя (31/31, до 1.9.016)
 Нормализация адреса (в т. ч. мусор/порт), «Проверить соединение» (ок/ошибка/недоступен), редирект на экран сервера при первом запуске, `APP_DEFAULT_SERVER`, смена/забывание сервера, кнопка ⚙ и диалог настроек на каждой странице, вход админа по Bearer (токены в `localStorage`), ротация refresh (старый токен перестаёт работать, новый — работает), все запросы идут на выбранный сервер.
 
 ## 7. Эмулятор Android 14 (AVD `t34`, `-accel off`)

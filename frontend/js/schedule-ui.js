@@ -1,7 +1,7 @@
 import { getCategories, getLeaders, getRooms } from './api.js';
 import { addDays, dateKey, DAY_NAMES, formatDate, monday, moscowToday, parseDate, scheduleLocation } from './schedule-dates.js';
 import { bindDaySwipe, createDayRibbon, stepStudyDay, weekInRange } from './schedule-navigation.js';
-import { bindGlassIndicator, mountGlassOptics, toggleGlassPanel } from './glass.js';
+import { bindGlassIndicator, mountGlassEverywhere, mountGlassOptics, toggleGlassPanel } from './glass.js';
 import { createScheduleFeed, filteredEvents } from './schedule-feed.js';
 import { mountScheduleSearch } from './schedule-search.js';
 import { prefersReducedMotion } from './motion-preferences.js';
@@ -27,6 +27,7 @@ export function currentStudyDay() {
 
 export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, openFilters }) {
   const fields = Object.fromEntries(FILTERS.map(([key, id]) => [key, $(id)]));
+  mountGlassEverywhere();
   const feed = createScheduleFeed();
   const panel = $('filter-options');
   const toggle = $('toggle-filters');

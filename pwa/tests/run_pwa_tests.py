@@ -9,8 +9,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from js_coverage import Coverage, PageCoverage, run_node_tests  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 from pwa_env import ADMIN, ANDROID_UA, CHROME, IOS_UA, PASSWORD, Stand, init_script  # noqa: E402
+
+COVERAGE_MIN = float(os.environ.get("PWA_COVERAGE_MIN", "90"))
+coverage = Coverage()
+page_coverage = PageCoverage(coverage)
 
 SHOTS = Path(os.environ.get("SHOTS_DIR", "/workspace/itc/shots_de"))
 SHOTS.mkdir(parents=True, exist_ok=True)
@@ -51,7 +56,7 @@ try:
                 accept_downloads=True,
             )
             c.add_init_script(init_script(kind, standalone, share))
-            return c
+            return page_coverage.attach_context(c)
 
         # 0. обычная вкладка браузера: сайт без изменений
         c = ctx(standalone=False)
@@ -303,6 +308,13 @@ try:
         br.close()
 finally:
     st.stop()
+
+check("node-тесты service worker pwa/sw-pwa.js", run_node_tests(coverage))
+print("\nПокрытие строк pwa/*.js:")
+for name, (covered, total) in coverage.report().items():
+    print(f"  {name}: {covered}/{total} ({100.0 * covered / total if total else 100:.1f}%)")
+percent = coverage.percent()
+check(f"покрытие pwa/*.js ≥ {COVERAGE_MIN:.0f}%", percent >= COVERAGE_MIN, f"{percent:.1f}%")
 
 ok = sum(1 for _, r in results if r)
 print(f"\nИТОГО: {ok}/{len(results)} ок")

@@ -25,7 +25,7 @@
 - Бэкенд + tools, Python 3.10: **207 passed**, покрытие 94 % (порог CI 92 %); Python 3.13: 207 passed.
 - Node (`node --test frontend/tests/*.test.mjs`): **42 passed**.
 - e2e Playwright (Chrome): **19 passed**.
-- Shim приложения Android (Playwright): **31/31** — перезапущен 23.10.2026 после финальной сборки APK (`prepare-web` + `android/tests/run_shim_tests.py`): ИТОГО 31/31. Это проверка веб-слоя в Chromium, не на устройстве.
+- Shim приложения Android: Playwright-раннеры `run_shim_tests.py` и `run_native_features_tests.py` удалены в 1.9.016 (проверяли старый дизайн). Оболочку проверяет `pwa/tests/run_pwa_tests.py`, шим — `node --test android/tests/*.test.mjs`.
 - `ruff check .` — чисто; `pip-audit` по prod и dev lock — без известных уязвимостей.
 
 ## Таблица задач

@@ -11,7 +11,7 @@
     "prepare-web": "node scripts/prepare-web.mjs",
     "apk": "node scripts/build-apk.mjs",
     "apk:release-check": "node scripts/build-apk.mjs --check-only",
-    "test:web": "python tests/run_shim_tests.py"
+    "test:web": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

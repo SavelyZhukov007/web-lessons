@@ -113,3 +113,70 @@ def test_manual_release_dispatch_is_shared_and_idempotent(env, tmp_path, monkeyp
     feed = client.get("/api/announcements?clubs=20").json()["items"]
     assert feed[-1]["id"] == result["broadcast_id"]
     assert feed[-1]["url"] == "/?update=1&release=v1.9.014"
+
+
+def _auto_release(tmp_path, monkeypatch, publish, code, version, changelog):
+    from backend.app.routers import distribution
+
+    publish(code, version + "prA")
+    latest = tmp_path / "rel/latest.json"
+    notes = {"version": version, "announcement": "auto", "changelog": changelog}
+    latest.write_text(json.dumps({**json.loads(latest.read_text()), **notes, "version": version + "prA"}))
+    (tmp_path / "release-info.json").write_text(json.dumps(notes))
+    monkeypatch.setattr(distribution, "_frontend", lambda: tmp_path)
+    return notes
+
+
+def test_auto_release_announces_once_to_web_and_apk(env, tmp_path, monkeypatch, client):
+    publish, sent, state = env
+    publish(32, "v1.9.015prA")
+    assert run() is None  # первый запуск только запоминает
+    web = []
+
+    def send_web(db, event, result):
+        web.append(event.payload)
+        result.web_sent = 1
+
+    monkeypatch.setattr(delivery, "_send_web", send_web)
+    changelog = ["Пуш «Что нового» приходит сам после выката.", "Стекло стало жидким."]
+    _auto_release(tmp_path, monkeypatch, publish, 33, "v1.9.016", changelog)
+    result = run()
+    assert result["versionCode"] == 33 and json.loads(state.read_text())["versionCode"] == 33
+    announced = result["announcement"]
+    assert announced["dispatch"] == "recorded" and not announced["duplicate"]
+    assert len(web) == 1
+    assert web[0]["title"] == "Что нового в KipClub v1.9.016"
+    assert web[0]["body"] == " · ".join(changelog)
+    assert web[0]["url"] == "/?update=1&release=v1.9.016"
+    # APK: «b» с объявлениями получает объявление, «a» без объявлений — служебный push об обновлении
+    kinds = sorted((token, data["type"]) for token, data, _ in sent)
+    assert kinds == [("t1", "update-available"), ("t2", "announcement")]
+    # повторная проверка и ручной запуск из скрипта выката не дублируют рассылку
+    assert run() is None
+    with SessionLocal() as db:
+        assert rn.announce(db, "v1.9.016")["duplicate"]
+    assert len(web) == 1 and len(sent) == 2
+
+
+def test_auto_release_skips_announcement_when_notes_do_not_match(env, tmp_path, monkeypatch):
+    publish, sent, state = env
+    publish(32, "v1.9.015prA")
+    run()
+    monkeypatch.setattr(delivery, "_send_web", lambda *a: pytest.fail("web push без совпадающего списка изменений"))
+    notes = _auto_release(tmp_path, monkeypatch, publish, 33, "v1.9.016", ["Новое"])
+    (tmp_path / "release-info.json").write_text(json.dumps({**notes, "changelog": ["Другое"]}))
+    result = run()
+    assert "announcement" not in result
+    # без объявления служебный push об обновлении получают все APK, как раньше
+    assert sorted(token for token, *_ in sent) == ["t1", "t2"]
+
+
+def test_announcement_text_fits_and_marks_rest():
+    title, body = rn.announcement_text("v2.0.000", ["а" * 150, "б" * 100, "в"])
+    assert title == "Что нового в KipClub v2.0.000"
+    assert body == "а" * 150 + " · и другое"
+    assert rn.announcement_text("v2.0.000", ["я" * 300])[1].endswith("…")
+    assert "обновился" in rn.announcement_text("v2.0.000", [])[1]
+    assert rn._release_tag({"versionName": "v1.9.016prA"}) == "v1.9.016"
+    with pytest.raises(ValueError):
+        rn._release_tag({"versionName": "beta"})

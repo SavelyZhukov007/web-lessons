@@ -1,7 +1,12 @@
-"""Автоматический push о новой версии APK. Когда в каталоге релизов (APP_RELEASES_DIR: latest.json + сам APK) появляется
-versionCode выше последнего оповещённого, всем активным установкам с FCM уходит одно data-сообщение update-available
-(нажатие открывает приложение на /?update=1 — экран обновления). Последний оповещённый versionCode хранится в файле
-рядом с БД (/data), поэтому переживает перезапуски. Первый запуск только запоминает текущую версию — без рассылки."""
+"""Push о новой версии. Когда в каталоге релизов (APP_RELEASES_DIR: latest.json + сам APK) появляется versionCode выше
+последнего оповещённого, уходит ровно одна рассылка на версию (последний оповещённый versionCode хранится рядом с БД,
+поэтому переживает перезапуски; первый запуск только запоминает текущую версию):
+* announcement «auto» в frontend/release-info.json и latest.json — объявление «Что нового в KipClub vX» с текстом выката
+  для всех платформ (веб, iPhone PWA, APK) с учётом «Объявлений»; APK с выключенными объявлениями получает служебный
+  update-available. Скрипт выката (tools/ops/deploy-release.sh) вызывает `server.py announce-release` сразу после
+  публикации, фоновая проверка — страховка; повтор не дублирует рассылку (idempotency_key release:vX);
+* «manual» — только запоминание, объявление отправляет оператор командой `server.py announce-release vX --send`;
+* иначе — только update-available в APK (FCM)."""
 from __future__ import annotations
 
 import json
@@ -50,7 +55,8 @@ def check(db: Session) -> dict | None:
         if not code:
             return None
         last = _read()
-        if rel.get("announcement") == "manual":
+        mode = rel.get("announcement")
+        if mode == "manual":
             if last is None or code > last:
                 _write(code)
             return None
@@ -66,13 +72,54 @@ def check(db: Session) -> dict | None:
                             payload={"title": "KipClub", "body": f"Доступно обновление {name}", "url": "/?update=1", "tag": f"update-{code}"},
                             data={"version": version, "versionCode": str(code)})
         r = delivery.Result()
+        announced = None
+        if mode == "auto":
+            # Выкат с текстом «Что нового»: одно объявление на все платформы (веб, iPhone PWA, APK) с учётом
+            # «Объявлений». APK с выключенными объявлениями всё равно получает служебный push об обновлении.
+            try:
+                announced = announce(db, _release_tag(rel))
+            except Exception:  # noqa: BLE001
+                db.rollback()
+                log.exception("объявление о выпуске %s: сбой", name)
         try:
-            delivery._send_fcm(db, ev, r)  # только APK: web-подписчикам сайта обновление APK не нужно
+            # только APK: web-подписчикам сайта обновление APK не нужно
+            delivery._send_fcm(db, ev, r, only=(lambda d: not d.announcements) if announced else None)
         except Exception:  # noqa: BLE001
             db.rollback()
             log.exception("push об обновлении %s: сбой", name)
         log.info("push об обновлении %s (versionCode %s): отправлено %s, ошибок %s", name, code, r.fcm_sent, r.fcm_failed)
-        return {"versionCode": code, "fcm_sent": r.fcm_sent, "fcm_failed": r.fcm_failed}
+        out = {"versionCode": code, "fcm_sent": r.fcm_sent, "fcm_failed": r.fcm_failed}
+        if announced is not None:
+            out["announcement"] = announced
+        return out
+
+
+def _release_tag(release: dict) -> str:
+    """«v1.9.016prA» → «v1.9.016»: номер выпуска из release-info.json без канала и платформы."""
+    import re
+
+    raw = str(release.get("versionName") or release.get("version") or "")
+    match = re.match(r"v?(\d+\.\d+\.\d+)", raw)
+    if not match:
+        raise ValueError(f"Не удалось понять версию выпуска: {raw!r}")
+    return "v" + match.group(1)
+
+
+def announcement_text(version: str, changelog: list[str], limit: int = 230) -> tuple[str, str]:
+    """Заголовок и текст push «Что нового»: пункты списка изменений, пока помещаются в limit символов."""
+    title = f"Что нового в KipClub {version}"
+    items = [str(item).strip() for item in changelog if str(item).strip()]
+    body = ""
+    for item in items:
+        candidate = f"{body} · {item}" if body else item
+        if len(candidate) > limit:
+            break
+        body = candidate
+    if not body and items:
+        body = items[0][: limit - 1].rstrip() + "…"
+    elif body and len(body) < len(" · ".join(items)):
+        body += " · и другое"
+    return title, body or f"KipClub обновился до {version}. Посмотрите, что нового."
 
 
 
@@ -82,15 +129,17 @@ def announce(db: Session, version: str) -> dict:
 
     notes = json.loads((_frontend() / "release-info.json").read_text(encoding="utf-8"))
     release = latest_release()
-    if (notes.get("version") != version or notes.get("announcement") != "manual"
-            or release is None or release.get("announcement") != "manual"
+    mode = notes.get("announcement")
+    if (notes.get("version") != version or mode not in ("manual", "auto")
+            or release is None or release.get("announcement") != mode
             or not release["versionName"].startswith(version)
             or release["changelog"] != notes.get("changelog")):
         raise ValueError("APK и веб-версия не совпадают со списком изменений")
 
     key = f"release:{version}"
+    title, body = announcement_text(version, notes.get("changelog") or [])
     result = db.execute(insert(Broadcast).values(
-        title="KipClub", body=f"KipClub обновился до {version}. Посмотрите, что нового.",
+        title=title, body=body,
         url=f"/?update=1&release={version}", audience="all", club_ids="[]", session_ids="[]",
         author_login="KipClub", idempotency_key=key,
         web_sent=-1, web_failed=-1, fcm_sent=-1, fcm_failed=-1, apk_targets=-1,

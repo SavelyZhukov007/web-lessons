@@ -34,8 +34,9 @@ export async function showRelease({ requested, auto = false, opener } = {}) {
   if (auto && !requested && seen(release.version)) return false;
   if (auto && hasUnsavedWork()) return false;
 
-  const close = () => dialog.close();
-  dialog = h('dialog', { class: 'sheet sheet--bottom release-sheet', 'aria-labelledby': 'release-title' },
+  // «Понятно» запоминается сразу: перезагрузка до события close не покажет список ещё раз.
+  const close = () => { remember(release.version); sheet.close(); };
+  const sheet = h('dialog', { class: 'sheet sheet--bottom release-sheet', 'aria-labelledby': 'release-title' },
     h('div', { class: 'sheet-head' },
       h('h2', { id: 'release-title' }, `Что нового в ${release.version}`),
       h('button', { type: 'button', class: 'btn btn--text btn--small', 'aria-label': 'Закрыть список изменений', onclick: close }, icon('close'))),
@@ -43,15 +44,16 @@ export async function showRelease({ requested, auto = false, opener } = {}) {
       h('ul', { class: 'release-changes' }, release.changelog.map(change => h('li', {}, change)))),
     h('div', { class: 'sheet-foot' },
       h('button', { type: 'button', class: 'btn btn--filled', onclick: close }, 'Понятно')));
-  dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
-  dialog.addEventListener('close', () => {
+  dialog = sheet;
+  sheet.addEventListener('click', event => { if (event.target === sheet) close(); });
+  sheet.addEventListener('close', () => {
     remember(release.version);
-    dialog.remove();
-    dialog = undefined;
+    sheet.remove();
+    if (dialog === sheet) dialog = undefined;
     opener?.focus();
   }, { once: true });
-  document.body.append(dialog);
-  dialog.showModal();
+  document.body.append(sheet);
+  sheet.showModal();
   if (requested) {
     const url = new URL(location.href);
     url.searchParams.delete('release');

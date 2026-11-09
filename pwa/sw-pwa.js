@@ -19,15 +19,18 @@ self.addEventListener('push', event => {
   try { data = event.data ? event.data.json() : {}; } catch { /* текстовый push — тоже изменение */ }
   if (data && data.badge === false) return;
   event.waitUntil((async () => {
-    const pref = await (await caches.open(ITC_BADGE_CACHE)).match(ITC_BADGE_PREF);
-    if (!pref || await pref.text() !== '0') await itcBadgeSet(await itcBadgeGet() + 1);
+    let enabled = true;
+    try { const pref = await (await caches.open(ITC_BADGE_CACHE)).match(ITC_BADGE_PREF); enabled = !pref || await pref.text() !== '0'; } catch { /* без Cache Storage считаем как раньше */ }
+    if (enabled) await itcBadgeSet(await itcBadgeGet() + 1);
   })());
 });
 self.addEventListener('message', event => {
   const d = event.data || {};
   if (d.type !== 'itc-badge' || !Number.isInteger(d.count) || d.count < 0) return;
   event.waitUntil((async () => {
-    if (typeof d.enabled === 'boolean') await (await caches.open(ITC_BADGE_CACHE)).put(ITC_BADGE_PREF, new Response(d.enabled ? '1' : '0'));
+    if (typeof d.enabled === 'boolean') {
+      try { await (await caches.open(ITC_BADGE_CACHE)).put(ITC_BADGE_PREF, new Response(d.enabled ? '1' : '0')); } catch { /* квота или приватный режим */ }
+    }
     await itcBadgeSet(d.count);
   })());
 });

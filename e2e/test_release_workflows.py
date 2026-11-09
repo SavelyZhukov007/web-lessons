@@ -5,17 +5,17 @@ from playwright.sync_api import expect
 def test_release_notes_open_once_and_from_announcement(new_page):
     page = new_page(390, 844, show_release=True)
     page.goto("/")
-    page.get_by_role("heading", name="Что нового в v1.9.015").wait_for()
+    page.get_by_role("heading", name="Что нового в v1.9.016").wait_for()
     page.get_by_role("button", name="Понятно", exact=True).click()
     page.reload()
     page.wait_for_load_state("networkidle")
     assert not page.locator(".release-sheet").is_visible()
     page.get_by_role("button", name="Настройки", exact=True).click()
     page.get_by_role("button", name="Что нового", exact=True).click()
-    page.get_by_role("heading", name="Что нового в v1.9.015").wait_for()
+    page.get_by_role("heading", name="Что нового в v1.9.016").wait_for()
     page.get_by_role("button", name="Понятно", exact=True).click()
-    page.goto("/?update=1&release=v1.9.015")
-    page.get_by_role("heading", name="Что нового в v1.9.015").wait_for()
+    page.goto("/?update=1&release=v1.9.016")
+    page.get_by_role("heading", name="Что нового в v1.9.016").wait_for()
     assert not page.errors
 
 

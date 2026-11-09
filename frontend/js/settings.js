@@ -6,6 +6,7 @@ import { request } from './api.js';
 import './log-collector.js'; // журнал устройства для «Обратной связи» — с первой загрузки страницы
 import './modal-scroll-lock.js';
 import { interfaceSettings } from './interface-settings.js';
+import { mountGlassEverywhere } from './glass.js';
 import { webNotificationPreferences } from './push.js';
 
 const theme = window.ClubsTheme;
@@ -231,6 +232,7 @@ function open(opener) {
 function mount() {
   if (!theme) return;
   installRipple();
+  mountGlassEverywhere();
   if (document.querySelector('[data-settings-button]')) return;
   const button = h('button', { type: 'button', class: 'settings-button', 'aria-label': 'Настройки', 'aria-haspopup': 'dialog', dataset: { settingsButton: '' } }, icon('gear'));
   button.addEventListener('click', () => open(button));
