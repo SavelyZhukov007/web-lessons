@@ -110,7 +110,7 @@ function openEventGroup(events) {
       button.classList.add('itc-ghost');
       button.append(node('span', 'event-badge', 'Перенесено'),
         node('span', 'itc-ghost-link', `Актуальное время: ${formatDate(nd, { weekday: 'short', day: 'numeric', month: 'long' })}, ${event.moved.start_time}`));
-      button.addEventListener('click', () => { $('#event-dialog').close(); jumpTo(event.moved); });
+      button.addEventListener('click', () => { $('#event-dialog').close(); ui.jumpTo(event.moved); });
       list.append(button);
       continue;
     }

@@ -169,24 +169,66 @@ def test_dark_desktop_segment_uses_a_single_contrasting_pill(new_page):
     assert not page.errors, page.errors
 
 
-def test_moved_slot_opens_and_shares_the_actual_event(new_page):
-    page = new_page(390, 844, is_mobile=True, has_touch=True, reduced_motion="reduce")
+@pytest.mark.parametrize(("width", "scheme"), [(320, "light"), (1366, "dark")])
+def test_moved_slot_opens_and_shares_the_actual_event(new_page, width, scheme):
+    page = new_page(width, 844, is_mobile=width < 600, has_touch=width < 600, color_scheme=scheme, reduced_motion="reduce")
     page.add_init_script("Object.defineProperty(navigator, 'share', { value: async payload => { window.shared = payload; } })")
     page.goto("/?day=2026-10-23")
     page.locator(".storage-notice button").click()
-    page.locator(".itc-ghost-link").click()
+    if width >= 1000:
+        page.locator("#view-list").click()
+    old_slot = page.locator(".schedule-list .itc-ghost")
+    action = old_slot.get_by_role("button", name="Актуальное время", exact=False)
+    expect(action).to_be_visible()
+    title = old_slot.locator(".event-name").bounding_box()
+    link_box = action.bounding_box()
+    row = old_slot.bounding_box()
+    assert abs(link_box["x"] - title["x"]) <= 1
+    assert link_box["width"] >= 140
+    assert link_box["x"] + link_box["width"] <= row["x"] + row["width"] + 1
+    old_slot.scroll_into_view_if_needed()
+    shot(page, f"kipclub-moved-slot-{'desktop' if width >= 1000 else 'mobile'}-{scheme}.png")
+    action.click()
     target = page.locator(".calendar-event.itc-flash")
     expect(target).to_be_focused()
-    expect(page.locator('[data-day-date="2026-10-24"]')).to_have_attribute("aria-pressed", "true")
     link = page.url
-    assert "event=" in link
+    query = parse_qs(urlsplit(link).query)
+    assert query["day"] == ["2026-10-24"]
+    event_id = target.get_attribute("data-event-id")
+    assert query["event"] == [event_id]
     page.reload()
-    expect(target).to_be_focused()
-    target.click()
+    if width < 1000:
+        expect(target).to_be_focused()
+    page.locator(f'.calendar-event[data-event-id="{event_id}"]').click()
     page.get_by_role("button", name="Поделиться занятием").click()
     shared = urlsplit(page.evaluate("window.shared.url"))
     expected = urlsplit(link)
     assert (shared.netloc, shared.path, parse_qs(shared.query)) == (expected.netloc, expected.path, parse_qs(expected.query))
+    assert not page.errors, page.errors
+
+
+def test_moved_slot_inside_parallel_group_jumps_to_actual_event(new_page):
+    page = new_page(1366, 900, reduced_motion="reduce")
+
+    def add_overlapping_slot(route):
+        response = route.fetch()
+        events = response.json()
+        moved = next(e for e in events if e["status"] == "moved" and e["original_date"] == "2026-10-23")
+        events.append({
+            **moved, "event_id": "parallel-test", "club_name": "Параллельное занятие", "status": "scheduled",
+            "date": moved["original_date"], "start_time": moved["original_start_time"], "end_time": moved["original_end_time"],
+        })
+        route.fulfill(response=response, json=events)
+
+    page.route("**/api/schedule?week=2026-10-19", add_overlapping_slot)
+    page.goto("/?day=2026-10-23")
+    page.locator(".storage-notice button").click()
+    page.locator(".parallel-group").filter(has_text="Параллельное занятие").click()
+    group = page.get_by_role("dialog", name="Занятия в это время")
+    group.get_by_role("button", name="Актуальное время", exact=False).click()
+    expect(group).to_be_hidden()
+    assert parse_qs(urlsplit(page.url).query)["day"] == ["2026-10-24"]
+    expect(page.locator(".calendar-event.itc-flash")).to_be_focused()
     assert not page.errors, page.errors
 
 
