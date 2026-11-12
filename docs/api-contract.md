@@ -1,6 +1,6 @@
-# API-контракт (актуальный)
+# API-контракт (сводка)
 
-Источник истины — OpenAPI (`/docs` в dev; в production отключён, `ENABLE_DOCS=true` включает). Этот файл — человекочитаемая сводка.
+Источник истины — OpenAPI текущего приложения (`/docs` в dev; в production отключён, `ENABLE_DOCS=true` включает). Этот файл — человекочитаемая сводка, а не исчерпывающий список маршрутов. При расхождении проверяйте схему OpenAPI и соответствующие тесты.
 
 Учебные периоды, повторения, несколько руководителей и аудиторий, импорт и экспорт: [academic-schedule.md](academic-schedule.md).
 
@@ -13,7 +13,7 @@
 | 401 | строка | нет/просрочена сессия админа, неверный логин/пароль |
 | 403 | строка | CSRF-проверка Origin не пройдена (запись по cookie с чужого Origin) |
 | 404 | строка | сущность/маршрут не найден (`/api/*` неизвестный → «API-маршрут не найден») |
-| 409 | **объект** `{code:"CONFLICT", message, conflicts:[{event_id, club_name, date, start_time, end_time, room_name, leader_name, reasons:["room"\|"leader"]}]}` для пересечения расписания; **строка** для нарушения уникальности/внешнего ключа |
+| 409 | **объект** конфликта расписания (поля и причины `room`, `leader`, `group` — см. [schedule-v2-contract.md](schedule-v2-contract.md)); **строка** для нарушения уникальности/внешнего ключа |
 | 422 | строка (наши проверки) или **массив** ошибок Pydantic (`[{loc, msg, type}]`) | валидация |
 | 429 | строка + заголовок `Retry-After` | лимит входа (5 неудач / 15 мин на пару IP+логин), лимит push-подписок на устройство |
 | 503 | `{"status": …}` | `/readyz`: БД недоступна или миграции не применены |
@@ -30,7 +30,7 @@
 - `GET /api/clubs?search=&category_id=` — только активные; поиск регистронезависимый (в т. ч. кириллица), `%`/`_` — обычные символы.
 - `GET /api/clubs/{id}` — `category`, `leader` (с `contact`), `sessions`, `upcoming_exceptions`.
 - `GET /api/clubs/{id}/calendar.ics?week=YYYY-MM-DD` — снимок недели кружка с исключениями, без бесконечного повторения; не подписной календарь. `?start=&end=` — диапазон до 93 дней; `?from=&to=` (или без параметров — от сегодня до конца периода, ≥ 26 недель, ≤ 400 дней). Отменённые даты не попадают, переносы — по новой дате. Правила — `PRODUCT_RULES.md`.
-- Schedule v2 (подробно — `docs/schedule-v2-contract.md`): `GET /api/week?week=` (неделя + период, чётность, неучебные дни), `GET /api/sessions/{id}/occurrences`, `GET /api/clubs/{id}/occurrences`, `GET /api/calendar.ics`, `GET /api/sessions/{id}/calendar.ics`. В `GET /api/clubs/{id}` у занятий есть `repeat`, `repeat_label`, `next_dates`.
+- Schedule v2 (подробно — `schedule-v2-contract.md`): `GET /api/periods/week?week=` возвращает сведения о периодах и неучебных днях; `GET /api/week?week=` — события недели вместе с периодом/чётностью; также доступны `GET /api/sessions/{id}/occurrences`, `GET /api/clubs/{id}/occurrences`, `GET /api/calendar.ics`, `GET /api/sessions/{id}/calendar.ics`. В `GET /api/clubs/{id}` у занятий есть `repeat`, `repeat_label`, `next_dates`.
 - `GET /api/schedule?week=YYYY-MM-DD[&category_id&weekday&leader_id&room_id&search]` — `week` — **понедельник**, диапазон 2000-01-03…2100-12-27, иначе 422. Ответ — массив `ScheduleEvent` (`schemas/contracts.py`); `status`: `scheduled|cancelled|moved`; `event_id` = `session_id:original_date`.
 
 ## Web Push (публичные, без авторизации)
@@ -43,8 +43,16 @@
 
 ## Рассылки (админ)
 - `GET /api/admin/broadcasts?limit=50` — журнал. `POST /api/admin/broadcasts/estimate` `{audience:"all"|"clubs", club_ids, session_ids}` → `{web, apk}`.
-- `POST /api/admin/broadcasts` `{title≤80, body≤500, url?, audience, club_ids, session_ids, idempotency_key}` → 201; тот же ключ → 200 `duplicate:true`; тот же текст тем же админом за 2 минуты → 409.
+- `POST /api/admin/broadcasts` `{title≤80, body≤500, url?, audience, club_ids, session_ids, idempotency_key, scheduled_at?}` → 201; тот же ключ → 200 `duplicate:true`; тот же текст тем же админом за 2 минуты → 409. `scheduled_at` — необязательное время отправки с часовым поясом.
+- `DELETE /api/admin/broadcasts/schedules/{schedule_id}` отменяет ещё не отправленную запланированную рассылку; если она уже отправляется или отменена, вернётся 409.
+- `POST /api/announcements/{broadcast_id}/receipt` принимает best-effort квитанции `{install_id, channel:"web"|"android", kind:"shown"|"opened"}` → 204. Квитанция не доказывает прочтение человеком.
 - Отправка — фоновая задача после отмены/переноса; ошибки отправки не влияют на ответ API; «мёртвые» подписки (404/410) удаляются.
+
+## Инструменты расписания администратора
+- `GET /api/admin/actions?limit=&request_id=` — журнал изменений; `POST /api/admin/actions/{action_id}/undo` — отмена поддерживаемого действия с проверкой актуальности.
+- `POST /api/admin/bulk` — двухфазная массовая отмена/удаление: сначала предпросмотр, затем подтверждение выданным токеном; устаревший предпросмотр отклоняется.
+- `GET /api/admin/export?date_from=&date_to=&format=json|xlsx|pdf&building=&room_id=` — выгрузка до 32 дней и 5000 строк.
+- `GET /api/admin/calendar?week=` и `POST /api/admin/calendar/move` — календарный вид и перенос события с проверкой ревизии и конфликтов.
 
 ## Админские (`/api/admin/*`)
 Авторизация: cookie `admin_session` (HttpOnly, SameSite=Lax, Secure в production) **или** `Authorization: Bearer <access_token>` (токен возвращает `login`; Bearer приоритетнее cookie). Запись по cookie требует совпадения `Origin`/`Host` (или `TRUSTED_ORIGINS`).

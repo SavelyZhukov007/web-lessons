@@ -1,15 +1,15 @@
 # Быстрый старт
 
-Полная инструкция — в `README.md` (раздел «Быстрый запуск»). Кратко:
+Полная инструкция и команды для Linux/macOS — в корневом [README.md](../README.md). На Windows откройте PowerShell в корне репозитория:
 
-```bash
-python3 -m venv .venv && ./.venv/bin/pip install -r backend/requirements.lock.txt   # Windows: .venv\Scripts\pip
-./.venv/bin/python server.py admin create admin      # пароль ≥ 10 символов
-./.venv/bin/python server.py seed                    # демо-данные (по желанию)
-./.venv/bin/python server.py                         # http://127.0.0.1:8000
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.lock.txt
+.\.venv\Scripts\python.exe server.py admin create admin
+.\.venv\Scripts\python.exe server.py seed
+.\.venv\Scripts\python.exe server.py
 ```
 
-Что где: `docs/api-contract.md` (API), `docs/security.md`, `docs/database.md`, `docs/conflicts.md`, `docs/deploy.md` + `docs/DEPLOY_COLLEGE.md`, `docs/runbook.md`, `docs/qa-checklist.md` (ручная проверка).
-Правила выпуска и демонстрация: `docs/PRODUCT_RULES.md`. Учебные периоды, повторения и импорт: `docs/academic-schedule.md`.
+Создание администратора запросит пароль; демо-данные загружать необязательно. Сервер разработки доступен по адресу `http://127.0.0.1:8000`, админ-панель — `http://127.0.0.1:8000/admin/login.html`. Приложение применяет миграции Alembic при запуске.
 
-Для проверки обновлений: `python server.py build web --out dist/web`, затем задайте `CLUBS_FRONTEND_DIR` абсолютным путём к `dist/web` перед запуском сервера. Сборка содержит метаданные версии; после изменения исходников её нужно пересобрать.
+Ориентиры по документации: [индекс](README.md), [API](api-contract.md), [безопасность](security.md), [база данных](database.md), [конфликты](conflicts.md), [развёртывание](deploy.md) и [runbook](runbook.md). Учебные периоды и импорт описаны в [academic-schedule.md](academic-schedule.md).

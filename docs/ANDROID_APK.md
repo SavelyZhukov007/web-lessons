@@ -1,20 +1,20 @@
 # Android-приложение «KipClub» — как собрать и поставить debug APK
 
-> TL;DR: **Capacitor 8** оборачивает собранный сайт (`frontend/`), поверх — маленький shim: при первом запуске приложение
+> TL;DR: **Capacitor 8** оборачивает собранный сайт (`frontend/`), поверх — shim: при первом запуске приложение
 > спрашивает адрес сервера `http://IP:PORT` (его можно сменить потом в окне «Настройки → Сервер»), все `/api/…` уходят на этот
-> сервер. Сборка одной командой из корня репозитория: **`python server.py build android`** (или `npm run apk` / `.\build-apk.ps1` в `android/`).
-> Результат: `builds/android/clubs-schedule-debug.apk` (+ `.sha256`).
+> сервер. Debug-сборка запускается из корня командой **`python server.py build android`** или напрямую через `npm run apk` в `android/`.
+> Результат оркестратора — APK в `android/dist/`; версия и точный путь печатаются в выводе. Версионированный пакет собирается отдельно через `node android/scripts/build.mjs --version v1.9.022pr --platform android --no-bump` (пример для версии из текущего `version.json`). Форматы каналов и стадий описаны там же. Добавляйте `--release` только для подписанной сборки с настроенным ключом.
 
-## 0. Что реально проверено (честно)
+## 0. Статус проверок
+
+Сведения ниже собраны в разные даты и не означают, что APK из текущей рабочей копии уже собран или выпущен. Для исходников текущая версия и Android `versionCode` указаны в [version.json](../version.json) и [android/version.json](../android/version.json); история последней зафиксированной проверки устройства — в [отчёте 1.9.021](final-release-19021.md).
 
 | Что | Статус |
 |---|---|
-| Debug APK собран **в моей песочнице (Linux)**: JDK 21, Node 22, Android SDK 36, Gradle 8.14.3, Capacitor 8.5.3, compileSdk/targetSdk 36, minSdk 24 | ✅ `builds/android/clubs-schedule-debug.apk`, 4 404 259 байт, sha256 `bb34fe6825121de7162ea0b956033a5b6598677f50ba7beb8e0ea8315cb80ac8` |
-| Веб-слой приложения (shim: нормализация адреса, «Проверить соединение», диалог настроек с блоком «Сервер», `APP_DEFAULT_SERVER`, вход админа по Bearer, **ротация refresh-токена**) — Playwright против живого сервера | ✅ покрывается `pwa/tests/run_pwa_tests.py` (та же оболочка в standalone) и `node --test android/tests/*.test.mjs`; старые Playwright-раннеры шима удалены в 1.9.016 |
-| Установка APK и запуск UI на эмуляторе Android 14 | см. §7 |
-| Сборка на **твоём Windows** (PowerShell 5, JDK 21.0.12 в `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot`, SDK 36 / build-tools 35 и 36) | ❌ **не проверялась** — у меня Linux. Автоопределение JDK/SDK под Windows написано по документации путей, но на Windows не запускалось |
-| Release/подписанный APK, Google Play | ❌ не делалось |
-| FCM: сборка с Firebase, unit-тесты разбора/дедупликации, серверная отправка на моках | ✅; реальная доставка на устройство ❌ не проверялась |
+| Node-тесты Android shim | Команда `cd android; npm run test:web`; актуальный результат зависит от проверяемой версии |
+| APK на эмуляторе/устройстве | Проверяйте отдельно; исторические ограничения окружения описаны в §7 и отчёте 1.9.021 |
+| Сборка на Windows и подписанный release APK | Эта инструкция не подтверждает такую сборку; проверьте на целевой машине и с release-keystore |
+| FCM | Интеграция и серверная отправка покрываются тестами; получение push на физическом устройстве требует приёмочного теста с production-конфигурацией |
 
 ## 1. Почему Capacitor
 PWA/TWA требует HTTPS и домен, а у колледжа сервер может быть просто `http://192.168.x.x:8000`. Голый WebView — ручная работа с адресом. Capacitor даёт cleartext HTTP на LAN, нативный HTTP-слой (`CapacitorHttp`: запросы идут мимо CORS WebView), сплэш/иконки и расширение плагинами позже.
@@ -39,16 +39,16 @@ android/
 Общий диалог «Настройки» сайта (тема система/светлая/тёмная, акцент, размер текста) в приложении получает ещё и раздел **«Сервер»** (проверить / изменить / забыть адрес).
 
 ## 3. Предусловия на Windows
-1. **Node.js 22+** (у тебя 24 — подходит).
-2. **JDK 21+**. Capacitor 8 / AGP 8.13 на JDK 17 не собираются. Скрипт сам ищет JDK 21+ в: `JAVA_HOME` (если ≥ 21), `JDK_21_HOME`, `C:\Program Files\Eclipse Adoptium\jdk-21*` (**твой `jdk-21.0.12.101-hotspot` подпадает**), Microsoft/Zulu/Corretto/Java, `%LOCALAPPDATA%\Programs`, `~\.jdks`, `jbr` из Android Studio. Найденный JDK подставляется в `JAVA_HOME` и `PATH` **только для процесса сборки** — системный JDK 17 и переменные окружения не меняются. Если нужно указать явно: `-JavaHome "C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot"`.
-3. **Android SDK**: у тебя `C:\Users\savel\AppData\Local\Android\Sdk` (определяется автоматически: `ANDROID_HOME` → `ANDROID_SDK_ROOT` → `%LOCALAPPDATA%\Android\Sdk`). Нужны `platforms;android-36`, `platform-tools`, `build-tools` (у тебя 35.0.0 и 36.0.0 — для compileSdk 36 Gradle использует 36.0.0; недостающее он докачает сам при принятых лицензиях; можно `-InstallSdkPackages`).
+1. **Node.js 22+**.
+2. **JDK 21+**. Capacitor 8 / AGP 8.13 требуют JDK 21. Скрипт ищет подходящий JDK в `JAVA_HOME`, `JDK_21_HOME` и стандартных каталогах распространённых дистрибутивов/Android Studio. Если нужно указать явно, передайте `-JavaHome "C:\путь\к\jdk-21"`; найденный JDK применяется только для процесса сборки.
+3. **Android SDK**: задайте `ANDROID_HOME` или `ANDROID_SDK_ROOT` либо используйте стандартный каталог SDK пользователя. Нужны `platforms;android-36`, `platform-tools` и подходящая версия `build-tools`; недостающие пакеты скрипт может установить при принятых лицензиях (`-InstallSdkPackages`).
 4. Интернет при первой сборке (npm + Gradle ~ сотни МБ).
 5. Python 3.10 нужен только для `python server.py build android` (оркестратор) — сам по себе APK собирается и `npm run apk`.
 
 ## 4. Команды (PowerShell 5)
 Из корня репозитория:
 ```powershell
-python server.py build android                                      # → builds\android\clubs-schedule-debug.apk
+python server.py build android                                      # → путь APK будет выведен; debug APK находится в android\dist\
 python server.py build android --server-url http://192.168.1.50:8000   # адрес зашит по умолчанию (в приложении его всё равно можно сменить)
 python server.py build android --install                            # + adb install -r и запуск на подключённом устройстве
 python server.py build android --check-only                         # только проверить JDK/SDK/Node, ничего не собирать
@@ -56,7 +56,7 @@ python server.py build android --check-only                         # тольк
 Или напрямую из `android\`:
 ```powershell
 cd android
-npm install
+npm ci
 npm run apk
 powershell -ExecutionPolicy Bypass -File .\build-apk.ps1 -ServerUrl http://192.168.1.50:8000 -Install
 powershell -ExecutionPolicy Bypass -File .\build-apk.ps1 -CheckOnly
@@ -65,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File .\build-apk.ps1 -CheckOnly
 
 ### Сервер для телефона
 ```powershell
-$env:ADMIN_PASSWORD = '<пароль ≥10 символов>'; python server.py admin create admin
+python server.py admin create admin                      # пароль будет запрошен в консоли
 python server.py serve --host 0.0.0.0 --port 8000       # dev-режим, в сети только на время теста
 ipconfig                                                  # IPv4 ПК, например 192.168.1.50
 New-NetFirewallRule -DisplayName "Clubs 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow -Profile Private   # от администратора
@@ -77,7 +77,8 @@ New-NetFirewallRule -DisplayName "Clubs 8000" -Direction Inbound -Protocol TCP -
 1. Телефон: «Настройки → О телефоне» 7 раз по «Номер сборки» → «Для разработчиков» → «Отладка по USB». Подключить, принять RSA-ключ.
 2. ```powershell
    adb devices                                  # должен быть "device"
-   adb install -r builds\android\clubs-schedule-debug.apk
+   $apkPath = Read-Host "Введите путь к основному APK из вывода сборки"
+   adb install -r $apkPath
    adb shell monkey -p ru.kipfin.clubs -c android.intent.category.LAUNCHER 1
    ```
    Если уже стоит APK, подписанный **другим** debug-ключом (например, собранный на другой машине), `install -r` даст `INSTALL_FAILED_UPDATE_INCOMPATIBLE` — сначала `adb uninstall ru.kipfin.clubs` (настройки приложения сбросятся).
@@ -92,18 +93,18 @@ python pwa/tests/run_pwa_tests.py                         # оболочка в 
 python android/tests/device_test.py                       # на запущенном эмуляторе/телефоне (нужен websocket-client)
 ```
 
-## 6. Что проверяли тесты веб-слоя (31/31, до 1.9.016)
+## 6. Историческая проверка веб-слоя (до 1.9.016)
 Нормализация адреса (в т. ч. мусор/порт), «Проверить соединение» (ок/ошибка/недоступен), редирект на экран сервера при первом запуске, `APP_DEFAULT_SERVER`, смена/забывание сервера, кнопка ⚙ и диалог настроек на каждой странице, вход админа по Bearer (токены в `localStorage`), ротация refresh (старый токен перестаёт работать, новый — работает), все запросы идут на выбранный сервер.
 
-## 7. Эмулятор Android 14 (AVD `t34`, `-accel off`)
-Эмулятор шёл **без аппаратного ускорения** (в песочнице нет KVM), поэтому очень медленный.
-* ✅ Холодная загрузка ОС (`sys.boot_completed=1`) и `adb install -r builds/android/clubs-schedule-debug.apk` → **`Success`** (для этой версии APK; предыдущая сборка тоже ставилась).
-* ❌ **UI, экран «Сервер», настройки и админ-вход на устройстве НЕ проверены.** Попытка прогнать `tests/device_test.py` на текущей сборке не завершилась: на софт-эмуляторе система деградировала (load average в госте > 30, `Can't find service: window`, чёрный скриншот, WebView-devtools-сокет не появился за 3 минуты). Это ограничение окружения, а не доказанный дефект приложения — но и доказательства работы на устройстве у меня нет.
+## 7. Исторический прогон на эмуляторе Android 14 (AVD `t34`, `-accel off`)
+Это запись о конкретном старом прогоне, а не актуальный статус устройства. Эмулятор шёл **без аппаратного ускорения** (в песочнице не было KVM), поэтому очень медленный. Позднейшие выборочные физические проверки Android, включая доступность и виджеты, описаны в [отчёте 1.9.021](final-release-19021.md); они также не заменяют полный проход для текущего APK.
+* ✅ Для APK той исторической сборки холодная загрузка ОС (`sys.boot_completed=1`) и установка завершились `Success`. Это не проверка APK из текущей рабочей копии.
+* ❌ **В том прогоне UI, экран «Сервер», настройки и админ-вход на устройстве не были подтверждены.** Попытка прогнать `tests/device_test.py` не завершилась: на софт-эмуляторе система деградировала (load average в госте > 30, `Can't find service: window`, чёрный скриншот, WebView-devtools-сокет не появился за 3 минуты). Это ограничение окружения, а не доказанный дефект приложения.
 * Вместо этого веб-слой приложения (тот же `www/`, тот же shim) проверен Playwright-ом: 31/31 (§6).
-* `tests/device_test.py` обновлён под Bearer/refresh/настройки (вход через форму, ротация refresh, тёмная тема в диалоге) и **ни разу не проходил до конца** — запусти у себя на эмуляторе с WHPX/HAXM или на телефоне.
+* В том окружении `tests/device_test.py` не прошёл до конца; для текущего выпуска повторите его на эмуляторе с аппаратным ускорением или физическом телефоне.
 
 ## 8. Известные ограничения
-* APK подписан debug-ключом (не для Play); release — отдельный keystore и `assembleRelease`.
+* Debug APK подписывается debug-ключом и не подходит для публикации. Подписанный release APK требует отдельного keystore; наличие подписанного файла нужно проверять для конкретного выпуска.
 * Без FCM (сборка без `google-services.json`, демо-сборка, сервер без ключа, телефон без Google Play Services) объявления и переносы приходят опросом — с задержкой до получаса.
 
 ## 9. Push через FCM
@@ -113,5 +114,5 @@ python android/tests/device_test.py                       # на запущен�
 * **Дедупликация общая с опросом** (`Push.claim`, последние 200 ключей): `a<id>` для объявлений, `c<session>:<дата><kind>` (для переноса + новое время) для изменений — одно событие не покажется дважды, если пришло и по FCM, и при синхронизации. Опрос остаётся резервным путём.
 * **Тесты:** `PushTest` (разбор сообщений, ключи = ключам ChangeDetector/Announcements, настройки, dedupe), backend `tests/test_fcm.py`.
 * Cleartext HTTP включён ради LAN-теста; для боевого сервера — HTTPS.
-* `npm audit` показывает уязвимости в build-time зависимостях (Capacitor CLI) — в APK они не попадают.
-* Иконка/сплэш — стандартные Capacitor.
+* Перед выпуском повторно проверяйте `android/package-lock.json` через `npm audit`. Уязвимость только в build-time зависимости не означает, что код пакета включён в APK, но всё равно требует оценки и решения.
+* Launcher-иконки и splash-ресурсы KipClub берутся из `assets/brand/kipclub/android/` и копируются скриптом `patch-android.mjs`.

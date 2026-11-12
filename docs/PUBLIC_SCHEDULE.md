@@ -1,5 +1,7 @@
 # Публичное расписание
 
+> Это заметка о конкретном этапе редизайна, а не полный текущий контракт. Упоминания о том, что изменялось или не менялось на том этапе, исторические. Текущее поведение и поддержка учебных периодов описаны в [PRODUCT_RULES.md](PRODUCT_RULES.md), [academic-schedule.md](academic-schedule.md) и [schedule-v2-contract.md](schedule-v2-contract.md).
+
 ## Запуск и использование
 
 Из корня проекта: `.\.venv\Scripts\python.exe server.py`, затем открыть

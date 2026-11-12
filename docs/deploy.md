@@ -13,7 +13,7 @@ docker compose exec app python server.py admin create admin
 - Данные переживают рестарт/пересборку (именованные тома).
 
 ## Вариант B: без Docker (systemd)
-Файлы: `deploy/clubs.service`, `clubs-backup.service`, `clubs-backup.timer`. Каталог `/opt/clubs`, venv `.venv`, конфиг `/etc/clubs/clubs.env` (права 600), данные `/var/lib/clubs`. Перед прокси (Caddy/nginx) приложение слушает `127.0.0.1:8000`.
+Файлы для приложения: `deploy/clubs.service`, `deploy/clubs-backup.service`, `deploy/clubs-backup.timer`. Каталог `/opt/clubs`, venv `.venv`, конфиг `/etc/clubs/clubs.env` (права 600), данные `/var/lib/clubs`. Перед прокси (Caddy/nginx) приложение слушает `127.0.0.1:8000`. Для Docker предусмотрены отдельные `deploy/kipclub-backup.service` и `deploy/kipclub-backup.timer`; их установщик — `tools/ops/install-daily-backup.sh`.
 
 ## Обязательные условия
 - `ENV=production`; `ALLOWED_HOSTS`; секрет `JWT_SECRET`; HTTPS (cookie `Secure`).
@@ -29,13 +29,13 @@ docker compose exec app python server.py admin create admin
 2. В `docker-compose.yml` у сервиса `app` добавить в `volumes:` строку
    `- ./secrets/fcm.json:/run/secrets/fcm.json:ro`
 3. В `.env`: `FCM_CREDENTIALS_FILE=/run/secrets/fcm.json` (project_id берётся из ключа; переопределить — `FCM_PROJECT_ID`).
-4. `docker compose up -d --build` (новая зависимость `google-auth` и миграция `0007` с таблицей `app_devices` применяются при старте).
+4. `docker compose up -d --build` (зависимости устанавливаются из lock-файла, актуальные миграции Alembic применяются при старте).
 
 Вариант B (systemd): ключ в `/etc/clubs/fcm.json` (владелец root, группа пользователя сервиса, `640`), в `/etc/clubs/clubs.env` — `FCM_CREDENTIALS_FILE=/etc/clubs/fcm.json`, `systemctl restart clubs`.
 
 Проверка: в админке «Рассылки» → охват показывает «FCM: N» (N — установки APK с FCM, открывавшие приложение за 60 дней); после отправки в журнале рассылок `fcm_sent`. Ошибки — в логе `clubs.fcm` / `clubs.delivery`; токены с ответом UNREGISTERED/404 удаляются автоматически.
 
-## Обновление с миграциями (schedule v2: 0010–0012)
+## Обновление с миграциями
 1. `tools/ops/backup.sh pre-migrate` — запомнить путь файла.
 2. `git pull --ff-only && docker compose up -d --build` — миграции применяются при старте.
 3. `curl -fsS https://<домен>/readyz` и `docker compose exec -T app python -c "from backend.app.migrations import current_revision,head_revision;print(current_revision(),head_revision())"`.

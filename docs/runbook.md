@@ -23,7 +23,7 @@ Docker-выпуск с APK запускается через `bash tools/ops/dep
 - Забыт пароль единственного админа — тот же `reset-password` на сервере.
 
 ## Бэкап и восстановление
-- Бэкап: `server.py backup --dir /backups --keep 14` (в Docker том `clubs-backups`; systemd-таймер `clubs-backup.timer` — каждый день 03:30).
+- Бэкап: `server.py backup --dir /backups --keep 14` (в Docker том `clubs-backups`; отдельный таймер `kipclub-backup.timer` ставится через `tools/ops/install-daily-backup.sh`; для systemd-службы на хосте используется `clubs-backup.timer`).
 - Проверка: `server.py verify-backup /backups/<файл>.sqlite3.gz` — делай регулярно, а не только в аварии.
 - Восстановление: `tools/ops/restore.sh /backups/<файл> --yes` с образом, совместимым с ревизией снимка. Скрипт делает страховочную копию, останавливает приложение, восстанавливает БД с отзывом админских сессий и проверяет `/readyz`.
 - Копию держи **вне** сервера (другой диск/облако) — копия на том же диске не защищает от потери диска.
