@@ -6,7 +6,7 @@
     --glass-stroke: color-mix(in srgb, var(--outline) 36%, transparent);
     --glass-rim: rgb(255 255 255 / .82);
     --glass-sheen: rgb(255 255 255 / .42);
-    --glass-ease: var(--glass-spring, cubic-bezier(.2, .76, .26, 1));
+    --glass-ease: cubic-bezier(.2, .7, .3, 1);
 }
 
 [data-theme="dark"] :is(.glass-surface, .glass-tabs, .glass-action, .glass-trigger) {
@@ -75,13 +75,11 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent), inset 0 1px 0 rgb(255 255 255 / .38);
 }
 
+/* Индикатор выбранного пункта: короткий сдвиг без пружины и без деформации. */
 .glass-indicator.is-visible {
     opacity: 1;
-    transition: transform 330ms var(--glass-ease), width 330ms var(--glass-ease), height 330ms var(--glass-ease),
-        scale 250ms var(--glass-ease), opacity 130ms ease;
+    transition: transform 160ms ease-out, width 160ms ease-out, height 160ms ease-out, opacity 120ms ease-out;
 }
-
-.glass-tabs:has(> :is(button, a, label):active) > .glass-indicator { scale: .95; }
 
 .glass-tabs > :is(button, a, label),
 .glass-tabs > label > span {
@@ -133,7 +131,7 @@
     align-items: center;
     gap: .35em;
     min-height: 44px;
-    padding: 5px 12px;
+    padding: 6px 12px;
     border: 1px solid var(--glass-stroke, var(--line));
     border-radius: 14px;
     background: var(--surface-1);
@@ -141,10 +139,10 @@
     color: var(--ink);
     box-shadow: inset 0 1px 0 var(--glass-rim);
     text-decoration: none;
-    transition: scale 250ms var(--glass-ease), background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+    transition: scale 150ms ease-out, background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
-:is(.glass-action, .glass-trigger):active:not(:disabled) { scale: .97; }
+:is(.glass-action, .glass-trigger):active:not(:disabled) { scale: .98; }
 
 :is(.campus-page, .admin-page) .glass-action:is([aria-expanded="true"], [aria-pressed="true"]),
 .glass-trigger[aria-expanded="true"],
@@ -210,7 +208,7 @@ details[open] > .glass-trigger {
 }
 
 .campus-page details > summary.glass-trigger { cursor: pointer; min-height: 44px; }
-.campus-page details[open]:has(> .glass-trigger) > :not(summary) { animation: glass-appear 260ms var(--glass-ease) both; }
+.campus-page details[open]:has(> .glass-trigger) > :not(summary) { animation: glass-appear 160ms ease-out both; }
 @keyframes glass-appear { from { opacity: 0; transform: translateY(-5px); } }
 
 /* ---------- Жидкое стекло: материал, блик под пальцем, пружины ---------- */
@@ -259,14 +257,14 @@ details[open] > .glass-trigger {
     box-shadow: inset 0 1px 0 var(--glass-rim), inset 0 0 0 .5px var(--glass-edge), 0 2px 8px -4px rgb(0 0 0 / .18);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
-    transition: scale 520ms var(--glass-ease), --glass-glint 420ms ease, background-color 160ms ease,
-        border-color 160ms ease, color 160ms ease, box-shadow 260ms var(--glass-ease);
+    transition: scale 150ms ease-out, --glass-glint 420ms ease, background-color 160ms ease,
+        border-color 160ms ease, color 160ms ease, box-shadow 160ms ease-out;
 }
 
 :is(.glass-action, .glass-trigger):active:not(:disabled) {
     --glass-glint: rgb(255 255 255 / .55);
-    scale: .955;
-    transition: scale 140ms cubic-bezier(.3, 0, .5, 1), --glass-glint 60ms ease;
+    scale: .98;
+    transition: scale 150ms ease-out, --glass-glint 60ms ease;
 }
 
 [data-theme="dark"] :is(.glass-action, .glass-trigger):active:not(:disabled) { --glass-glint: rgb(255 255 255 / .2); }
@@ -277,7 +275,7 @@ details[open] > .glass-trigger {
 }
 .glass-tabs > :is(button, a, label):active { --glass-glint: rgb(255 255 255 / .35); transition: --glass-glint 60ms ease; }
 
-/* Индикатор вкладок и дней — капля: тянется на ходу (glass.js liquidStretch), пружинит на месте. */
+/* Индикатор вкладок и дней в режиме стекла: объём, движение то же — 160 мс без пружины. */
 .glass-indicator {
     box-shadow:
         inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent),
@@ -285,13 +283,8 @@ details[open] > .glass-trigger {
         inset 0 -6px 12px -8px rgb(0 0 0 / .25),
         0 4px 12px -6px color-mix(in srgb, var(--glass-active-fill) 70%, transparent);
 }
-.glass-indicator.is-visible {
-    transition: transform 520ms var(--glass-ease), width 520ms var(--glass-ease), height 520ms var(--glass-ease),
-        scale 420ms var(--glass-ease), opacity 130ms ease;
-}
-.glass-tabs:has(> :is(button, a, label):active) > .glass-indicator { scale: .93 1.04; }
 
-/* Шторки и окна — матовое стекло поверх страницы, появление пружиной. */
+/* Шторки и окна — матовое стекло поверх страницы. */
 :is(dialog.sheet, #event-dialog, .itc-sheet-card) {
     isolation: isolate;
     background:
@@ -316,10 +309,10 @@ details[open] > .glass-trigger {
 }
 
 @media (max-width: 599px) {
-    html dialog.sheet.sheet--bottom[open] { animation: glass-sheet-up 560ms var(--glass-ease) both; }
+    html dialog.sheet.sheet--bottom[open] { animation: glass-sheet-up 240ms ease-out both; }
 }
 @keyframes glass-sheet-up {
-    from { transform: translateY(64px) scale(.98); opacity: .2; }
+    from { transform: translateY(32px); opacity: .2; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -336,14 +329,33 @@ details[open] > .glass-trigger {
 :root[data-reduce-motion="true"] details[open]:has(> .glass-trigger) > :not(summary),
 :root[data-reduce-motion="true"] dialog.sheet.sheet--bottom[open] { animation: none; }
 
+/* «Непрозрачные панели» (по умолчанию): сплошная заливка и волосяная граница, без бликов, объёма и размытия. */
 :root[data-solid-glass="true"] :is(.glass-surface, .glass-tabs, .glass-action, .glass-trigger) {
     --glass-fill: var(--surface-1);
     --glass-sheen: transparent;
+    --glass-glint: transparent;
+    --glass-stroke: var(--line);
+    background: var(--surface-1);
+    border-color: var(--line);
+    box-shadow: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
 }
+:root[data-solid-glass="true"] .campus-page .segmented.glass-tabs { background: var(--surface-1); }
+:root[data-solid-glass="true"] .glass-tabs > :is(button, a, label) { background: transparent; }
+:root[data-solid-glass="true"] :is(.campus-page, .admin-page) .glass-action:is([aria-expanded="true"], [aria-pressed="true"]),
+:root[data-solid-glass="true"] .glass-trigger[aria-expanded="true"],
+:root[data-solid-glass="true"] details[open] > .glass-trigger {
+    background: var(--primary-container);
+    border-color: var(--primary);
+}
+:root[data-solid-glass="true"] .glass-indicator {
+    background: var(--glass-active-fill);
+    box-shadow: none;
+}
 :root[data-solid-glass="true"] :is(dialog.sheet, #event-dialog, .itc-sheet-card) {
     background: var(--bg, var(--paper, #fff));
+    box-shadow: inset 0 0 0 1px var(--line), 0 -8px 24px -16px rgb(0 0 0 / .24);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
 }

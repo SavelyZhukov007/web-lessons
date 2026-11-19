@@ -1,44 +1,9 @@
 import { prefersReducedMotion } from './motion-preferences.js';
 
 const loadEngine = () => import('../vendor/liquidglass/index.js');
-let springMotion;
-
-function enableSpringMotion() {
-  if (springMotion || !CSS.supports('transition-timing-function', 'linear(0, 1)')) return;
-  // Sample the vendored LiquidGlassJS spring once. CSS handles interruption
-  // and interpolation without a JavaScript animation loop per control.
-  springMotion = loadEngine().then(({ Spring }) => {
-    const spring = new Spring(0, { stiffness: 500, damping: 30, mass: 1 });
-    spring.target = 1;
-    const samples = ['0'];
-    for (let frame = 1; frame < 20; frame++) {
-      spring.step(1 / 120);
-      spring.step(1 / 120);
-      samples.push(spring.value.toFixed(4));
-    }
-    document.documentElement.style.setProperty('--glass-spring', `linear(${samples.join(', ')}, 1)`);
-  }).catch(() => {});
-}
 
 function motionAllowed() {
   return !prefersReducedMotion() && document.documentElement.dataset.reduceMotion !== 'true';
-}
-
-function springEasing() {
-  return document.documentElement.style.getPropertyValue('--glass-spring') || 'cubic-bezier(.2, .76, .26, 1)';
-}
-
-// Капля: на ходу индикатор вытягивается по направлению движения и пружиной возвращается к форме.
-export function liquidStretch(pill, shift) {
-  if (!pill.animate || !motionAllowed() || window.ItcPerformance?.enabled) return;
-  const stretch = Math.min(0.32, Math.abs(shift) / Math.max(pill.offsetWidth * 4, 1));
-  if (stretch < 0.02) return;
-  pill.getAnimations?.().forEach(animation => { if (animation.id === 'glass-stretch') animation.cancel(); });
-  const animation = pill.animate([
-    { scale: `${1 + stretch} ${1 - stretch * 0.45}`, transformOrigin: shift > 0 ? '100% 50%' : '0% 50%' },
-    { scale: '1 1', transformOrigin: '50% 50%' },
-  ], { duration: 460, easing: springEasing() });
-  animation.id = 'glass-stretch';
 }
 
 // Блик под пальцем: кнопки из стекла «загораются» в точке касания, как в iOS 26.
@@ -46,7 +11,6 @@ let glintBound = false;
 export function bindGlassGlint(root = document) {
   if (glintBound) return;
   glintBound = true;
-  enableSpringMotion();
   root.addEventListener('pointerdown', event => {
     const target = event.target instanceof Element && event.target.closest('.glass-action, .glass-trigger, .glass-tabs > :is(button, a, label)');
     if (!target) return;
@@ -85,14 +49,13 @@ export function mountGlassEverywhere(root = document, { signal } = {}) {
   return observer;
 }
 
+// Индикатор выбранного пункта: CSS-переход 160 мс ease-out, без деформации «каплей».
 export function bindGlassIndicator(group, selected, { signal } = {}) {
-  enableSpringMotion();
   const pill = document.createElement('span');
   pill.className = 'glass-indicator';
   pill.setAttribute('aria-hidden', 'true');
   group.prepend(pill);
   let previous;
-  let lastLeft;
 
   function update() {
     const active = selected();
@@ -102,14 +65,10 @@ export function bindGlassIndicator(group, selected, { signal } = {}) {
       previous = active;
     }
     if (!active?.offsetWidth) { pill.classList.remove('is-visible'); return; }
-    const shift = lastLeft === undefined ? 0 : active.offsetLeft - lastLeft;
-    lastLeft = active.offsetLeft;
     pill.style.width = `${active.offsetWidth}px`;
     pill.style.height = `${active.offsetHeight}px`;
     pill.style.transform = `translate3d(${active.offsetLeft}px, ${active.offsetTop}px, 0)`;
-    const wasVisible = pill.classList.contains('is-visible');
     pill.classList.add('is-visible');
-    if (wasVisible && shift) liquidStretch(pill, shift);
   }
 
   const resize = new ResizeObserver(update);
@@ -172,8 +131,8 @@ export async function mountGlassOptics(host, { signal } = {}) {
 export function animatePanel(panel, open) {
   for (const animation of panel.getAnimations?.() || []) animation.cancel();
   if (open && motionAllowed()) {
-    panel.animate?.([{ opacity: 0, transform: 'translateY(-8px) scale(.96)' }, { opacity: 1, transform: 'none' }],
-      { duration: 420, easing: springEasing() });
+    panel.animate?.([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 160, easing: 'ease-out' });
   }
 }
 

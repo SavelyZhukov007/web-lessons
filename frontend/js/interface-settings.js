@@ -38,7 +38,7 @@ export function interfaceSettings(theme, signal) {
       h('p', { class: 'field-hint' }, 'В подробностях занятия всегда видны все данные.')),
     section('Эффекты и доступность', 'Движение, прозрачность и отклик', false,
       option('reduceMotion', 'Меньше движения', 'Короткие переходы и переключение дней без анимации'),
-      option('solidGlass', 'Непрозрачные панели', 'Стеклянные панели со сплошной заливкой'),
+      option('solidGlass', 'Непрозрачные панели', 'Сплошная заливка вместо стекла'),
       hasTapFeedback() && toggle('Вибрация при нажатии', 'Тактильный отклик при выборе дня и переключении недели', tapFeedbackEnabled(), setTapFeedback)));
   return panel;
 }

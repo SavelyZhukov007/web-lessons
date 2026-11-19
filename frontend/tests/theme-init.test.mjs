@@ -182,3 +182,17 @@ test('anti-zoom never swallows rapid interactive taps (including VoiceOver activ
  const other=makeWindow();const plain={target:{closest:()=>null},preventDefault(){prevented++;}};
  other.documentListeners.touchend[0](plain);other.documentListeners.touchend[0](plain);assert.equal(prevented,1);
 });
+
+test('непрозрачные панели по умолчанию; стекло — только явным выбором, выбор сохраняется', () => {
+  assert.equal(makeWindow().attrs['data-solid-glass'], 'true');
+  // старое сохранённое значение по умолчанию (solidGlass:false без выбора) → сплошная заливка
+  assert.equal(makeWindow({ stored: { theme: 'dark', solidGlass: false } }).attrs['data-solid-glass'], 'true');
+  const { theme, store } = makeWindow();
+  theme.set({ solidGlass: false });
+  const glass = makeWindow({ stored: store.get('clubs.prefs') });
+  assert.equal(glass.attrs['data-solid-glass'], 'false');
+  glass.theme.set({ theme: 'dark' });
+  assert.equal(makeWindow({ stored: glass.store.get('clubs.prefs') }).attrs['data-solid-glass'], 'false');
+  glass.theme.set({ solidGlass: true });
+  assert.equal(makeWindow({ stored: glass.store.get('clubs.prefs') }).attrs['data-solid-glass'], 'true');
+});
