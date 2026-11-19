@@ -24,6 +24,6 @@ test('порог 16.4', () => {
 });
 test('текст с версией и путём в настройках', () => {
     const s = tooOldMessage(parseIosVersion(IPHONE('16_3')));
-    assert.match(s, /iOS 16\.3 — она слишком старая/);
+    assert.match(s, /iOS 16\.3\. Она слишком старая/);
     assert.match(s, /Настройки → Основные → Обновление ПО/);
 });

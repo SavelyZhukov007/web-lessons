@@ -42,11 +42,11 @@ function initIos() {
     if (!browser) return;
     const url = `${location.origin}/ios/pwa`;
     $('ios-open-in-safari').hidden = false;
-    $('ios-browser-note').textContent = `Сейчас страница открыта в браузере «${browser}». Установить приложение на iPhone можно только из Safari: скопируйте ссылку и вставьте её в адресную строку Safari.`;
+    $('ios-browser-note').textContent = `Сейчас страница открыта в браузере «${browser}». Установить приложение на iPhone можно только из Safari: скопируй ссылку и вставь её в адресную строку Safari.`;
     $('dist-link').value = url;
     $('dist-copy-btn').addEventListener('click', async () => {
         const ok = await copyText(url);
-        $('dist-copy-status').textContent = ok ? 'Ссылка скопирована. Откройте Safari и вставьте её в адресную строку.' : 'Не удалось скопировать — выделите ссылку и скопируйте вручную.';
+        $('dist-copy-status').textContent = ok ? 'Ссылка скопирована. Открой Safari и вставь её в адресную строку.' : 'Не удалось скопировать. Выдели ссылку и скопируй вручную.';
     });
 }
 
@@ -70,7 +70,7 @@ async function initAndroid() {
         if (!res.ok) throw new Error(String(res.status));
         info = await res.json();
     } catch {
-        meta.textContent = 'Не удалось проверить версию — попробуйте скачать файл.';
+        meta.textContent = 'Не удалось проверить версию. Попробуй скачать файл.';
         return;
     }
     if (info.rustore_url) { $('rustore-link').href = info.rustore_url; $('rustore-block').hidden = false; }
