@@ -16,3 +16,10 @@ export function eventRoom(event, rooms = new Map()) {
   const room = rooms.get(event.room_id);
   return roomLabel({ name: event.room_name || room?.name, building: event.room_building || room?.building });
 }
+
+// Строка статуса расписания: «4 занятия, отменено 2». Отмены — только если они есть.
+export function lessonCountLabel(active, cancelled = 0) {
+  const forms = { one: 'занятие', few: 'занятия', many: 'занятий', other: 'занятия' };
+  const label = `${active} ${forms[new Intl.PluralRules('ru').select(active)]}`;
+  return cancelled > 0 ? `${label}, отменено ${cancelled}` : label;
+}

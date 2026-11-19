@@ -7,3 +7,10 @@ export function campusTourLink() {
   a.textContent = '3D-тур КИПФИН ↗'; a.setAttribute('aria-label', '3D-тур КИПФИН на официальном сайте колледжа — откроется в браузере');
   return a;
 }
+
+// 3D-тур помогает найти аудиторию, поэтому в окне занятия он только у очных занятий:
+// есть аудитория и занятие не дистанционное.
+export function showsCampusTour(event) {
+  if (!event || event.is_remote) return false;
+  return Boolean(event.room_id || event.room_ids?.length || event.room_name);
+}

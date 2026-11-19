@@ -83,3 +83,9 @@ export function scheduledMsk(raw, now = Date.now()) {
   if (value < now + 30000 || value > now + 366 * 86400000) throw new Error('Отправка — через 30 секунд или позже, не дальше года');
   return new Date(value).toISOString();
 }
+
+// Время в предпросмотре уведомления: выбранное время отправки (МСК) или «сейчас» для немедленной отправки.
+export function previewWhen(raw) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(raw || '');
+  return m ? `${m[3]}.${m[2]}, ${m[4]}:${m[5]}` : 'сейчас';
+}

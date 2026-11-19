@@ -11,9 +11,9 @@
   var SIZES = ['normal', 'large', 'xlarge'];
   var DISPLAY_OPTIONS = {
     daySwipe: true, compactSchedule: false, showRoom: true, showLeader: true, showEndTime: true,
-    showDayMarks: true, showNextClass: true, reduceMotion: false, solidGlass: false
+    showDayMarks: true, showNextClass: true, reduceMotion: false, solidGlass: true
   };
-  var DEFAULTS = Object.freeze(Object.assign({ theme: 'system', accent: 'brick', textSize: 'normal', customAccent: '#e0a800', dayNavigation: 'centered' }, DISPLAY_OPTIONS));
+  var DEFAULTS = Object.freeze(Object.assign({ theme: 'system', accent: 'brick', textSize: 'normal', customAccent: '#e0a800', dayNavigation: 'centered' }, DISPLAY_OPTIONS, { glassChoice: false }));
   var HEX = /^#[0-9a-f]{6}$/i;
   var THEME_COLOR = { light: '#ffffff', dark: '#111412' };
   var doc = root.document;
@@ -30,6 +30,10 @@
       dayNavigation: raw.dayNavigation === 'week' ? 'week' : DEFAULTS.dayNavigation
     };
     Object.keys(DISPLAY_OPTIONS).forEach(function (key) { next[key] = typeof raw[key] === 'boolean' ? raw[key] : DISPLAY_OPTIONS[key]; });
+    // Непрозрачные панели — по умолчанию. Стекло остаётся, только если человек сам выбрал его переключателем
+    // (glassChoice). Старое сохранённое solidGlass:false было значением по умолчанию, а не выбором.
+    next.glassChoice = raw.glassChoice === true;
+    if (!next.glassChoice) next.solidGlass = true;
     return next;
   }
   function load() {
@@ -153,7 +157,9 @@
   }
   function get() { return Object.assign({}, prefs); }
   function set(partial) {
-    prefs = normalize(Object.assign({}, prefs, partial));
+    partial = partial || {};
+    var explicit = typeof partial.solidGlass === 'boolean' ? { glassChoice: true } : {};
+    prefs = normalize(Object.assign({}, prefs, partial, explicit));
     save(prefs); apply(); emit();
     return get();
   }
