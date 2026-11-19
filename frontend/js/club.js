@@ -42,11 +42,11 @@ function changesBlock(club) {
         return h('li', {}, h('span', { class: `badge ${moved ? 'badge--moved' : 'badge--cancelled'}` }, moved ? 'Перенос' : 'Отмена'),
           h('span', {}, moved
             ? `${formatDate(x.original_date)}${s ? ` ${s.start_time}` : ''} → ${formatDate(x.new_date)}, ${x.new_start_time}–${x.new_end_time}`
-            : `${formatDate(x.original_date)}${s ? `, ${s.start_time}–${s.end_time}` : ''} — занятия не будет`),
-          moved ? h('span', { class: 'change-room' }, `Новая аудитория: ${roomLabel(x.new_room || rooms.get(x.new_room_id), `№ ${x.new_room_id} — название пока недоступно`)}`) : null,
+            : `${formatDate(x.original_date)}${s ? `, ${s.start_time}–${s.end_time}` : ''}, занятия не будет`),
+          moved ? h('span', { class: 'change-room' }, `Новая аудитория: ${roomLabel(x.new_room || rooms.get(x.new_room_id), `№ ${x.new_room_id}, название пока недоступно`)}`) : null,
           x.comment ? h('span', { class: 'field-hint' }, x.comment) : null);
       }))
-      : h('p', { class: 'directory-copy' }, 'Изменений нет — занятия идут по расписанию.'));
+      : h('p', { class: 'directory-copy' }, 'Изменений нет.'));
 }
 
 function render(club) {
@@ -64,12 +64,12 @@ function render(club) {
     if (leader.contact) facts.append(h('dt', {}, 'Контакты'), h('dd', {}, leader.contact));
   }
   const side = h('div', { class: 'column' },
-    h('section', { class: 'card' }, h('h2', {}, 'О кружке'), facts.children.length ? facts : h('p', {}, 'Сведений о руководителе пока нет.'),
-      h('div', { class: 'club-actions' }, h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics?week=${dateKey(monday(moscowToday()))}` }, icon('calendar'), 'В календарь — текущая неделя (.ics)'),
-        h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics?start=${dateKey(moscowToday())}&end=${dateKey(addDays(moscowToday(), 27))}` }, 'В календарь — 4 недели (.ics)'),
+    h('section', { class: 'card' }, h('h2', {}, 'Руководитель'), facts.children.length ? facts : h('p', {}, 'Сведений о руководителе пока нет.'),
+      h('div', { class: 'club-actions' }, h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics?week=${dateKey(monday(moscowToday()))}` }, icon('calendar'), 'В календарь: текущая неделя (.ics)'),
+        h('a', { class: 'btn btn--tonal', href: `/api/clubs/${club.id}/calendar.ics?start=${dateKey(moscowToday())}&end=${dateKey(addDays(moscowToday(), 27))}` }, 'В календарь: 4 недели (.ics)'),
         h('p', { class: 'field-hint' }, 'Импортированный файл не обновляется автоматически при изменении расписания.'))));
   const upcoming = h('section', {}, h('h2', {}, 'Ближайшие занятия'), club.upcoming_events?.length
-    ? h('ul', {}, club.upcoming_events.map(e => h('li', {}, `${formatDate(e.date)}, ${e.start_time}–${e.end_time}${e.status === 'cancelled' ? ' — отменено' : e.status === 'moved' ? ' — перенесено' : ''}`)))
+    ? h('ul', {}, club.upcoming_events.map(e => h('li', {}, `${formatDate(e.date)}, ${e.start_time}–${e.end_time}${e.status === 'cancelled' ? ', отменено' : e.status === 'moved' ? ', перенесено' : ''}`)))
     : h('p', {}, 'В ближайшие восемь недель занятий не найдено.'));
   const main = h('div', { class: 'column' }, upcoming, sessionsBlock(club), changesBlock(club));
   content.replaceChildren(

@@ -27,7 +27,7 @@ function card(club) {
   if (color) dot.style.setProperty('--dot', color);
   return h('a', { class: 'club-card', href: `/club.html?id=${club.id}` },
     h('h2', {}, club.name),
-    h('p', {}, club.description || 'Описание пока не добавлено.'),
+    club.description ? h('p', {}, club.description) : null,
     h('div', { class: 'club-meta' }, dot, cat ? h('span', {}, cat.name) : null, leader ? h('span', {}, `· ${leader.name}`) : null, h('span', { class: 'club-arrow' }, icon('arrow'))));
 }
 
