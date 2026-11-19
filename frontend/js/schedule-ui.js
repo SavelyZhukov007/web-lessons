@@ -274,7 +274,20 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
     search.render();
   }
 
+  // Повторный рендер (свежие данные после кэша недели) заменяет карточки: подсветку и фокус переносим на новую.
+  let flashed = null;
+  function keepFlash(container) {
+    if (!flashed || flashed.element.isConnected || Date.now() > flashed.until) return;
+    const element = [...container.querySelectorAll('[data-event-id]')].find(card => card.dataset.eventId === flashed.id);
+    if (!element) return;
+    const lostFocus = !document.activeElement || document.activeElement === document.body;
+    flashed.element = element;
+    element.classList.add('itc-flash');
+    if (lostFocus) element.focus({ preventScroll: true });
+  }
+
   function focusPending(container = content, animation) {
+    keepFlash(container);
     if (!pending || stage.dataset.searchOpen === 'true' || state.phase !== 'ready') return;
     const element = [...container.querySelectorAll('[data-event-id]')].find(card => card.dataset.eventId === pending);
     if (!element) return;
@@ -285,8 +298,9 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
       element.focus({ preventScroll: true });
       element.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
       element.classList.add('itc-flash');
+      flashed = { id, element, until: Date.now() + 1750 };
       clearTimeout(flashTimer);
-      flashTimer = setTimeout(() => element.classList.remove('itc-flash'), 1750);
+      flashTimer = setTimeout(() => { flashed?.element.classList.remove('itc-flash'); flashed = null; }, 1750);
     };
     if (animation) animation.finished.then(focus, focus);
     else requestAnimationFrame(focus);

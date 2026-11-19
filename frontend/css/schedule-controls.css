@@ -139,7 +139,7 @@
     grid-column: 1 / -1;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end; /* видимого заголовка нет: имя панели — для скринридера */
     gap: 8px;
     min-width: 0;
 }

@@ -1,11 +1,11 @@
-import { campusTourLink } from './campus-tour.js';
+import { campusTourLink, showsCampusTour } from './campus-tour.js';
 import { markLiveCard, favoriteControls } from './personal-schedule.js';
 import { DAY_NAMES, parseDate, dateKey, addDays, formatDate, minutes, eventGroups, scheduleLocation, movedFromSlot } from './schedule-dates.js';
 import { currentStudyDay, mountScheduleUi } from './schedule-ui.js';
 import { eventShareControls } from './schedule-share.js';
 import { clubColor } from './event-colors.js';
 import { icon } from './icons.js';
-import { eventRoom } from './public-display.js';
+import { eventRoom, lessonCountLabel } from './public-display.js';
 import { runCascade } from './skeleton-cascade.js';
 import { prefersReducedMotion } from './motion-preferences.js';
 
@@ -64,7 +64,9 @@ function details(event) {
   ];
   if (event.status === 'moved' && parseDate(event.original_date)) facts.push(['Исходная дата', formatDate(parseDate(event.original_date), { year: 'numeric' })]);
   for (const [label, value] of facts) info.append(node('dt', '', label), node('dd', '', value));
-  target.append(info, campusTourLink(), favoriteControls(event));
+  target.append(info);
+  if (showsCampusTour(event)) target.append(campusTourLink());
+  target.append(favoriteControls(event));
   if (event.comment) target.append(node('p', 'event-comment', event.comment));
   const link = node('a', 'club-link', 'О кружке');
   link.append(icon('arrow'));
@@ -302,7 +304,7 @@ function renderContent() {
   const events = real.concat(inDays(ghostEvents(state.events)));
   const active = real.filter(event => event.status !== 'cancelled').length;
   const cancelled = real.length - active;
-  $('#result-status').textContent = `${mobile.matches ? DAY_NAMES[state.day] : 'За выбранные дни'}: ${active} · отменено: ${cancelled}${ui.hasFilters() ? ' · фильтры включены' : ''}`;
+  $('#result-status').textContent = lessonCountLabel(active, cancelled);
   if (events.length === 0) {
     const label = mobile.matches ? ` · ${DAY_NAMES[state.day]}, ${formatDate(addDays(state.week, state.day))}` : '';
     if (ui.inMyMode() && !ui.hasFilters()) {
@@ -312,7 +314,7 @@ function renderContent() {
     const title = (ui.hasFilters() ? 'Ничего не нашлось' : 'Занятий пока нет') + label;
     const help = ui.hasFilters()
       ? (mobile.matches ? 'Выбери другой день или поменяй фильтры.' : 'Попробуй другое сочетание фильтров или сбрось их.')
-      : 'Выбери другой день или неделю. Здесь появятся занятия, добавленные в расписание.';
+      : 'Выбери другой день или неделю.';
     content.append(emptyState(title, help, ui.hasFilters() ? { label: 'Сбросить фильтры', run: () => $('#reset-filters').click() } : undefined));
   } else if (mobile.matches || state.view === 'list') renderList(events, days);
   else renderGrid(events, days);
