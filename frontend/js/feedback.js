@@ -81,7 +81,7 @@ export function openFeedback(opener) {
       if (!info) info = await deviceInfo(window);
       const fd = buildFormData({ type: state.type, description: desc.value, contact: contact.value, website: honeypot.value, info, logs: logs.entries(), files: state.files });
       await request('/api/feedback', { method: 'POST', body: fd, timeout: 60000 });
-      form.replaceChildren(h('div', { class: 'fb-success' }, h('h3', {}, 'Спасибо!'), h('p', {}, 'Сообщение отправлено. Мы обязательно его прочитаем.'),
+      form.replaceChildren(h('div', { class: 'fb-success' }, h('p', {}, 'Сообщение отправлено.'),
         h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово')));
       toast('Обратная связь отправлена');
     } catch (e) {

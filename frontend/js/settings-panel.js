@@ -53,7 +53,7 @@ function themeControl() {
     flip.innerHTML = cur === 'dark' ? MOON : SUN;
     flip.dataset.mode = cur;
     flip.setAttribute('aria-label', cur === 'dark' ? 'Тёмная тема. Нажмите — светлая' : 'Светлая тема. Нажмите — тёмная');
-    hint.textContent = pref === 'system' ? `Как на устройстве. Сейчас: ${cur === 'dark' ? 'тёмная' : 'светлая'}` : `Сейчас: ${cur === 'dark' ? 'тёмная' : 'светлая'} — нажмите на значок, чтобы сменить`;
+    hint.textContent = pref === 'system' ? `Как на устройстве. Сейчас: ${cur === 'dark' ? 'тёмная' : 'светлая'}` : `Сейчас: ${cur === 'dark' ? 'тёмная' : 'светлая'}`;
   };
   sw.addEventListener('click', () => { theme.set({ theme: theme.themeFromToggle(theme.get().theme !== 'system', theme.resolved()) }); sync(); });
   flip.addEventListener('click', () => { theme.set({ theme: theme.nextManualTheme(theme.resolved()) }); sync(); });

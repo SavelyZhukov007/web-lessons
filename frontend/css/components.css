@@ -15,7 +15,7 @@
     justify-content: center;
     gap: 8px;
     min-height: var(--tap);
-    padding: 10px 18px;
+    padding: 10px 16px;
     border-radius: var(--radius-control);
     border: 1px solid var(--outline);
     background: transparent;
@@ -336,7 +336,7 @@ dialog.sheet::backdrop {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 18px 20px 8px;
+    padding: 16px 20px 8px;
 }
 
 .sheet-head h2 {
@@ -351,7 +351,7 @@ dialog.sheet::backdrop {
     padding: 8px 20px 20px;
     overflow-y: auto;
     display: grid;
-    gap: 22px;
+    gap: 24px;
 }
 
 .sheet-foot {
@@ -367,6 +367,11 @@ dialog.sheet::backdrop {
     font-size: calc(13px * var(--text-scale));
     font-weight: 600;
     color: var(--muted);
+    letter-spacing: 0;
+}
+
+/* Капитель разделов — только как в системных настройках iOS. */
+.platform-ios .sheet-section>h3 {
     text-transform: uppercase;
     letter-spacing: .06em;
 }
@@ -620,9 +625,8 @@ table.data th {
     text-align: left;
     font-weight: 600;
     color: var(--muted);
-    font-size: calc(12px * var(--text-scale));
-    text-transform: uppercase;
-    letter-spacing: .05em;
+    font-size: calc(13px * var(--text-scale));
+    letter-spacing: 0;
     padding: 12px 14px;
     background: var(--surface-1);
     white-space: nowrap;
@@ -841,13 +845,13 @@ label.preference-toggle {
 .theme-flip {
     flex: none; width: 44px; height: 44px; padding: 0; display: inline-grid; place-items: center;
     border-radius: 50%; border: 1px solid var(--outline); cursor: pointer;
-    transition: background-color .25s ease, color .25s ease, transform .25s ease;
+    transition: background-color .25s ease, color .25s ease, transform 150ms ease-out;
 }
 .theme-flip[hidden] { display: none; }
 .theme-flip svg { width: 22px; height: 22px; }
 .theme-flip[data-mode="light"] { background: #fff; color: #c77700; }
 .theme-flip[data-mode="dark"] { background: #1d2230; color: #e8ecff; }
-.theme-flip:active { transform: scale(.92) rotate(-20deg); }
+.theme-flip:active { transform: scale(.98); }
 .theme-flip:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 
 /* Ползунок размера текста: 3 точки */
@@ -875,12 +879,11 @@ label.preference-toggle {
 .size-ticks { display: flex; justify-content: space-between; padding: 0 22px; font-size: 12px; color: var(--on-surface-muted); }
 .size-current { font-weight: 600; font-size: calc(14px * var(--text-scale)); }
 
-/* 5-й образец — мягкая размытая радуга, открывает выбор своего цвета */
+/* 5-й образец — радужный круг, открывает выбор своего цвета */
 .swatch--custom span {
     position: relative; overflow: hidden;
     background: conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #b06bff, #ff6b6b);
 }
-.swatch--custom span::before { content: ""; position: absolute; inset: 0; background: inherit; filter: blur(5px); transform: scale(1.4); }
 .swatch-dot { position: absolute; z-index: 1; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--custom-accent, transparent); border: 2px solid #fff; opacity: 0; }
 .swatch--custom.is-selected span { box-shadow: 0 0 0 3px var(--ink); }
 .swatch--custom.is-selected .swatch-dot { opacity: 1; }
@@ -917,7 +920,7 @@ dialog .list-row--danger, dialog .list-row--danger span { color: var(--danger, #
 .settings-place { width: 100%; justify-content: center; }
 
 /* «Обратная связь» (js/feedback.js) и её раздел в админке (js/admin/views/feedback.js) */
-.feedback-sheet .fb-form { display: grid; gap: 18px; }
+.feedback-sheet .fb-form { display: grid; gap: 16px; }
 .feedback-sheet .segmented { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; box-sizing: border-box; }
 .feedback-sheet .segmented label { display: flex; min-width: 0; }
 .feedback-sheet .segmented label > span { flex: 1 1 auto; min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; }
