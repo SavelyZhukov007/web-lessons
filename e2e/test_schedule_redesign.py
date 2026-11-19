@@ -252,7 +252,9 @@ def test_glass_broadcast_controls_keep_draft_and_show_future_count(new_page):
     audience = page.get_by_role("radiogroup", name="Кому отправить")
     audience.get_by_role("radio", name="Кружкам").check()
     expect(audience.locator(".glass-indicator")).to_have_class("glass-indicator is-visible")
-    expect(nav).to_have_attribute("data-glass-backend", "css-svg")
+    # по умолчанию «Непрозрачные панели»: нижняя навигация без оптики стекла
+    expect(nav).not_to_have_attribute("data-glass-backend", "css-svg")
+    expect(nav).to_have_css("backdrop-filter", "none")
     expect(nav.locator('[data-route="exceptions"] .admin-change-count')).to_have_text("1")
     expect(title).to_have_value("Проверка стекла")
     expect(nav.locator('[data-route="broadcasts"]')).to_have_attribute("aria-current", "page")
@@ -285,14 +287,19 @@ def test_liquid_glass_header_and_reduced_modes(new_page):
             assert layout["bell"] and layout["pill"] and layout["rail"] >= 0, layout
             if scheme == "light":
                 assert layout["ink"] == "rgb(255, 255, 255)", layout
-            # стеклянный материал на кнопках, полосе дней и шторке; блик появляется в точке касания
+            # по умолчанию «Непрозрачные панели»: сплошная заливка, без размытия и внутренних бликов
+            assert page.evaluate("document.documentElement.dataset.solidGlass") == "true"
+            assert page.evaluate("getComputedStyle(document.querySelector('#prev-week')).backdropFilter") == "none"
+            assert page.evaluate("getComputedStyle(document.querySelector('.mobile-days')).boxShadow") == "none"
+            # стекло включается вручную: материал на кнопках, полосе дней и шторке
+            page.evaluate("window.ClubsTheme.set({ solidGlass: false })")
             assert page.evaluate("getComputedStyle(document.querySelector('#prev-week')).backdropFilter").startswith("blur(")
             page.locator('[data-settings-button]').click()
             sheet = page.locator("#settings-dialog")
             expect(sheet).to_be_visible()
             assert "blur(" in sheet.evaluate("el => getComputedStyle(el).backdropFilter") or sheet.get_attribute("data-glass-backend")
             page.keyboard.press("Escape")
-            # «Непрозрачные панели» и «Меньше движения» выключают стекло и пружины
+            # «Непрозрачные панели» и «Меньше движения» снова выключают стекло и движение
             page.evaluate("window.ClubsTheme.set({ solidGlass: true, reduceMotion: true })")
             assert page.evaluate("getComputedStyle(document.querySelector('#prev-week')).backdropFilter") == "none"
             page.locator('[data-day-date="2026-11-12"]').click()
