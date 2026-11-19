@@ -225,7 +225,7 @@
       sw.setAttribute('aria-checked', String(pref === 'system'));
       flip.hidden = pref === 'system'; flip.innerHTML = cur === 'dark' ? MOON : SUN; flip.setAttribute('data-mode', cur);
       flip.setAttribute('aria-label', cur === 'dark' ? 'Тёмная тема. Нажмите — светлая' : 'Светлая тема. Нажмите — тёмная');
-      th.textContent = pref === 'system' ? 'Как на телефоне · сейчас ' + (cur === 'dark' ? 'тёмная' : 'светлая') : 'Нажмите на значок, чтобы сменить';
+      th.textContent = pref === 'system' ? 'Как на телефоне · сейчас ' + (cur === 'dark' ? 'тёмная' : 'светлая') : 'Сейчас: ' + (cur === 'dark' ? 'тёмная' : 'светлая');
       // буква на аватаре: белая или почти-чёрная — что контрастнее на фоне аватара (в т.ч. для своего акцента)
       if (ava && T.readableOn) {
         var m = getComputedStyle(ava).backgroundColor.match(/\d+(\.\d+)?/g);

@@ -68,7 +68,7 @@ html.itc-ob-open body { overflow: hidden; }
 .itc-set-head h1 { margin: 0; font-size: 20px; text-align: left; }
 .itc-set-back { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--ink); }
 .itc-set-body { padding: 4px 16px calc(32px + max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px))); }
-.itc-set-body h2 { margin: 20px 4px 8px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.itc-set-body h2 { margin: 20px 4px 8px; font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--muted); }
 .itc-group { border-radius: 16px; background: var(--surface-1, #8881); overflow: hidden; }
 .itc-group > * + *, .itc-group [data-ext] > * + * { border-top: 1px solid var(--line, #8882); }
 .itc-group [data-ext]:empty { display: none; }
@@ -136,13 +136,13 @@ html .itc-set .itc-toggle[aria-checked="true"] > span { transform: translateX(20
 html .itc-set .itc-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 html .itc-set .itc-theme-flip {
   all: unset; box-sizing: border-box; flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
-  border: 1px solid var(--outline, #8886); cursor: pointer; transition: background-color .25s, color .25s, transform .25s;
+  border: 1px solid var(--outline, #8886); cursor: pointer; transition: background-color .25s, color .25s, transform 150ms ease-out;
 }
 html .itc-set .itc-theme-flip[hidden] { display: none; }
 html .itc-set .itc-theme-flip svg { width: 22px; height: 22px; }
 html .itc-set .itc-theme-flip[data-mode="light"] { background: #fff; color: #c77700; }
 html .itc-set .itc-theme-flip[data-mode="dark"] { background: #1d2230; color: #e8ecff; }
-html .itc-set .itc-theme-flip:active { transform: scale(.9) rotate(-20deg); }
+html .itc-set .itc-theme-flip:active { transform: scale(.98); }
 
 /* Ползунок размера текста */
 .itc-size > span b { font-weight: 600; color: var(--primary); margin-left: 6px; }
@@ -159,7 +159,6 @@ html .itc-set input[data-size]::-webkit-slider-thumb { -webkit-appearance: none;
 /* Радужный образец «Свой цвет» */
 html .itc-set .itc-sw-custom { flex: none; display: block; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; cursor: pointer;
   background: conic-gradient(#ff6b6b, #ffd93d, #6bcb77, #4d96ff, #b06bff, #ff6b6b); }
-html .itc-set .itc-sw-custom::before { content: ""; position: absolute; inset: 0; background: inherit; filter: blur(4px); transform: scale(1.4); }
 html .itc-set .itc-sw-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; padding: 0; border: 0; cursor: pointer; }
 html .itc-set .itc-sw-custom i { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--custom-accent, transparent); border: 2px solid #fff; opacity: 0; pointer-events: none; }
 html .itc-set .itc-sw-custom[aria-checked="true"] { box-shadow: 0 0 0 3px var(--bg, #fff), 0 0 0 5px var(--ink, #222); }

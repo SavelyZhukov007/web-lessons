@@ -64,7 +64,7 @@
     });
     doc.querySelectorAll('a[href*="/calendar.ics"]:not([data-native-cal])').forEach(function (a) {
       a.setAttribute('data-native-cal', '');
-      for (var n = a.lastChild; n; n = n.previousSibling) if (n.nodeType === 3 && n.nodeValue.trim()) { n.nodeValue = /[?&]week=/.test(a.getAttribute('href')) ? 'Добавить в календарь — текущая неделя' : /[?&]start=/.test(a.getAttribute('href')) ? 'Добавить в календарь — 4 недели' : 'Добавить в календарь'; break; }
+      for (var n = a.lastChild; n; n = n.previousSibling) if (n.nodeType === 3 && n.nodeValue.trim()) { n.nodeValue = /[?&]week=/.test(a.getAttribute('href')) ? 'Добавить в календарь: текущая неделя' : /[?&]start=/.test(a.getAttribute('href')) ? 'Добавить в календарь: 4 недели' : 'Добавить в календарь'; break; }
     });
     if (window.DemoBackend && /^\/admin\/login(\.html)?$/.test(location.pathname)) addDemoLogin();
     // без подсказок для разработчиков (reset-password в консоли сервера)

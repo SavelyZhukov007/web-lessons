@@ -1,4 +1,5 @@
-import { campusTourLink } from './campus-tour.js';
+import { campusTourLink, showsCampusTour } from './campus-tour.js';
+import { lessonCountLabel } from './public-display.js';
 import { markLiveCard, favoriteControls } from './personal-schedule.js';
 // APK uses the same schedule controls as the web. It renders parallel
 // sessions as a slot and keeps the native splash and quick admin actions.
@@ -109,7 +110,7 @@ function setStatus() {
   const key = dateKey(addDays(state.week, state.day));
   const d = state.events.filter(e => e.date === key);
   const c = d.filter(e => e.status === 'cancelled').length;
-  status.textContent = `${DAY_NAMES[state.day]}: занятий ${d.length - c}${c ? `, отменено ${c}` : ''}`;
+  status.textContent = lessonCountLabel(d.length - c, c);
 }
 let pane = null, animating = null, pendingDirection = 0, extentFrame;
 function releaseExtentAtTop() {
@@ -172,7 +173,8 @@ function details(e) {
   t.append(dl);
   if (e.comment) t.append(node('p', 'event-comment', e.comment));
   const a = node('a', 'club-link', 'О кружке'); a.append(icon('arrow')); a.href = `/club.html?id=${e.club_id}`; t.append(eventShareControls(e, a));
-  t.append(campusTourLink(), favoriteControls(e));
+  if (showsCampusTour(e)) t.append(campusTourLink());
+  t.append(favoriteControls(e));
   const dlg = $('#event-dialog'); if (!dlg.open) dlg.showModal();
 }
 
