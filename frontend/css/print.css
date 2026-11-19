@@ -181,16 +181,12 @@ body {
     }
 }
 
-@media (max-width: 794px) { 
-    #print-button {
-        font: unset;
-        font-size: 0;
-    }
+.print-label-short { display: none; }
 
-    #print-button::before {
-        content: "🖨️";
-        font-size: calc(14px * var(--text-scale));;
-    }
+/* Узкий экран: короткое слово вместо значка, доступное имя то же («Распечатать»). */
+@media (max-width: 794px) {
+    .print-label-full { display: none; }
+    .print-label-short { display: inline; }
 }
 
 @media (max-width: 723px) {

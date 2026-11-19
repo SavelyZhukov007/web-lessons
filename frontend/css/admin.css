@@ -94,10 +94,10 @@
 
 .stat-card {
     display: grid;
-    grid-template-columns: auto 1fr;
-    column-gap: 14px;
-    align-items: center;
-    padding: 18px;
+    grid-template-columns: 1fr;
+    row-gap: 4px;
+    align-content: start;
+    padding: 16px;
     border-radius: var(--radius-card, var(--radius-l));
     background: var(--surface-1);
     border: 1px solid var(--outline-variant);
@@ -113,13 +113,6 @@
 .stat-card:hover {
     border-color: var(--primary);
     text-decoration: none;
-}
-
-.stat-card .ui-icon {
-    grid-row: span 2;
-    width: 28px;
-    height: 28px;
-    color: var(--primary);
 }
 
 .stat-card strong {
@@ -342,10 +335,6 @@
         grid-template-columns: 1fr;
         row-gap: 4px;
         padding: 14px;
-    }
-
-    .stat-card .ui-icon {
-        grid-row: auto;
     }
 
     .stat-card {
@@ -635,7 +624,7 @@ html .bc-pill .bc-pill-x:hover { background: rgba(0, 0, 0, .08) !important; }
 .admin-page .bottom-nav.glass-tabs {
     display: none;
     position: fixed;
-    inset: auto max(5px, var(--safe-right)) max(5px, var(--safe-bottom)) max(5px, var(--safe-left));
+    inset: auto max(4px, var(--safe-right)) max(4px, var(--safe-bottom)) max(4px, var(--safe-left));
     max-width: 640px;
     margin-inline: auto;
     z-index: 30;
@@ -703,7 +692,7 @@ html .bc-pill .bc-pill-x:hover { background: rgba(0, 0, 0, .08) !important; }
 }
 
 .admin-page {
-    --bottom-nav-space: calc(var(--bottom-nav-h) + max(5px, var(--safe-bottom)));
+    --bottom-nav-space: calc(var(--bottom-nav-h) + max(4px, var(--safe-bottom)));
 }
 
 .is-native .admin-page .bottom-nav.glass-tabs { display: flex; }
