@@ -3,7 +3,7 @@
 import { h, toast } from '../../ui.js';
 import { loadAll, broadcasts } from '../api.js';
 import { pageHeader, loading, confirmDialog, dataTable, dayShort } from '../kit.js';
-import { TITLE_MAX, BODY_MAX, buildPayload, filterClubs, audienceLabel, formatMsk, reachText, deliveryText, newIdempotencyKey, scheduledMsk } from '../broadcast-logic.js';
+import { TITLE_MAX, BODY_MAX, buildPayload, filterClubs, audienceLabel, formatMsk, reachText, deliveryText, newIdempotencyKey, scheduledMsk, previewWhen } from '../broadcast-logic.js';
 import { readDraft, writeDraft, clearDraft, markUnsaved } from '../../draft-state.js';
 import { animatePanel, bindGlassIndicator } from '../../glass.js';
 
@@ -107,9 +107,10 @@ export async function mount(root, { signal }) {
   // --- охват и предпросмотр ---
   const reach = h('p', { class: 'bc-reach', role: 'status', 'aria-live': 'polite' }, 'Считаю получателей…');
   const pvTitle = h('strong', {});
+  const pvWhen = h('small', {}, 'KipClub · сейчас');
   const pvBody = h('p', {});
   const preview = h('div', { class: 'bc-preview', 'aria-label': 'Так будет выглядеть уведомление' },
-    h('img', { src: '/icons/icon-192.png', alt: '' }), h('small', {}, 'KipClub · сейчас'), pvTitle, pvBody);
+    h('img', { src: '/icons/icon-192.png', alt: '' }), pvWhen, pvTitle, pvBody);
   const send = h('button', { type: 'submit', class: 'btn btn--filled', form: 'bc-form' }, 'Отправить…');
 
   let reachTimer, reachCtrl, reachSeq = 0, lastReach = null;
@@ -137,6 +138,7 @@ export async function mount(root, { signal }) {
     send.textContent = state.scheduledAt ? 'Запланировать…' : 'Отправить…';
     titleCount.textContent = `${state.title.length} / ${TITLE_MAX}`;
     bodyCount.textContent = `${state.body.length} / ${BODY_MAX}`;
+    pvWhen.textContent = `KipClub · ${previewWhen(state.scheduledAt)}`;
     pvTitle.textContent = state.title.trim() || 'Заголовок';
     pvBody.textContent = state.body.trim() || 'Текст объявления';
     pvTitle.toggleAttribute('data-empty', !state.title.trim());

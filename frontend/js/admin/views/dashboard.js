@@ -1,4 +1,4 @@
-import { h, icon } from '../../ui.js';
+import { h } from '../../ui.js';
 import { loadAll, getStats } from '../api.js';
 import { pageHeader, loading, formatDate, dayShort } from '../kit.js';
 import { moscowToday, dateKey } from '../../schedule-dates.js';
@@ -8,7 +8,7 @@ export async function mount(root, { signal }) {
   const [data, stats] = await Promise.all([loadAll({ signal }), getStats({ signal }).catch(() => null)]);
   const today = dateKey(moscowToday());
   const upcoming = data.exceptions.filter(e => (e.new_date || e.original_date) >= today).sort((a, b) => a.original_date.localeCompare(b.original_date)).slice(0, 6);
-  const stat = (href, value, label, iconName) => h('a', { class: 'stat-card', href }, icon(iconName), h('strong', {}, String(value)), h('span', {}, label));
+  const stat = (href, value, label) => h('a', { class: 'stat-card', href }, h('strong', {}, String(value)), h('span', {}, label));
   const changeLine = e => {
     const session = data.session.get(e.session_id);
     const club = session && data.club.get(session.club_id);
@@ -19,10 +19,10 @@ export async function mount(root, { signal }) {
   root.replaceChildren(...[
     pageHeader('Обзор'),
     h('div', { class: 'stat-grid' },
-      stat('#/clubs', data.clubs.filter(c => c.is_active).length, `активных кружков (всего ${data.clubs.length})`, 'users'),
-      stat('#/sessions', data.sessions.length, 'регулярных занятий', 'calendar'),
-      stat('#/exceptions', upcoming.length, 'ближайших изменений', 'list'),
-      stat('#/reference', data.rooms.length, 'аудиторий', 'book')),
+      stat('#/clubs', data.clubs.filter(c => c.is_active).length, `активных кружков (всего ${data.clubs.length})`),
+      stat('#/sessions', data.sessions.length, 'регулярных занятий'),
+      stat('#/exceptions', upcoming.length, 'ближайших изменений'),
+      stat('#/reference', data.rooms.length, 'аудиторий')),
     stats && usersCard(stats),
     stats?.usage && usageCard(stats.usage),
     stats?.push_events && h('section', { class: 'card' }, h('h2', {}, 'Рассылки: транспорт и клиенты'),

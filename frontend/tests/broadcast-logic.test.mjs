@@ -57,3 +57,10 @@ test('scheduled Moscow datetime ignores the browser zone and rejects calendar ro
   assert.equal(scheduledMsk('2026-11-09T15:30', now), '2026-11-09T12:30:00.000Z');
   for (const raw of ['2026-11-09T11:59', '2026-11-09T12:00', '2027-02-31T15:30', '2026-13-01T10:00', '2028-01-01T12:00']) assert.throws(() => scheduledMsk(raw, now));
 });
+
+test('предпросмотр уведомления: выбранное время отправки или «сейчас»', async () => {
+  const { previewWhen } = await import('../js/admin/broadcast-logic.js');
+  assert.equal(previewWhen('2026-11-20T18:30'), '20.11, 18:30');
+  assert.equal(previewWhen(''), 'сейчас');
+  assert.equal(previewWhen('мусор'), 'сейчас');
+});
