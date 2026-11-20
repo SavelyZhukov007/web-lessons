@@ -198,7 +198,7 @@
         '</div></div></div>' +
       '<div data-interface-settings></div>' +
       '<h2>Уведомления</h2><div class="itc-group">' + row('Настроить уведомления', { act: 'notifications', sub: 'Отмены, переносы, объявления и напоминания' }) + '</div>' + adminAcc +
-      '<div data-final-settings></div><h2>Помощь</h2><div class="itc-group">' + row('Обратная связь', { act: 'feedback' }) + '<div data-campus-tour></div></div>' +
+      '<div data-final-settings></div><h2>Помощь</h2><div class="itc-group">' + row('Оставить отзыв или сообщить об ошибке', { act: 'feedback' }) + '<div data-campus-tour></div></div>' +
       '<h2>О приложении</h2><div class="itc-group">' + row('Проверить обновления', { act: 'update' }) +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Версия</span></span><span class="itc-row-val">' + esc(window.ITC_VERSION || '—') + '</span></div>' +
       '<div class="itc-row itc-row-static"><span class="itc-row-tx"><span>Разработчик</span></span><span class="itc-row-val">ИТС КИПФИН</span></div></div>' +
@@ -265,7 +265,7 @@
       else if (a === 'schedule') location.href = '/?from=admin';
       else if (a === 'password') { if (window.ClubsAdmin) window.ClubsAdmin.changePassword(); else location.href = '/admin/index.html#/account/password'; }
       else if (a === 'admin') location.href = '/admin/index.html';
-      else if (a === 'feedback') import('/js/feedback.js').then(function (m) { m.openFeedback(); }).catch(function () { toast('Не удалось открыть форму обратной связи'); });
+      else if (a === 'feedback') import('/js/feedback.js').then(function (m) { m.openFeedback(null, { source: 'settings' }); }).catch(function () { toast('Не удалось открыть форму обратной связи'); });
       else if (a === 'update') { if (window.ItcAppUpdate) window.ItcAppUpdate.check({ manual: true }); else toast('Обновления проверяются только в приложении'); }
     });
   }
@@ -291,4 +291,17 @@
     // «Админка» в верхней панели расписания убрана — кнопка теперь в «Настройках» (roleHomeChip не вызываем)
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+
+  // «Встряхнуть, чтобы сообщить об ошибке» (настройки → «Конфиденциальность», по умолчанию выключено)
+  (function shake() {
+    var N = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ItcNative;
+    if (!N || !N.setShake || /^\/admin\//.test(location.pathname)) return;
+    var on = false; try { on = localStorage.getItem('kc.shakeFeedback') === '1'; } catch (e) { /* нет хранилища */ }
+    if (on) N.setShake({ enabled: true }).catch(function () {});
+    if (N.addListener) N.addListener('shake', function () {
+      try { if (localStorage.getItem('kc.shakeFeedback') !== '1') return; } catch (e) { return; }
+      if (document.querySelector('dialog[open], .sheet.open, .fb-dialog')) return;
+      import('/js/feedback.js').then(function (m) { m.openFeedback(null, { type: 'bug', source: 'shake' }); }).catch(function () {});
+    });
+  })();
 })();

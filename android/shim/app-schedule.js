@@ -10,6 +10,7 @@ import { openScheduleFilters } from './app-schedule-filters.js';
 import { icon } from './icons.js';
 import { clubColor } from './event-colors.js';
 import { prefersReducedMotion } from './motion-preferences.js';
+import { createViewTracker } from './schedule-usage.js';
 
 const $ = s => document.querySelector(s);
 const statusNames = { scheduled: 'По расписанию', moved: 'Перенос', cancelled: 'Отменено' };
@@ -63,6 +64,20 @@ function emptyState(title, text, action) {
   if (action) { const b = node('button', '', action.label); b.type = 'button'; b.addEventListener('click', action.run); box.append(b); }
   return box;
 }
+// экран ошибки: «Повторить попытку» и «Сообщить о проблеме» (форма с типом «Ошибка», source error)
+let errorBox = null;
+function errorState() {
+  if (errorBox && errorBox.dataset.error === state.error) return errorBox;
+  errorBox = emptyState('Не получилось загрузить расписание', state.error, { label: 'Повторить попытку', run: () => ui.load({ refresh: true }) });
+  errorBox.dataset.error = state.error;
+  const report = node('button', 'btn btn--text', 'Сообщить о проблеме');
+  report.type = 'button';
+  report.addEventListener('click', async () => (await import('./feedback.js')).openFeedback(report, { type: 'bug', source: 'error' }));
+  errorBox.append(report);
+  window.dispatchEvent(new CustomEvent('kc:load-error'));
+  return errorBox;
+}
+const trackView = createViewTracker();
 function skeleton() {
   const box = node('div', 'app-skeleton is-loading'); box.setAttribute('aria-hidden', 'true');
   for (let i = 0; i < 3; i++) box.append(node('div', 'app-skel-card'));
@@ -71,7 +86,7 @@ function skeleton() {
 // Занятия дня: одинаковое начало → «слот» параллельных занятий (аудитория и руководитель — бейджами)
 function dayChildren() {
   if (state.phase === 'loading') return [skeleton()];
-  if (state.phase === 'error') return [emptyState('Не получилось загрузить расписание', state.error, { label: 'Повторить попытку', run: () => ui.load({ refresh: true }) })];
+  if (state.phase === 'error') return [errorState()];
   const key = dateKey(addDays(state.week, state.day));
   // t102: перенесённое занятие оставляет в старом слоте приглушённую карточку «Перенесено» → «Актуальное время»
   const ghosts = state.events.filter(e => e.original_date === key && movedFromSlot(e))
@@ -139,6 +154,7 @@ function render(dir = 0) {
     if (!same) { animating?.cancel(); animating = null; pane.replaceChildren(...kids); }
   }
   if (state.phase === 'ready' || state.phase === 'error') contentReady();
+  if (state.phase === 'ready') { errorBox = null; trackView({ week: state.week, shown: addDays(state.week, state.day), dayMode: true }); }
   ui.focusPending(pane, transition);
 }
 function slide(kids, dir) {

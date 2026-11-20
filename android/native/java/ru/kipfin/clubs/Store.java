@@ -27,6 +27,10 @@ public final class Store {
 
     static SharedPreferences prefs(Context c) { return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
 
+    /** «Анонимная статистика» выключена в настройках приложения (по умолчанию включена). */
+    static final String USAGE_OFF = "usage_off";
+    static boolean usageOn(Context c) { return !prefs(c).getBoolean(USAGE_OFF, false); }
+
     /** Одно занятие (occurrence) из /api/schedule. */
     public static final class Event {
         public String key;        // session_id:original_date — стабильный ключ для сравнения

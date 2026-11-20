@@ -32,6 +32,8 @@
       if (i >= 0) a.splice(i, 1); else a.push(id);
       jset(FOLLOW_KEY, a);
       document.dispatchEvent(new CustomEvent('itc:follows', { detail: a }));
+      if (window.KipUsage) window.KipUsage.emit(i < 0 ? 'fav_add' : 'fav_remove', 'club');
+      if (i < 0) window.dispatchEvent(new CustomEvent('kc:fav-add'));
       configureNative().then(syncNow);
       return i < 0;
     }
@@ -226,6 +228,7 @@
     function toggleMine() {
       if (!Follows.all().length && !myMode()) { toast('Отметьте кружки звёздочкой ☆ в каталоге'); paint(); return; }
       LS.setItem(MODE_KEY, myMode() ? '0' : '1'); paint(); reload(); document.dispatchEvent(new CustomEvent('itc:mymode'));
+      if (myMode() && window.KipUsage) window.KipUsage.emit('screen_view', 'my'); // «Мои кружки»: анонимный счётчик
     }
     t.addEventListener('click', toggleMine);
     row.insertBefore(t, document.getElementById('toggle-filters'));

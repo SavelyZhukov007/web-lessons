@@ -67,7 +67,8 @@
     if (!forced) row.append(later);
     row.append(browser, go);
     card.append(prog, msg, row); w.appendChild(card); document.body.appendChild(w);
-    later.addEventListener('click', function () { try { localStorage.setItem(LATER, JSON.stringify({ code: num(d.versionCode), t: Date.now() })); } catch (e) {} w.remove(); });
+    usage('update_offer');
+    later.addEventListener('click', function () { usage('update_later'); try { localStorage.setItem(LATER, JSON.stringify({ code: num(d.versionCode), t: Date.now() })); } catch (e) {} w.remove(); });
     browser.addEventListener('click', function () { U().openExternal({ url: d.page }).catch(function () { location.href = d.page; }); });
     var downloaded = false, listener = null;
     function fail(text) { msg.textContent = text; msg.hidden = false; browser.hidden = false; go.disabled = false; go.textContent = 'Повторить'; prog.hidden = true; }
@@ -77,7 +78,9 @@
         else { go.textContent = 'Установка…'; }
       }, function () { fail('Не удалось открыть установщик.'); });
     }
+    var accepted = false;
     go.addEventListener('click', function () {
+      if (!accepted) { accepted = true; usage('update_accept'); }
       if (downloaded) { go.disabled = true; install(); return; }
       go.disabled = true; go.textContent = 'Загрузка…'; msg.hidden = true; browser.hidden = true; prog.hidden = false;
       var bar = prog.querySelector('i'), label = prog.querySelector('span'), pb = prog.querySelector('[role=progressbar]');
@@ -97,10 +100,23 @@
     w.addEventListener('click', function (e) { if (e.target === w && !forced) later.click(); });
     go.focus();
   }
+  // анонимные счётчики (js/usage.js грузится модулем позже этого скрипта; выключатель проверяет сам KipUsage)
+  function usage(metric, dim, tries) {
+    if (window.KipUsage) { window.KipUsage.emit(metric, dim); return; }
+    if ((tries || 0) < 20) setTimeout(function () { usage(metric, dim, (tries || 0) + 1); }, 500);
+  }
+  function nativeStats() {
+    try { if (!localStorage.getItem('kc.apkFirstRun')) { localStorage.setItem('kc.apkFirstRun', '1'); usage('apk_first_run'); } } catch (e) {}
+    var N = Cap.Plugins && Cap.Plugins.ItcNative;
+    if (N && N.getCrashes) N.getCrashes().then(function (r) {
+      for (var i = 0; i < Math.min(5, (r && r.count) || 0); i++) usage('native_crash', r.subsystem || 'ui');
+    }).catch(function () {});
+  }
   function maybe() { var t = 0; try { t = num(localStorage.getItem(LAST)); } catch (e) {} if (Date.now() - t > DAY) check(); }
   window.ItcAppUpdate = { check: check, endpoint: endpoint };
   // при запуске (после экрана загрузки, чтобы не мешать первому контенту) и раз в сутки
   function boot() {
+    nativeStats();
     // нажатие на push «Доступно обновление» открывает /?update=1 — сразу экран обновления
     var params = new URLSearchParams(location.search);
     if (params.get('update') === '1' && !params.has('release')) {

@@ -25,7 +25,7 @@ final class NotificationReceipts {
         catch (Exception ignored) { return; }
         if (id <= 0 || id >= (1L << 53)) return;
         final Context app = context.getApplicationContext();
-        if (Store.demo(app)) return;
+        if (Store.demo(app) || !Store.usageOn(app)) return; // выключатель «Анонимная статистика»
         final String server = Store.server(app).replaceAll("/+$", "");
         if (server.isEmpty()) return;
         EXECUTOR.execute(() -> {

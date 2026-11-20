@@ -22,8 +22,11 @@ import org.json.JSONArray;
 })
 public class ItcNativePlugin extends Plugin {
 
+    private ShakeDetector shake;
+
     @Override
     public void load() {
+        CrashCounter.install(getContext());
         Notifier.channels(getContext());
         try { // ярлык «Мой QR» из версий с посещаемостью
             androidx.core.content.pm.ShortcutManagerCompat.removeDynamicShortcuts(getContext(), java.util.Collections.singletonList("teacher_qr"));
@@ -187,6 +190,56 @@ public class ItcNativePlugin extends Plugin {
         boolean ok = Widgets.requestPin(getContext(), "today".equals(call.getString("kind")) ? TodayWidget.class : NextClassWidget.class);
         JSObject r = new JSObject();
         r.put("requested", ok);
+        call.resolve(r);
+    }
+    /** Выключатель «Анонимная статистика»: нативные квитанции пушей (NotificationReceipts) его уважают. */
+    @PluginMethod
+    public void setUsage(PluginCall call) {
+        Store.prefs(getContext()).edit().putBoolean(Store.USAGE_OFF, !call.getBoolean("enabled", true)).apply();
+        call.resolve();
+    }
+
+    /** Встряхивание открывает форму «Сообщить об ошибке» (событие "shake"); включается в настройках. */
+    @PluginMethod
+    public void setShake(PluginCall call) {
+        boolean on = call.getBoolean("enabled", false);
+        getActivity().runOnUiThread(() -> {
+            android.hardware.SensorManager sensors = (android.hardware.SensorManager) getContext().getSystemService(android.content.Context.SENSOR_SERVICE);
+            if (sensors == null) return;
+            if (shake != null) { sensors.unregisterListener(shake); shake = null; }
+            android.hardware.Sensor accel = sensors.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER);
+            if (on && accel != null) {
+                shake = new ShakeDetector(() -> notifyListeners("shake", new JSObject()));
+                sensors.registerListener(shake, accel, android.hardware.SensorManager.SENSOR_DELAY_UI);
+            }
+        });
+        JSObject r = new JSObject();
+        r.put("enabled", on);
+        call.resolve(r);
+    }
+
+    @Override
+    protected void handleOnPause() {
+        super.handleOnPause();
+        android.hardware.SensorManager sensors = (android.hardware.SensorManager) getContext().getSystemService(android.content.Context.SENSOR_SERVICE);
+        if (sensors != null && shake != null) sensors.unregisterListener(shake);
+    }
+
+    @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        android.hardware.SensorManager sensors = (android.hardware.SensorManager) getContext().getSystemService(android.content.Context.SENSOR_SERVICE);
+        if (sensors != null && shake != null) sensors.registerListener(shake, sensors.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER), android.hardware.SensorManager.SENSOR_DELAY_UI);
+    }
+
+    /** Падения с прошлого запуска: {count, subsystem}; счётчик обнуляется. */
+    @PluginMethod
+    public void getCrashes(PluginCall call) {
+        String[] kind = new String[1];
+        int count = CrashCounter.takeCount(getContext(), kind)[0];
+        JSObject r = new JSObject();
+        r.put("count", count);
+        r.put("subsystem", kind[0]);
         call.resolve(r);
     }
 }
