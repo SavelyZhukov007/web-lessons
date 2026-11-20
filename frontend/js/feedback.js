@@ -1,16 +1,20 @@
-// Диалог «Обратная связь» (сайт, PWA, Android — один UI): тип, описание, контакт, скриншоты; журнал устройства прикладывается всегда.
-// Отправка: POST /api/feedback (multipart). Открывается из «Настроек» (js/settings.js).
+// Диалог «Обратная связь» (сайт, PWA, Android, один UI): тип, оценка, описание, контакт (необязательно), скриншоты.
+// Журнал устройства и техданные прикладываются всегда. Отправка: POST /api/feedback (multipart).
+// Открывается из «Настроек», карточки «Как тебе KipClub?», «Что нового», экранов ошибки и офлайна, встряхиванием в APK.
 import { h, icon, toast } from './ui.js';
 import { request } from './api.js';
 import { install, deviceInfo } from './log-collector.js';
 
-import { TYPES, DESC_MAX, MAX_SHOTS, MIME, validate, buildFormData } from './feedback-logic.js';
+import { TYPES, DESC_MAX, MAX_SHOTS, MIME, RATINGS, SOURCES, validate, buildFormData } from './feedback-logic.js';
+import { load as loadPrompt, save as savePrompt, sent as promptSent } from './feedback-prompt-logic.js';
 
 let dialog;
 
-export function openFeedback(opener) {
+export function openFeedback(opener, { type = 'bug', rating = '', source = 'settings' } = {}) {
   const logs = install(window);
-  const state = { type: 'bug', files: [], sending: false };
+  source = SOURCES.includes(source) ? source : 'settings';
+  const state = { type: TYPES.some(([v]) => v === type) ? type : 'bug', rating: /^[1-5]$/.test(String(rating)) ? String(rating) : '', files: [], sending: false };
+  window.KipUsage?.emit('fb_form_open', source);
   dialog?.remove();
   dialog = h('dialog', { class: 'sheet sheet--bottom feedback-sheet', 'aria-labelledby': 'feedback-title' });
   dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
@@ -18,7 +22,7 @@ export function openFeedback(opener) {
   const err = name => h('p', { class: 'field-error', role: 'alert', hidden: true, dataset: { err: name } });
   const errors = { type: err('type'), description: err('description'), contact: err('contact'), files: err('files') };
 
-  const typeGroup = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Тип обращения' },
+  const typeGroup = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Тип сообщения' },
     TYPES.map(([v, t]) => {
       const input = h('input', { type: 'radio', name: 'fb-type', value: v, checked: v === state.type });
       input.addEventListener('change', () => { state.type = v; });
@@ -27,7 +31,13 @@ export function openFeedback(opener) {
   const desc = h('textarea', { id: 'fb-desc', rows: 5, maxlength: DESC_MAX, required: true, placeholder: 'Что произошло или что хотелось бы улучшить?' });
   const counter = h('span', { class: 'fb-counter', 'aria-live': 'off' }, `0 / ${DESC_MAX}`);
   desc.addEventListener('input', () => { counter.textContent = `${desc.value.length} / ${DESC_MAX}`; if (!errors.description.hidden) check(); });
-  const contact = h('input', { id: 'fb-contact', type: 'text', maxlength: 100, autocomplete: 'email', placeholder: 'e-mail или @telegram' });
+  const ratingGroup = h('div', { class: 'fb-rating', role: 'radiogroup', 'aria-label': 'Оценка, необязательно' },
+    RATINGS.map(([v, face, label]) => {
+      const input = h('input', { type: 'radio', name: 'fb-rating', value: v, checked: v === state.rating, 'aria-label': label });
+      input.addEventListener('click', () => { state.rating = state.rating === v ? '' : v; input.checked = !!state.rating; });
+      return h('label', { title: label }, input, h('span', { 'aria-hidden': 'true' }, face));
+    }));
+  const contact = h('input', { id: 'fb-contact', type: 'text', maxlength: 100, autocomplete: 'email', placeholder: 'e-mail или @telegram', 'aria-describedby': 'fb-contact-hint' });
   const honeypot = h('input', { type: 'text', name: 'website', tabindex: '-1', autocomplete: 'off', class: 'fb-hp', 'aria-hidden': 'true' });
 
   const thumbs = h('div', { class: 'fb-thumbs' });
@@ -79,11 +89,14 @@ export function openFeedback(opener) {
     state.sending = true; submit.disabled = true; status.className = 'fb-status'; status.textContent = 'Отправляю…';
     try {
       if (!info) info = await deviceInfo(window);
-      const fd = buildFormData({ type: state.type, description: desc.value, contact: contact.value, website: honeypot.value, info, logs: logs.entries(), files: state.files });
+      const fd = buildFormData({ type: state.type, description: desc.value, contact: contact.value, website: honeypot.value, info, logs: logs.entries(), files: state.files,
+        rating: state.rating, source });
       await request('/api/feedback', { method: 'POST', body: fd, timeout: 60000 });
-      form.replaceChildren(h('div', { class: 'fb-success' }, h('p', {}, 'Сообщение отправлено.'),
+      window.KipUsage?.emit('fb_sent', source);
+      try { savePrompt(localStorage, promptSent(loadPrompt(localStorage), Date.now())); } catch { /* storage недоступен */ }
+      form.replaceChildren(h('div', { class: 'fb-success' }, h('p', {}, 'Сообщение отправлено. Спасибо!'),
         h('button', { type: 'button', class: 'btn btn--filled', onclick: () => dialog.close() }, 'Готово')));
-      toast('Обратная связь отправлена');
+      toast('Сообщение отправлено');
     } catch (e) {
       const offline = navigator.onLine === false;
       status.className = 'fb-status fb-status--error';
@@ -95,10 +108,12 @@ export function openFeedback(opener) {
   const form = h('form', { class: 'sheet-body fb-form', novalidate: true },
     h('section', { class: 'sheet-section' }, h('h3', {}, 'Тип'), typeGroup, errors.type),
     h('label', { class: 'field', for: 'fb-desc' }, h('span', { class: 'field-label' }, 'Описание'), desc, h('span', { class: 'fb-under' }, errors.description, counter)),
-    h('label', { class: 'field', for: 'fb-contact' }, h('span', { class: 'field-label' }, 'Контакт для ответа (необязательно)'), contact, errors.contact),
+    h('section', { class: 'sheet-section' }, h('h3', {}, 'Оценка ', h('span', { class: 'fb-optional' }, 'необязательно')), ratingGroup),
+    h('label', { class: 'field', for: 'fb-contact' }, h('span', { class: 'field-label' }, 'Контакт для ответа ', h('span', { class: 'fb-optional' }, 'необязательно')), contact,
+      h('span', { class: 'field-hint', id: 'fb-contact-hint' }, 'Оставь, только если хочешь, чтобы мы ответили. Без контакта сообщение тоже дойдёт.'), errors.contact),
     honeypot,
-    h('section', { class: 'sheet-section' }, h('h3', {}, 'Скриншоты'), thumbs, picker, h('div', { class: 'fb-shots-row' }, addBtn, h('span', { class: 'fb-hint' }, 'Каждый скриншот — до 5 МБ')), errors.files),
-    status, h('p', { class: 'fb-tech' }, 'К обращению автоматически прикладываются технические данные (версия, устройство, журнал ошибок) — без паролей и личных данных.'),
+    h('section', { class: 'sheet-section' }, h('h3', {}, 'Скриншоты'), thumbs, picker, h('div', { class: 'fb-shots-row' }, addBtn, h('span', { class: 'fb-hint' }, 'Один скриншот до 5 МБ')), errors.files),
+    status, h('p', { class: 'fb-tech' }, 'Вместе с сообщением мы получим технические данные: версию, модель устройства и журнал ошибок. Паролей и личных данных там нет.'),
     h('div', { class: 'sheet-foot' }, cancel, submit));
   form.addEventListener('submit', e => { e.preventDefault(); send(); });
   contact.addEventListener('blur', () => { if (contact.value) check(); });

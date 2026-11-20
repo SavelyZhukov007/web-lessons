@@ -25,3 +25,15 @@ test('logs and device data are always attached', () => {
   assert.deepEqual(fd.getAll('screenshots').map(f => f.name), ['01.png', '02.jpeg']);
   assert.equal(buildFormData({ ...ok }).get('logs'), '[]', 'empty buffer still sends logs');
 });
+
+test('rating and source fields, texts in «ты» without long dashes', async () => {
+  const { SOURCES } = await import('../js/feedback-logic.js');
+  const fd = buildFormData({ ...ok, rating: 4, source: 'prompt_update' });
+  assert.equal(fd.get('rating'), '4'); assert.equal(fd.get('source'), 'prompt_update');
+  const none = buildFormData({ ...ok, rating: 9, source: '<x>' });
+  assert.equal(none.get('rating'), null); assert.equal(none.get('source'), 'settings');
+  assert.deepEqual(SOURCES, ['settings', 'prompt_usage', 'prompt_update', 'prompt_error', 'whats_new', 'shake', 'offline', 'error']);
+  const messages = Object.values({ ...validate({ ...ok, type: 'x', description: 'a' }), ...validate({ ...ok, files: [{ type: 'image/png', size: 6e6 }] }) });
+  assert.deepEqual(messages, ['Выбери тип сообщения', 'Напиши чуть подробнее, хотя бы 10 символов', 'Один скриншот до 5 МБ']);
+  for (const m of messages) assert.ok(!m.includes('—') && !/Выберите|Опишите/.test(m));
+});

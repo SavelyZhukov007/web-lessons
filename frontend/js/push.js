@@ -40,6 +40,7 @@ async function isSubscribed(clubId) {
 async function subscriptionFromGesture() {
   // requestPermission обязан вызываться из обработчика клика (требование Safari/iOS)
   const permission = await Notification.requestPermission();
+  window.KipUsage?.emit('push_permission', ['granted', 'denied'].includes(permission) ? permission : 'default');
   if (permission !== 'granted') throw Object.assign(new Error('Разрешение на уведомления не выдано.'), { code: 'permission' });
   const { publicKey } = await request('/api/push/vapid-public-key');
   const { reg, sub: existing } = await currentSubscription();
@@ -50,6 +51,7 @@ async function subscriptionFromGesture() {
 export async function subscribe(clubId) {
   const { endpoint, keys } = await subscriptionFromGesture();
   await post('subscribe', { endpoint, keys, club_id: clubId });
+  window.KipUsage?.emit('push_subscribe', /iphone|ipad|ipod/i.test(navigator.userAgent) ? 'ios' : 'web');
 }
 
 export async function unsubscribe(clubId) {
@@ -57,6 +59,7 @@ export async function unsubscribe(clubId) {
   if (!sub) return;
   const result = await post('unsubscribe', { endpoint: sub.endpoint, club_id: clubId });
   if (result.remaining === 0) await sub.unsubscribe();
+  window.KipUsage?.emit('push_unsubscribe', /iphone|ipad|ipod/i.test(navigator.userAgent) ? 'ios' : 'web');
 }
 
 export function webNotificationPreferences() {

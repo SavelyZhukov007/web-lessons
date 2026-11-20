@@ -60,21 +60,22 @@ def test_native_ribbon_real_accessible_names_and_touch_targets(new_page, width, 
     assert not page.errors, page.errors
 
 
-def test_tour_link_and_telemetry_opt_in_no_raw_query(new_page):
+def test_tour_link_and_telemetry_default_on_switch_off_no_raw_query(new_page):
+    import json
+
     page = new_page(390, 844, is_mobile=True, has_touch=True)
-    batches = []
+    batches, pings = [], []
     page.route("**/api/app/usage", lambda r: (batches.append(r.request.post_data_json), r.fulfill(status=202, json={"accepted": 1})))
+    page.route("**/api/app/ping", lambda r: (pings.append(r.request.post_data_json), r.fulfill(status=200, json={"ok": True})))
     page.goto("/")
     expect(page.locator("#content")).to_have_attribute("aria-busy", "false")
-    assert not batches
     page.locator("[data-settings-button]").click()
     tour = page.get_by_role("link", name="3D-тур КИПФИН", exact=False)
     expect(tour).to_have_attribute("href", "https://tour.panoee.net/65e08e217a73f2feff4db099/65e08e717a73f212cb4db0ac")
-    toggle = page.get_by_role("switch", name="Анонимная статистика и технические ошибки", exact=True)
-    expect(toggle).to_have_attribute("aria-checked", "false")
+    toggle = page.get_by_role("switch", name="Анонимная статистика", exact=True)
+    expect(toggle).to_have_attribute("aria-checked", "true")
     rect = toggle.bounding_box()
     assert rect["width"] >= 44 and rect["height"] >= 44
-    toggle.click()
     page.get_by_role("button", name="Закрыть настройки", exact=True).click()
     page.locator("#search").fill("private-secret-no-results")
     expect(page.locator("#search-status")).to_contain_text("ничего")
@@ -82,17 +83,22 @@ def test_tour_link_and_telemetry_opt_in_no_raw_query(new_page):
     page.evaluate(
         "window.dispatchEvent(new ErrorEvent('error',{filename:'https://example.test/schedule.js?token=private-secret',lineno:12,error:new TypeError('private-secret')}))"
     )
-    page.evaluate("window.KipUsage.flush()")
+    page.evaluate("window.KipUsage.flush();localStorage.removeItem('kc.pingAt');window.KipUsage.ping(false)")
+    page.wait_for_timeout(300)
     assert batches
-    import json
-
     encoded = json.dumps(batches)
     assert "private-secret" not in encoded and "token" not in encoded and "install_id" not in encoded
     metrics = [e["metric"] for b in batches for e in b["events"]]
-    assert "search_results" in metrics and "search_abandon" in metrics
-    assert batches[0]["errors"][0]["code"] == "TypeError"
+    assert "search_results" in metrics and "search_abandon" in metrics and "schedule_view" in metrics
+    assert any(err["code"] == "TypeError" for b in batches for err in b.get("errors", []))
+    assert all(b["channel"] in ("l", "i", "p") for b in batches)
+    assert pings and "install_id" in pings[0] and "private-secret" not in json.dumps(pings)
     page.locator("[data-settings-button]").click()
-    page.get_by_role("switch", name="Анонимная статистика и технические ошибки", exact=True).click()
-    page.evaluate("window.KipUsage.emit('search_open');window.KipUsage.flush()")
-    assert len(batches) == 1
+    page.get_by_role("switch", name="Анонимная статистика", exact=True).click()
+    expect(page.get_by_role("switch", name="Анонимная статистика", exact=True)).to_have_attribute("aria-checked", "false")
+    sent, pinged = len(batches), len(pings)
+    page.evaluate("localStorage.removeItem('kc.pingAt');window.KipUsage.emit('search_open');window.KipUsage.flush();window.KipUsage.ping(true)")
+    page.wait_for_timeout(300)
+    assert len(batches) == sent and len(pings) == pinged
+    assert page.evaluate("localStorage.getItem('kc.anonymousUsage.v1')") == "0"
     assert not page.errors, page.errors

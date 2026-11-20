@@ -46,6 +46,8 @@ export async function logout() {
 }
 export const getAdminStatus = options => request('/api/admin/status', options);
 export const getStats = options => request('/api/admin/stats', options);
+export const getStatsReport = (days, options) => request(`/api/admin/stats/report?days=${days}`, options);
+export const getStatsCsv = (block, days) => request(`/api/admin/stats/export.csv?block=${encodeURIComponent(block)}&days=${days}`, { responseType: 'blob', timeout: 30000 });
 export const changePassword = (current_password, new_password) => request('/api/admin/password', send('POST', { current_password, new_password }));
 
 function crud(path) {

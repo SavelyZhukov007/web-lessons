@@ -38,6 +38,17 @@ export function fullVersion(id, platform) {
   return /[WMA]$/.test(v) ? v : v + platform;
 }
 
+// Полная строка User-Agent → «Android 14 · Chrome 131»: платформа, ОС и мажорная версия браузера (сервер режет так же)
+export function shortUa(ua = '') {
+  const os = [[/Android (\d+)/, m => `Android ${m[1]}`], [/(?:iPhone|CPU) OS (\d+)/, m => `iOS ${m[1]}`], [/iPad.*OS (\d+)/, m => `iPadOS ${m[1]}`],
+    [/Windows NT (\d+\.\d+)/, m => `Windows ${m[1]}`], [/Mac OS X (\d+)/, m => `macOS ${m[1]}`], [/CrOS/, () => 'ChromeOS'], [/Linux/, () => 'Linux']]
+    .map(([re, f]) => { const m = ua.match(re); return m && f(m); }).find(Boolean) || '';
+  const br = [[/YaBrowser\/(\d+)/, 'Яндекс Браузер'], [/Edg\/(\d+)/, 'Edge'], [/OPR\/(\d+)/, 'Opera'], [/SamsungBrowser\/(\d+)/, 'Samsung'],
+    [/Firefox\/(\d+)/, 'Firefox'], [/; wv\).*Chrome\/(\d+)/, 'WebView'], [/Chrome\/(\d+)/, 'Chrome'], [/Version\/(\d+).*Safari/, 'Safari']]
+    .map(([re, name]) => { const m = ua.match(re); return m && `${name} ${m[1]}`; }).find(Boolean) || '';
+  return [os, br].filter(Boolean).join(' · ');
+}
+
 export async function deviceInfo(win = globalThis) {
   const platform = platformLetter(win);
   let build = win.ItcSplash?.version || '';
@@ -45,12 +56,19 @@ export async function deviceInfo(win = globalThis) {
     try { const r = await win.fetch(`/build-info.json?fb=${Date.now()}`, { cache: 'no-store' }); if (r.ok) build = (await r.json()).build_id || ''; } catch { /* офлайн */ }
   }
   const info = {
-    version: fullVersion(build, platform), platform, userAgent: win.navigator?.userAgent || '',
+    version: fullVersion(build, platform), platform, ua: shortUa(win.navigator?.userAgent || ''),
     screen: win.screen ? `${win.screen.width}x${win.screen.height}@${win.devicePixelRatio || 1}` : '',
     viewport: `${win.innerWidth || 0}x${win.innerHeight || 0}`, language: win.navigator?.language || '',
     online: win.navigator?.onLine !== false, page: win.location ? stripQuery(win.location.href) : '', time: new Date().toISOString(),
   };
-  try { const D = win.Capacitor?.Plugins?.Device; if (D?.getInfo) info.device = await D.getInfo(); } catch { /* нет плагина */ }
+  try {
+    const D = win.Capacitor?.Plugins?.Device;
+    if (D?.getInfo) { // без имени устройства (там бывает имя владельца) и полной версии WebView
+      const d = await D.getInfo() || {};
+      info.device = Object.fromEntries(['model', 'manufacturer', 'platform', 'operatingSystem', 'osVersion', 'isVirtual'].filter(k => k in d).map(k => [k, d[k]]));
+      const wv = String(d.webViewVersion || '').split('.')[0]; if (/^\d+$/.test(wv)) info.device.webViewMajor = +wv;
+    }
+  } catch { /* нет плагина */ }
   return info;
 }
 

@@ -37,6 +37,9 @@ export function favoriteControls(event) {
       button.addEventListener("click", () => {
         try {
           toggleFavorite(kind, id, names[i]);
+          const added = favorites(kind).some((x) => x.id === id);
+          window.KipUsage?.emit(added ? "fav_add" : "fav_remove", kind === "rooms" ? "room" : "leader");
+          if (added) window.dispatchEvent(new CustomEvent("kc:fav-add"));
           error.hidden = true; error.textContent = "";
           paint();
           window.dispatchEvent(new CustomEvent("kc:favorites"));

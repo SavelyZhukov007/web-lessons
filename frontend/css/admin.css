@@ -717,3 +717,47 @@ html .bc-pill .bc-pill-x:hover { background: rgba(0, 0, 0, .08) !important; }
 .admin-calendar-grid{display:grid;grid-template-columns:repeat(6,minmax(220px,1fr));gap:12px;overflow:auto;max-width:100%;padding-block:8px}.admin-calendar-day{min-height:280px;padding:12px;border:1px solid var(--outline-variant);border-radius:18px;background:var(--surface-1)}.admin-calendar-day h2{font-size:16px}.admin-calendar-event{display:grid;gap:6px;padding:12px;margin-top:10px;border:1px solid var(--outline-variant);border-radius:14px;background:var(--surface-2);overflow-wrap:anywhere}.admin-calendar-event[draggable=true]{cursor:grab}.admin-calendar-event .btn{min-height:44px}.admin-calendar-day.is-drop-target{outline:2px solid var(--accent);outline-offset:-2px}
 
 html.is-native .admin-main[data-admin-tool="1"] .admin-head{justify-content:space-between;gap:12px;flex-wrap:wrap}html.is-native .admin-main[data-admin-tool="1"] .admin-head h1{position:static;width:auto;height:auto;overflow:visible;clip:auto;white-space:normal;font-size:24px;line-height:1.2}
+
+/* «Статистика» (js/admin/views/stats.js) */
+.stats-intro { margin: 0 0 12px; }
+.stats-period { display: inline-grid; grid-template-columns: repeat(3, auto); margin-bottom: 16px; }
+.stats-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.stats-block { min-width: 0; }
+.stats-block .table-wrap { max-width: 100%; overflow-x: auto; }
+.stats-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.stats-head h2 { margin: 0; }
+.stats-head .btn { min-height: 40px; }
+.stats-block h3 { margin: 20px 0 8px; font-size: calc(15px * var(--text-scale)); }
+.stats-figure { margin: 8px 0 12px; }
+.stats-chart { display: block; width: 100%; height: auto; max-height: 220px; }
+.stats-grid { stroke: var(--outline-variant); stroke-width: 1; }
+.stats-axis { fill: var(--muted); font-size: 11px; }
+.stats-line { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.stats-line.is-dau { stroke: var(--primary); }
+.stats-line.is-wau { stroke: #2f7d8c; }
+.stats-line.is-mau { stroke: #8a6d1f; stroke-dasharray: 6 4; }
+.stats-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 6px; color: var(--muted); font-size: calc(13px * var(--text-scale)); }
+.stats-key::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 3px; vertical-align: -1px; background: currentColor; }
+.stats-key.is-dau::before { background: var(--primary); }
+.stats-key.is-wau::before { background: #2f7d8c; }
+.stats-key.is-mau::before { background: #8a6d1f; }
+.stats-ver.v0 { fill: var(--primary); } .stats-key.v0::before { background: var(--primary); }
+.stats-ver.v1 { fill: #2f7d8c; } .stats-key.v1::before { background: #2f7d8c; }
+.stats-ver.v2 { fill: #8a6d1f; } .stats-key.v2::before { background: #8a6d1f; }
+.stats-ver.v3 { fill: #6b5aa6; } .stats-key.v3::before { background: #6b5aa6; }
+.stats-ver.v4 { fill: #7a7a7a; } .stats-key.v4::before { background: #7a7a7a; }
+.stats-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.stats-bars li { display: grid; grid-template-columns: minmax(96px, 34%) 1fr auto; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.stats-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-bar-track { height: 10px; border-radius: 5px; background: var(--surface-2, var(--outline-variant)); overflow: hidden; }
+.stats-bar-fill { display: block; height: 100%; border-radius: 5px; background: var(--primary); }
+.stats-bar-value { color: var(--muted); font-size: calc(13px * var(--text-scale)); white-space: nowrap; }
+.stats-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 8px 24px; }
+.stats-cols > div { min-width: 0; }
+.stats-cols h3 { margin-top: 8px; }
+.stats-funnel + .stats-funnel { margin-top: 4px; }
+.stats-table td, .stats-table th { white-space: nowrap; }
+@media (max-width: 520px) {
+  .stats-bars li { grid-template-columns: minmax(72px, 38%) 1fr auto; }
+  .stats-table td, .stats-table th { white-space: normal; }
+}

@@ -86,13 +86,18 @@ async function load() {
     if (clubResult.status === 'rejected') throw clubResult.reason;
     rooms = new Map(roomResult.status === 'fulfilled' ? roomResult.value.map(room => [room.id, room]) : []);
     render(clubResult.value);
+    if (Number.isInteger(clubResult.value?.id)) window.KipUsage?.emit('club_view', `c${clubResult.value.id}`); // id справочника кружков, не человек
     if (roomResult.status === 'rejected') content.append(h('div', { class: 'reference-error', role: 'status' },
       h('p', {}, 'Список аудиторий не загрузился. Номера переносов показаны без названий.'),
       h('button', { type: 'button', onclick: load }, 'Повторить загрузку аудиторий')));
   } catch (error) {
     if (error.status === 404) { heading.textContent = 'Кружок не найден'; document.title = 'Кружок не найден — KipClub'; }
     const box = h('div', { class: error.status === 404 ? 'empty-state' : 'error-state', role: error.status === 404 ? undefined : 'alert' }, h('p', {}, error.message));
-    if (error.status !== 404) box.append(h('button', { type: 'button', class: 'btn btn--small', onclick: load }, 'Повторить попытку'));
+    if (error.status !== 404) {
+      box.append(h('button', { type: 'button', class: 'btn btn--small', onclick: load }, 'Повторить попытку'),
+        h('button', { type: 'button', class: 'btn btn--text btn--small', onclick: e => { const opener = e.currentTarget; import('./feedback.js').then(m => m.openFeedback(opener, { type: 'bug', source: 'error' })); } }, 'Сообщить о проблеме'));
+      window.dispatchEvent(new CustomEvent('kc:load-error'));
+    }
     else box.append(h('a', { class: 'btn btn--tonal', href: '/clubs.html' }, 'К списку кружков'));
     content.replaceChildren(box);
   } finally {

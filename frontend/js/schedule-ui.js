@@ -341,6 +341,7 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
   $('next-week').addEventListener('click', () => shiftWeek(1));
   todayButton.addEventListener('click', () => goto(currentStudyDay()));
   datePicker.addEventListener('change', () => {
+    window.KipUsage?.emit('schedule_nav', 'datepicker');
     const date = parseDate(datePicker.value);
     if (!date || !datePicker.validity.valid || !goto(date, { withDay: true })) datePicker.value = dateKey(selectedDate());
   });
@@ -350,9 +351,11 @@ export function mountScheduleUi({ state, render, dayView, onRooms, onPhase, open
     toggle.setAttribute('aria-expanded', String(open));
     toggleGlassPanel(panel, open);
   });
+  const FILTER_DIM = { category_id: 'category', leader_id: 'leader', room_id: 'room', weekday: 'day' };
   for (const [key, field] of Object.entries(fields)) {
     if (key !== 'weekday') field.disabled = true;
     field.addEventListener('change', changeFilters);
+    field.addEventListener('change', () => { if (field.value) window.KipUsage?.emit('filter_apply', FILTER_DIM[key] || 'other'); });
   }
   $('reset-filters').addEventListener('click', resetFilters);
   $('retry-references').addEventListener('click', loadReferences);

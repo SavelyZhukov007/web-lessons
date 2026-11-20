@@ -24,6 +24,9 @@ export async function mount(root, { signal }) {
       stat('#/exceptions', upcoming.length, 'ближайших изменений'),
       stat('#/reference', data.rooms.length, 'аудиторий')),
     stats && usersCard(stats),
+    h('section', { class: 'card', dataset: { statsLink: '' } }, h('h2', {}, 'Статистика'),
+      h('p', {}, 'Пользователи за день, неделю и месяц, удержание, версии, установка, пуши, ошибки, скорость и оценки. Только обезличенные цифры, есть выгрузка в CSV.'),
+      h('a', { class: 'btn btn--tonal', href: '#/stats' }, 'Открыть статистику')),
     stats?.usage && usageCard(stats.usage),
     stats?.push_events && h('section', { class: 'card' }, h('h2', {}, 'Рассылки: транспорт и клиенты'),
       h('p', {}, `Принято транспортом: ${stats.push_events.accepted}; ошибок: ${stats.push_events.failed}.`),
@@ -57,7 +60,7 @@ function usageCard(data) {
   const totals={};for(const row of data.events)totals[row.metric]=(totals[row.metric]||0)+row.count;
   const table = (head,rows) => h('div',{class:'table-wrap'},h('table',{class:'users-table'},h('thead',{},h('tr',{},head.map(label=>h('th',{scope:'col'},label)))),h('tbody',{},rows)));
   return h('section',{class:'card',dataset:{usageCard:''}},h('h2',{},'Анонимная аналитика и технические ошибки'),
-    h('p',{class:'field-hint'},`Только добровольное участие, последние ${data.retention_days} дней (с ${data.since}, МСК). Счётчики событий, не уникальные люди и не связанная воронка. Скачивание APK не подтверждает установку; на iOS appinstalled недоступен.`),
+    h('p',{class:'field-hint'},`Включено по умолчанию, в настройках у каждого есть выключатель. Последние 30 дней (с ${data.since}, МСК), подробные дни хранятся ${data.retention_days} дней. Это счётчики событий, а не уникальные люди. Скачивание APK не подтверждает установку, на iOS appinstalled недоступен.`),
     table(['Событие','Количество'],Object.entries(USAGE_LABELS).map(([key,label])=>h('tr',{},h('th',{scope:'row'},label),h('td',{},String(totals[key]||0))))),
     h('h3',{},'Результаты поиска'),h('p',{},data.events.filter(r=>r.metric==='search_results').map(r=>`${{none:'0',one:'1',few:'2–5',many:'6+'}[r.bucket]||r.bucket}: ${r.count}`).join(' · ')||'Пока нет данных'),
     h('h3',{},'Ошибки без текста и стека'),data.errors.length?table(['Тип / файл / строка','Платформа / сборка','Количество'],data.errors.map(r=>h('tr',{},h('th',{scope:'row'},`${r.code} · ${r.source}:${r.line}`),h('td',{},`${r.platform} · ${r.build}`),h('td',{},String(r.count))))):h('p',{},'Подтверждённых технических ошибок пока нет'));

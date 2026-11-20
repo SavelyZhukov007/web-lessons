@@ -36,6 +36,7 @@ const PUBLIC_API = /^\/api\/(schedule|clubs|categories|leaders|rooms)(\/|$|\?)/;
 // Страница разрешает активацию новой версии после сохранения формы.
 self.addEventListener('message', event => {
   if (event.data?.type === 'clubs:activate') event.waitUntil(self.skipWaiting());
+  if (event.data?.type === 'kc:usage-switch') event.waitUntil(setUsageSwitch(!!event.data.on));
 });
 const API_MAX_AGE = 48 * 3600 * 1000;
 const API_MAX_ENTRIES = 100;
@@ -171,9 +172,26 @@ self.addEventListener('fetch', event => {
 });
 
 /* ---------- Web Push ---------- */
+/* Анонимная статистика пушей (docs/privacy.md): страница сообщает SW положение выключателя «Анонимная статистика».
+   Счётчики push_shown/push_open/push_dismiss только для пушей расписания: рассылки уже считают квитанции.
+   При выключенной статистике SW не шлёт ни квитанции, ни счётчики. */
+const USAGE_SWITCH_CACHE='clubs-usage-switch', USAGE_SWITCH_KEY='/__clubs/usage-switch';
+async function usageOn(){try{const r=await(await caches.open(USAGE_SWITCH_CACHE)).match(new Request(new URL(USAGE_SWITCH_KEY,self.location.origin)));return r?(await r.text())!=='0':true;}catch{return true;}}
+async function setUsageSwitch(on){try{await(await caches.open(USAGE_SWITCH_CACHE)).put(new Request(new URL(USAGE_SWITCH_KEY,self.location.origin)),new Response(on?'1':'0'));}catch{/* ignore */}}
+const pushChannel=()=>/iphone|ipad|ipod|macintosh/i.test(self.navigator?.userAgent||'')&&/safari/i.test(self.navigator?.userAgent||'')&&!/chrome|crios|android/i.test(self.navigator?.userAgent||'')?'ios':'web';
+function swChannel(){const {hostname,port}=self.location;if(/(^|\.)lekora\.ru$/.test(hostname)||port==='7443')return 'i';if(/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname))return 'l';return 'p';}
+async function pushCount(metric){
+  try{
+    if(!(await usageOn()))return;
+    const bytes=crypto.getRandomValues(new Uint8Array(16)),batch_id=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');
+    const platform=pushChannel()==='ios'?'ios':'pwa';
+    await fetch('/api/app/usage',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({batch_id,platform,channel:swChannel(),events:[{metric,dim:pushChannel()}]})});
+  }catch{/* best effort */}
+}
 let pushQueue=Promise.resolve(), receiptInstallPromise;
 async function receipt(id, kind) {
   if (!Number.isSafeInteger(id) || id <= 0) return;
+  if (!(await usageOn())) return;
   try {
     const install=await(receiptInstallPromise ||= (async()=>{
       const cache=await caches.open('clubs-notification-receipts');
@@ -184,7 +202,7 @@ async function receipt(id, kind) {
       return id;
     })());
     const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),4000);
-    try{await fetch('/api/announcements/'+id+'/receipt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({install_id:install,channel:'web',kind}),signal:controller.signal});}
+    try{await fetch('/api/announcements/'+id+'/receipt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({install_id:install,channel:pushChannel(),kind}),signal:controller.signal});}
     finally{clearTimeout(timer);}
   }catch{/* Best effort only: lack of receipts is not proof a notification was not seen. */}
 }
@@ -213,14 +231,14 @@ self.addEventListener('push', event => {
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data ? event.data.text() : '' }; }
   // Serialize concurrent pushes so their persistent group history cannot overwrite itself.
   const display=pushQueue=pushQueue.catch(()=>{}).then(()=>groupedPush(data));
-  event.waitUntil(display.then(()=>receipt(data.broadcast_id,'shown')));
+  event.waitUntil(display.then(()=>Promise.all([receipt(data.broadcast_id,'shown'),data.broadcast_id?null:pushCount('push_shown')])));
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   let target = new URL('/', self.location.origin);
   try { const u = new URL(event.notification.data?.url || '/', self.location.origin); if (u.origin === self.location.origin) target = u; } catch { /* оставляем / */ }
-  event.waitUntil(Promise.all([receipt(event.notification.data?.broadcast_id,'opened'), (async () => {
+  event.waitUntil(Promise.all([receipt(event.notification.data?.broadcast_id,'opened'), event.notification.data?.broadcast_id ? null : pushCount('push_open'), (async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of windows) {
       const current = new URL(client.url);
@@ -234,6 +252,8 @@ self.addEventListener('notificationclick', event => {
     await self.clients.openWindow(target.href);
   })()]));
 });
+
+self.addEventListener('notificationclose', event => { if (!event.notification?.data?.broadcast_id) event.waitUntil(pushCount('push_dismiss')); });
 
 /* Подписку отозвал браузер (смена ключей / срок): тихо пересоздаём на те же кружки, если сервер даёт ключ. */
 self.addEventListener('pushsubscriptionchange', event => {

@@ -11,7 +11,7 @@ async function open(opener, notifications = false) {
     panel ||= import('./settings-panel.js').catch(error => { panel = null; throw error; });
     const module = await panel;
     (notifications ? module.openNotifications : module.openSettings)(opener);
-  } catch { toast('Не удалось открыть настройки. Проверьте подключение и попробуйте ещё раз.'); }
+  } catch { toast('Не удалось открыть настройки. Проверь подключение и попробуй ещё раз.'); }
   finally { opener?.removeAttribute('aria-busy'); }
 }
 function mount() {
@@ -28,4 +28,6 @@ function mount() {
   if (header) header.append(button); else document.body.prepend(button);
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+// Карточка «Как тебе KipClub?» не нужна для первой отрисовки: модуль грузится позже
+setTimeout(() => { import('./feedback-prompt.js').catch(() => {}); }, 2500);
 window.ClubsSettings = { open: () => open(document.activeElement) };

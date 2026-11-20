@@ -228,7 +228,7 @@ def test_360px_no_horizontal_overflow_admin_and_public(new_page):
     do_login(page)
     page.wait_for_url("**/admin/")
     page.wait_for_selector("#view-title")
-    for route in ("", "clubs", "sessions", "exceptions", "reference/rooms", "account"):
+    for route in ("", "clubs", "sessions", "exceptions", "reference/rooms", "account", "stats"):
         go(page, route)
         assert page.evaluate(overflow) <= 0, f"горизонтальный скролл в админке #/{route}"
     assert not page.errors, page.errors

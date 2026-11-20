@@ -192,6 +192,7 @@ export function bindDaySwipe(content, step, enabled) {
     swipe = null;
     const distance = Math.abs(dx);
     if (distance >= 54 || (distance >= 26 && distance / Math.max(1, event.timeStamp - time) > 0.4)) {
+      window.KipUsage?.emit('schedule_nav', 'swipe');
       step(dx < 0 ? 1 : -1);
     }
   }, { passive: true });

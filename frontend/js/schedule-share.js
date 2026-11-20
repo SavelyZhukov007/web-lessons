@@ -22,6 +22,7 @@ export function eventShareControls(event, clubLink) {
   calendarStatus.setAttribute('role', 'status');
   calendarStatus.className = 'field-hint';
   calendarStatus.hidden = true;
+  calendar.dataset.usage = 'calendar_export:one';
   calendar.addEventListener('click', async () => {
     calendar.disabled = true;
     calendarStatus.hidden = true;
@@ -55,7 +56,8 @@ export function eventShareControls(event, clubLink) {
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch {
-      calendarStatus.textContent = 'Не удалось сохранить календарь. Попробуйте ещё раз.';
+      window.KipUsage?.emit('calendar_fail');
+      calendarStatus.textContent = 'Не удалось сохранить календарь. Попробуй ещё раз.';
       calendarStatus.hidden = false;
     } finally {
       calendar.disabled = false;
@@ -69,6 +71,7 @@ export function eventShareControls(event, clubLink) {
   share.type = 'button';
   share.className = 'glass-action';
   share.textContent = 'Поделиться занятием';
+  share.dataset.usage = 'share';
   const status = document.createElement('span');
   status.setAttribute('role', 'status');
   status.className = 'field-hint';

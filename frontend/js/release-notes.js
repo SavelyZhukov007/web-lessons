@@ -41,7 +41,11 @@ export async function showRelease({ requested, auto = false, opener } = {}) {
       h('h2', { id: 'release-title' }, `Что нового в ${release.version}`),
       h('button', { type: 'button', class: 'btn btn--text btn--small', 'aria-label': 'Закрыть список изменений', onclick: close }, icon('close'))),
     h('div', { class: 'sheet-body' },
-      h('ul', { class: 'release-changes' }, release.changelog.map(change => h('li', {}, change)))),
+      h('ul', { class: 'release-changes' }, release.changelog.map(change => h('li', {}, change))),
+      h('p', { class: 'release-idea' }, h('button', { type: 'button', class: 'btn btn--text', dataset: { releaseIdea: '' }, onclick: async () => {
+        close();
+        (await import('./feedback.js')).openFeedback(opener, { type: 'idea', source: 'whats_new' });
+      } }, 'Есть идея? Напиши нам'))),
     h('div', { class: 'sheet-foot' },
       h('button', { type: 'button', class: 'btn btn--filled', onclick: close }, 'Понятно')));
   dialog = sheet;
@@ -54,6 +58,7 @@ export async function showRelease({ requested, auto = false, opener } = {}) {
   }, { once: true });
   document.body.append(sheet);
   sheet.showModal();
+  window.KipUsage?.emit('screen_view', 'whats_new');
   if (requested) {
     const url = new URL(location.href);
     url.searchParams.delete('release');

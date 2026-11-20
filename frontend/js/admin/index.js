@@ -14,6 +14,7 @@ const ROUTES = {
   exceptions: { title: 'Изменения', mobileTitle: 'Правки', icon: 'list', load: () => import('./views/exceptions.js') },
   reference: { title: 'Справочники', mobileTitle: 'Данные', icon: 'book', load: () => import('./views/reference.js') },
   broadcasts: { title: 'Рассылки', mobileTitle: 'Анонсы', icon: 'megaphone', load: () => import('./views/broadcasts.js') },
+  stats: { title: 'Статистика', icon: 'list', noBottom: true, load: () => import('./views/stats.js') }, // на телефоне: ссылка с «Обзора»
   calendar: { title: 'Календарь переносов', hidden: true, icon: 'calendar', load: () => import('./views/calendar.js') },
   bulk: { title: 'Пакетные изменения', hidden: true, icon: 'list', load: () => import('./views/bulk.js') },
   export: { title: 'Экспорт и печать', hidden: true, icon: 'list', load: () => import('./views/export.js') },
@@ -40,7 +41,7 @@ function buildChrome() {
   const links = Object.entries(ROUTES).filter(([, r]) => !r.hidden);
   const nav = h('nav', { class: 'admin-nav', 'aria-label': 'Разделы админки' }, links.map(([key, r]) => h('a', { href: `#/${key}`, dataset: { route: key } }, r.title)));
   const bottom = h('nav', { class: 'bottom-nav glass-tabs glass-surface', 'aria-label': 'Разделы админки (мобильная навигация)' },
-    links.map(([key, r]) => h('a', { href: `#/${key}`, 'aria-label': r.title, dataset: { route: key } }, h('span', { class: 'bn-pill' }, icon(r.icon)), h('span', { class: 'bn-label' }, r.mobileTitle || r.title))));
+    links.filter(([, r]) => !r.noBottom).map(([key, r]) => h('a', { href: `#/${key}`, 'aria-label': r.title, dataset: { route: key } }, h('span', { class: 'bn-pill' }, icon(r.icon)), h('span', { class: 'bn-label' }, r.mobileTitle || r.title))));
   // «Сменить пароль» и «Выйти» — в «Настройках» (шестерёнка), см. js/settings.js → window.ClubsAdmin
   const slot = h('div', { class: 'admin-tools', dataset: { settingsSlot: '' } });
   window.ClubsAdmin = {

@@ -111,6 +111,8 @@ async function send(path, options = {}) {
     return body;
   } catch (error) {
     if (signal?.aborted) throw new DOMException('Запрос отменён', 'AbortError');
+    // Анонимный счётчик api_error: только раздел API из справочника и класс ответа (4xx/5xx/нет сети), без адреса и текста.
+    if (!(error?.status === 401 || error?.status === 404)) try { window.KipUsage?.apiError?.(path, error?.status || 0); } catch { /* статистика не мешает */ }
     if (timedOut) throw new ApiError('Сервер долго не отвечает. Попробуй ещё раз.');
     if (error instanceof ApiError || error.name === 'AbortError') throw error;
     throw new ApiError('Не удалось связаться с сервером. Проверь подключение и повтори попытку.');

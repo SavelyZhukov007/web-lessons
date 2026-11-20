@@ -8,6 +8,7 @@ import { icon } from './icons.js';
 import { eventRoom, lessonCountLabel } from './public-display.js';
 import { runCascade } from './skeleton-cascade.js';
 import { prefersReducedMotion } from './motion-preferences.js';
+import { createViewTracker } from './schedule-usage.js';
 
 const $ = selector => document.querySelector(selector);
 const content = $('#content');
@@ -143,6 +144,12 @@ function groupCard(group) {
   button.append(preview);
   button.addEventListener('click', () => openEventGroup(group.events));
   return button;
+}
+
+// Анонимная статистика: какой день или неделю смотрят (без кружков и фильтров), время до первого расписания.
+const trackView = createViewTracker();
+function trackScheduleView(days) {
+  trackView({ week: state.week, shown: addDays(state.week, days[0] ?? state.day), dayMode: mobile.matches, extra: days.join(',') });
 }
 
 function emptyState(title, description, action) {
@@ -295,7 +302,13 @@ function render(direction = 0) {
 function renderContent() {
   if (state.phase === 'error') {
     $('#result-status').textContent = 'Расписание не загружено';
-    content.append(emptyState('Не получилось загрузить расписание', state.error, { label: 'Повторить попытку', run: () => ui.load({ refresh: true }) }));
+    const failed = emptyState('Не получилось загрузить расписание', state.error, { label: 'Повторить попытку', run: () => ui.load({ refresh: true }) });
+    const report = node('button', 'btn btn--text', 'Сообщить о проблеме');
+    report.type = 'button';
+    report.addEventListener('click', async () => (await import('./feedback.js')).openFeedback(report, { type: 'bug', source: 'error' }));
+    failed.append(report);
+    content.append(failed);
+    window.dispatchEvent(new CustomEvent('kc:load-error'));
     return;
   }
   const days = mobile.matches ? [state.day] : visibleDays();
@@ -305,6 +318,7 @@ function renderContent() {
   const active = real.filter(event => event.status !== 'cancelled').length;
   const cancelled = real.length - active;
   $('#result-status').textContent = lessonCountLabel(active, cancelled);
+  trackScheduleView(days);
   if (events.length === 0) {
     const label = mobile.matches ? ` · ${DAY_NAMES[state.day]}, ${formatDate(addDays(state.week, state.day))}` : '';
     if (ui.inMyMode() && !ui.hasFilters()) {

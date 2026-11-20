@@ -16,12 +16,13 @@ export function startUpdates() {
     if (!bar) {
       bar = document.createElement('aside'); bar.className = 'app-update-notice'; bar.setAttribute('aria-label', 'Обновление приложения');
       message = document.createElement('span'); message.setAttribute('role', 'status');
-      button = document.createElement('button'); button.type = 'button'; button.textContent = 'Обновить'; button.addEventListener('click', apply);
+      button = document.createElement('button'); button.type = 'button'; button.textContent = 'Обновить'; button.dataset.usage = 'update_accept'; button.addEventListener('click', apply);
       
       closeButton = document.createElement('button');
       closeButton.type = 'button';
       closeButton.className = 'btn btn--text btn--small app-update-close';
       closeButton.setAttribute('aria-label', 'Закрыть уведомление об обновлении');
+      closeButton.dataset.usage = 'update_later';
       closeButton.append(icon('close'));
       // закрытие запоминается для этой версии: автопроверки и перезагрузки её больше не показывают
       closeButton.addEventListener('click', () => { bar.hidden = true; if (pending) rememberDismiss(pendingVersion()); });
@@ -32,6 +33,7 @@ export function startUpdates() {
   function pendingVersion() { return nextBuild || (registration?.waiting ? `worker:${registration.waiting.scriptURL || 'waiting'}` : null); }
   function showPending({ manual = false } = {}) {
     if (!shouldShowUpdate(pendingVersion(), { manual })) return;
+    if (!bar || bar.hidden) window.KipUsage?.emit('update_offer');
     notify(hasUnsavedWork() ? 'Есть обновление. Сохраните или закройте форму — ввод не будет потерян.' : 'Доступна новая версия приложения.');
   }
   function prepared() {

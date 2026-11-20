@@ -987,3 +987,31 @@ dialog .list-row--danger, dialog .list-row--danger span { color: var(--danger, #
 :root [data-usage-settings] .switch::after { content:""; position:absolute; inset:6px 0; border-radius:16px; background:var(--outline); pointer-events:none; }
 :root [data-usage-settings] .switch[aria-checked="true"]::after { background:var(--primary); }
 :root [data-usage-settings] .switch-thumb { top:10px; z-index:1; }
+
+/* Карточка «Как тебе KipClub?» (js/feedback-prompt.js): не модальная, внизу экрана, расписание остаётся доступным */
+.fb-prompt { position: fixed; z-index: 900; left: max(16px, var(--safe-left, 0px)); right: max(16px, var(--safe-right, 0px));
+  bottom: calc(max(16px, var(--safe-bottom, 0px)) + var(--fb-prompt-offset, 0px)); max-width: 420px; margin-inline: auto; box-sizing: border-box;
+  padding: 12px 12px 16px 16px; border: 1px solid var(--outline-variant, var(--outline)); border-radius: var(--radius-l, 16px);
+  background: var(--surface-container, var(--bg)); color: var(--on-surface); box-shadow: var(--shadow, 0 4px 24px #0003); }
+.fb-prompt-head { display: flex; align-items: flex-start; gap: 8px; }
+.fb-prompt-title { flex: 1; margin: 4px 0 0; font-weight: 600; line-height: 1.4; }
+.fb-prompt-close { flex: none; width: 44px; height: 44px; min-width: 0; padding: 0; margin: -4px -4px 0 0; font-size: 24px; line-height: 1; }
+.fb-prompt-faces { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
+.fb-face { min-height: 48px; padding: 0; border: 1px solid var(--outline-variant, var(--outline)); border-radius: var(--radius-m, 12px);
+  background: transparent; font-size: 28px; line-height: 1; cursor: pointer; }
+.fb-prompt .fb-prompt-faces .fb-face { font-size: calc(28px * var(--text-scale, 1)); color: inherit; }
+.fb-prompt .fb-prompt-head .fb-prompt-close { font-size: 24px; color: var(--muted); }
+.fb-face:hover { background: var(--primary-container, rgba(127, 127, 127, .12)); }
+.fb-face:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.fb-prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.fb-prompt-actions .btn { min-height: 44px; }
+body.is-native .fb-prompt, html.is-native .fb-prompt { --fb-prompt-offset: 64px; }
+.fb-rating { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.fb-rating label { position: relative; display: flex; }
+.fb-rating input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.fb-rating span { flex: 1; display: grid; place-items: center; min-height: 44px; border: 1px solid var(--outline-variant, var(--outline)); border-radius: var(--radius-m, 12px); font-size: 24px; }
+.fb-rating input:checked + span { border-color: var(--primary); background: var(--primary-container, transparent); box-shadow: inset 0 0 0 1px var(--primary); }
+.fb-rating input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+.fb-optional { font-weight: 400; font-size: .85em; color: var(--on-surface-muted); }
+.fb-report-link { margin-top: 8px; }
+.release-idea { margin: 16px 0 0; }

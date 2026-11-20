@@ -101,9 +101,9 @@ try:
         check("разрешение на уведомления НЕ запрашивается при запуске", not calls(pg, "requestPermission"))
         pg.screenshot(path=str(SHOTS / "d-schedule-iphone15-light.png"))
         pg.locator(".app-gear").click()
-        privacy = pg.get_by_role("switch", name="Анонимная статистика и технические ошибки", exact=True)
+        privacy = pg.get_by_role("switch", name="Анонимная статистика", exact=True)
         privacy.wait_for()
-        check("PWA settings: analytics off by default", privacy.get_attribute("aria-checked") == "false")
+        check("PWA settings: anonymous statistics on by default", privacy.get_attribute("aria-checked") == "true")
         check(
             "PWA settings: official 3D tour",
             pg.get_by_role("link", name="3D-тур КИПФИН", exact=False).get_attribute("href")
@@ -111,9 +111,9 @@ try:
         )
         check("PWA iOS: no unsupported native widget pin", pg.locator("[data-widget-settings]").count() == 0)
         privacy.click()
-        check("PWA opt-in switches on", pg.evaluate("KipUsage.consent()"))
+        check("PWA statistics switch turns off", not pg.evaluate("KipUsage.enabled()"))
         privacy.click()
-        check("PWA consent withdrawal", not pg.evaluate("KipUsage.consent()"))
+        check("PWA statistics switch turns back on", pg.evaluate("KipUsage.enabled()"))
         close = (
             pg.locator(".itc-set-back")
             if pg.locator(".itc-settings").count()
