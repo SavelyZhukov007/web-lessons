@@ -13,7 +13,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from .. import settings
@@ -189,8 +189,21 @@ def android_info():
     return JSONResponse(data, headers={"Cache-Control": "no-cache"})
 
 
+def _count_download() -> None:
+    from ..database import SessionLocal
+    from ..services import usage
+
+    try:
+        with SessionLocal() as db:
+            usage.count_server(db, "apk_download")
+    except Exception:  # noqa: BLE001 — счётчик не должен мешать скачиванию
+        pass
+
+
 @router.api_route("/android/download", methods=["GET", "HEAD"])
-def android_download():
+def android_download(request: Request):
+    if request.method == "GET" and request.headers.get("range", "bytes=0-").replace(" ", "").startswith("bytes=0-"):
+        _count_download()  # докачка частями считается один раз
     rel = latest_release()
     if rel is None:
         # локального релиза нет — последний APK из GitHub Releases

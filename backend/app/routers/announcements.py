@@ -179,7 +179,7 @@ def cancel_scheduled(schedule_id: str, db: Session = Depends(get_db), admin=Depe
 
 class Receipt(BaseModel):
     install_id: str = Field(min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
-    channel: Literal["web", "android"]
+    channel: Literal["web", "ios", "android"]
     kind: Literal["shown", "opened"]
 
 

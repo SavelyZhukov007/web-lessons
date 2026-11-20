@@ -37,6 +37,6 @@ async def post_feedback(request: Request):
         raise HTTPException(e.status, str(e)) from None
     ip = request.client.host if request.client else "-"
     if not svc.allow("ip:" + ip):
-        raise HTTPException(429, "Слишком много обращений. Попробуйте через час.", headers={"Retry-After": "3600"})
+        raise HTTPException(429, "Слишком много сообщений. Попробуй через час.", headers={"Retry-After": "3600"})
     manifest = await run_in_threadpool(svc.save, data, request.headers.get("host", ""))
     return {"ok": True, "id": manifest["id"]}

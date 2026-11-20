@@ -17,7 +17,16 @@ from .push_subscription import PushSubscription
 from .room import Room
 from .session import ClubSession
 from .session_exception import SessionException
-from .usage import ClientErrorCount, UsageBatch, UsageCounter
+from .usage import (
+    ClientErrorCount,
+    InstallActivity,
+    PerfDaily,
+    RetentionWeekly,
+    UsageBatch,
+    UsageDaily,
+    UsageMonthly,
+    VersionDaily,
+)
 
 __all__ = [
     "Admin",
@@ -28,7 +37,8 @@ __all__ = [
     "AppDevice",
     "Broadcast",
     "BroadcastReceipt",
-    "ClientErrorCount", "UsageBatch", "UsageCounter", "BroadcastSchedule",
+    "ClientErrorCount", "UsageBatch", "UsageDaily", "UsageMonthly", "PerfDaily", "InstallActivity", "RetentionWeekly", "VersionDaily",
+    "BroadcastSchedule",
     "Category",
     "Club",
     "Install",

@@ -49,4 +49,5 @@ class AppDevice(Base):
     fcm_token: Mapped[str | None] = mapped_column(String(512), nullable=True, unique=True)
     platform: Mapped[str] = mapped_column(String(16), default="android")
     app_version: Mapped[str] = mapped_column(String(32), default="")
+    first_seen: Mapped[datetime | None] = mapped_column(DateTime, default=_utcnow, nullable=True)
     last_seen: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, index=True)

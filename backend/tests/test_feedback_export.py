@@ -149,3 +149,32 @@ def test_system_ssh_and_docker_exec_mode(server, tmp_path, monkeypatch, capsys):
     assert "-i /k/id savely-server@185.53.233.170" in calls and "-p 22" in calls
     assert "docker compose -f /opt/clubs/docker-compose.yml exec -T app tar -C /data/feedback -cf -" in calls
     assert "rm " not in calls
+
+
+def test_index_has_rating_source_version_platform_and_readme_summary(server, tmp_path):
+    out = tmp_path / "QA"
+    for rating, source, ver, plat in ((5, "prompt_usage", "v1.9.024ibA", "A"), (2, "prompt_error", "v1.9.024ibA", "A"), (None, "settings", "v1.9.023pW", "W")):
+        fields = {"type": "bug", "description": "Не грузится расписание", "source": source,
+                  "meta": json.dumps({"version": ver, "platform": plat}),
+                  "logs": json.dumps([{"level": "error", "kind": "error", "msg": "x", "src": "/js/schedule.js"},
+                                      {"level": "error", "kind": "fetch", "url": "/api/schedule"},
+                                      {"level": "warn", "msg": "skip", "src": "/js/other.js"}])}
+        if rating:
+            fields["rating"] = str(rating)
+        svc.save(svc.validate(fields, []), now=T0 + timedelta(minutes=len(list(server.glob("*"))) if server.exists() else 0))
+    assert run(server, out) == 0
+    rows = index(out)
+    assert list(rows[0])[:9] == ["folder", "id", "created_at", "type", "rating", "source", "version", "app_version", "platform"]
+    assert sorted((r["rating"], r["source"], r["version"], r["platform"]) for r in rows) == [
+        ("", "settings", "1.9.023", "W"), ("2", "prompt_error", "1.9.024", "A"), ("5", "prompt_usage", "1.9.024", "A")]
+    readme = (out / "README.md").read_text(encoding="utf-8")
+    assert "### test: 3 обращений" in readme
+    assert "| 1.9.024 | Android APK | 2 | 3.5 (2) |" in readme and "| 1.9.023 | браузер | 1 | нет |" in readme
+    assert "`schedule.js` (3)" in readme and "other.js" not in readme
+    assert "порт 22" in readme
+
+
+def test_short_version_and_error_file():
+    assert fx.short_version("v1.9.024ibA") == "1.9.024" and fx.short_version("") == ""
+    assert fx._error_file({"stack": "at f (https://x/js/app.js:1:2)"}) == "app.js"
+    assert fx._error_file({}) == ""

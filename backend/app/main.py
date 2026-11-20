@@ -44,7 +44,7 @@ async def lifespan(app):
         from .services import usage
         client_logs.cleanup()
         with SessionLocal() as db:
-            usage.cleanup(db)
+            usage.cleanup(db)  # свёртка старше 90 дней, сроки хранения, когорты удержания
     await asyncio.to_thread(_cleanup)
 
     async def _daily():

@@ -90,7 +90,9 @@ def _device_row(db: Session, device_id: str) -> AppDevice:
     key = device_key(device_id)
     row = db.get(AppDevice, key)
     if row is None:
-        row = AppDevice(id_hash=key, club_ids="[]", announcements=True, notify_changes=True, platform="android", app_version="")
+        now = _utcnow()
+        row = AppDevice(id_hash=key, club_ids="[]", announcements=True, notify_changes=True, platform="android", app_version="",
+                        first_seen=now, last_seen=now)
         db.add(row)
         db.execute(delete(AppDevice).where(AppDevice.last_seen < _utcnow() - timedelta(days=DEVICE_FORGET_DAYS)))
     return row

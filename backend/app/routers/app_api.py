@@ -7,14 +7,14 @@ import re
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from .. import settings
 from ..database import get_db
 from ..services import broadcast as broadcast_service
-from ..services import client_logs
+from ..services import client_logs, stats_report
 from ..services import stats as stats_service
 from ..services import usage as usage_service
 from .admin import require_admin
@@ -116,20 +116,18 @@ def admin_logs_txt(level: str | None = Query(None), version: str | None = Query(
         "Content-Disposition": 'attachment; filename="itc-logs.txt"', "Cache-Control": "no-store"})
 
 
-class PingIn(BaseModel):
-    install_id: str = Field(min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
-    kind: str = Field("web", pattern=r"^(web|ios-pwa|pwa)$")
-
-
 @router.post("/api/app/ping", status_code=204)
-def app_ping(body: PingIn, request: Request, db: Session = Depends(get_db)):
-    """Обезличенный «я пользуюсь»: сайт / PWA раз в день и при возврате. Хранится только хэш id, без IP/UA."""
+def app_ping(body: usage_service.ActivityIn, request: Request, db: Session = Depends(get_db)):
+    """Уровень Б: «я пользуюсь» раз в день и при возврате. Только HMAC id, неделя первого запуска и маска дней; без IP и UA.
+    Клиент не шлёт его, если в настройках выключена «Анонимная статистика»."""
     if "kipclub-stress" in request.headers.get("user-agent", "").lower():
         return  # нагрузочный тест не считаем
     ip = request.client.host if request.client else "-"
     if not client_logs.allow("ping-ip:" + ip) or not client_logs.allow("ping:" + body.install_id):
         raise HTTPException(429, "Слишком часто")
-    stats_service.ping(db, body.install_id, body.kind)
+    if body.kind != "android":  # APK в «Пользователях» считается по app_devices
+        stats_service.ping(db, body.install_id, body.kind)
+    usage_service.activity(db, body)
 
 
 @router.get("/api/admin/stats")
@@ -137,6 +135,24 @@ def admin_stats(db: Session = Depends(get_db), _admin=Depends(require_admin)):
     return stats_service.summary(db)
 
 
-@router.post('/api/app/usage', status_code=202)
-def anonymous_usage(body: usage_service.BatchIn, db: Session = Depends(get_db)):
+@router.get("/api/admin/stats/report")
+def admin_stats_report(days: int = Query(90, ge=7, le=90), db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    """Вкладка «Статистика»: пользователи, удержание, версии, воронки, использование, пуши, качество, отзывы."""
+    return JSONResponse(stats_report.report(db, days), headers={"Cache-Control": "no-store"})
+
+
+@router.get("/api/admin/stats/export.csv")
+def admin_stats_csv(block: str = Query(..., pattern="^(" + "|".join(stats_report.BLOCKS) + ")$"), days: int = Query(90, ge=7, le=90),
+                    db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    data = stats_report.report(db, days)
+    return Response(stats_report.to_csv(block, data[block]), media_type="text/csv; charset=utf-8", headers={
+        "Content-Disposition": f'attachment; filename="kipclub-stats-{block}-{data["today"]}.csv"', "Cache-Control": "no-store"})
+
+
+@router.post("/api/app/usage", status_code=202)
+def anonymous_usage(body: usage_service.BatchIn, request: Request, db: Session = Depends(get_db)):
+    """Уровень А: счётчики без идентификаторов. Клиент не шлёт их при выключенной «Анонимной статистике»."""
+    ip = request.client.host if request.client else "-"
+    if not usage_service.allow("usage-ip:" + ip):
+        raise HTTPException(429, "Слишком часто")
     return usage_service.record(db, body)

@@ -26,6 +26,7 @@ from .. import settings
 from .client_logs import redact
 
 TYPES = ("idea", "bug", "question", "other")
+SOURCES = ("settings", "prompt_usage", "prompt_update", "prompt_error", "whats_new", "shake", "offline", "error")
 DESC_MIN, DESC_MAX = 10, 2000
 MAX_SHOTS, MAX_SHOT = 5, 5 * 1024 * 1024
 MAX_LOGS = 512 * 1024
@@ -110,16 +111,18 @@ def _json(raw: str, limit: int, default):
     try:
         return json.loads(raw)
     except ValueError:
-        raise FeedbackError("Логи/метаданные должны быть JSON") from None
+        raise FeedbackError("Логи и метаданные должны быть в JSON") from None
 
 
 def validate(fields: dict[str, str], files: list[bytes]) -> dict:
     kind = fields.get("type", "").strip()
     if kind not in TYPES:
-        raise FeedbackError("Выберите тип обращения")
+        raise FeedbackError("Выбери тип сообщения")
     desc = fields.get("description", "").strip()
-    if not DESC_MIN <= len(desc) <= DESC_MAX:
-        raise FeedbackError(f"Описание: от {DESC_MIN} до {DESC_MAX} символов")
+    if len(desc) < DESC_MIN:
+        raise FeedbackError(f"Напиши чуть подробнее, хотя бы {DESC_MIN} символов")
+    if len(desc) > DESC_MAX:
+        raise FeedbackError(f"Не больше {DESC_MAX} символов")
     contact = fields.get("contact", "").strip() or None
     if contact and (len(contact) > 100 or not _CONTACT.match(contact)):
         raise FeedbackError("Контакт: e-mail или Telegram (@username)")
@@ -128,7 +131,7 @@ def validate(fields: dict[str, str], files: list[bytes]) -> dict:
     shots = []
     for data in files:
         if len(data) > MAX_SHOT:
-            raise FeedbackError("Скриншот больше 5 МБ", 413)
+            raise FeedbackError("Один скриншот до 5 МБ", 413)
         kind_img = sniff_image(data)
         if not kind_img:
             raise FeedbackError("Скриншоты: только PNG, JPEG или WebP", 415)
@@ -139,7 +142,54 @@ def validate(fields: dict[str, str], files: list[bytes]) -> dict:
         meta = {}
     if logs is not None and not isinstance(logs, (list, dict)):
         logs = None
-    return {"type": kind, "description": desc, "contact": contact, "shots": shots, "meta": meta, "logs": logs}
+    rating_raw = fields.get("rating", "").strip()
+    if rating_raw and rating_raw not in ("1", "2", "3", "4", "5"):
+        raise FeedbackError("Оценка от 1 до 5")
+    source = fields.get("source", "").strip() or "settings"
+    if source not in SOURCES:
+        source = "other"
+    return {"type": kind, "description": desc, "contact": contact, "shots": shots, "meta": trim_meta(meta), "logs": logs,
+            "rating": int(rating_raw) if rating_raw else None, "source": source}
+
+
+_DEVICE_KEEP = ("model", "manufacturer", "platform", "operatingSystem", "osVersion", "isVirtual")
+
+
+def short_ua(ua: str) -> str:
+    """Полная строка User-Agent → «Android 14 · Chrome 131»: платформа, ОС и мажорная версия браузера."""
+    ua = str(ua or "")
+    os_name = ""
+    for pattern, fmt in ((r"Android (\d+)", "Android {}"), (r"(?:iPhone|CPU) OS (\d+)", "iOS {}"), (r"iPad.*OS (\d+)", "iPadOS {}"),
+                         (r"Windows NT (\d+\.\d+)", "Windows {}"), (r"Mac OS X (\d+)", "macOS {}"), (r"CrOS", "ChromeOS"), (r"Linux", "Linux")):
+        m = re.search(pattern, ua)
+        if m:
+            os_name = fmt.format(*m.groups()) if m.groups() else fmt
+            break
+    browser = ""
+    for pattern, name in ((r"YaBrowser/(\d+)", "Яндекс Браузер"), (r"Edg/(\d+)", "Edge"), (r"OPR/(\d+)", "Opera"), (r"SamsungBrowser/(\d+)", "Samsung"),
+                          (r"Firefox/(\d+)", "Firefox"), (r"; wv\).*Chrome/(\d+)", "WebView"), (r"Chrome/(\d+)", "Chrome"),
+                          (r"Version/(\d+).*Safari", "Safari")):
+        m = re.search(pattern, ua)
+        if m:
+            browser = f"{name} {m.group(1)}"
+            break
+    return " · ".join(x for x in (os_name, browser) if x)
+
+
+def trim_meta(meta: dict) -> dict:
+    """Техданные без полной строки UA и без имени устройства (там бывает имя владельца)."""
+    meta = dict(meta)
+    if "userAgent" in meta:
+        meta["ua"] = short_ua(meta.pop("userAgent"))
+    elif "ua" in meta:
+        meta["ua"] = str(meta["ua"])[:80]
+    device = meta.get("device")
+    if isinstance(device, dict):
+        meta["device"] = {k: device[k] for k in _DEVICE_KEEP if k in device}
+        wv = str(device.get("webViewVersion", "")).split(".")[0]
+        if wv.isdigit():
+            meta["device"]["webViewMajor"] = int(wv)
+    return meta
 
 
 def _redact_tree(v):
@@ -216,7 +266,8 @@ def save(data: dict, host: str = "", now: datetime | None = None) -> dict:
             (tmp / "screenshots" / name).write_bytes(blob)
             names.append(name)
         report = {"id": rid, "type": data["type"], "created_at": created_iso, "app_version": str(meta.get("version", ""))[:40],
-                  "platform": _platform(meta), "contact": data["contact"], "screenshots": names, "logs_attached": data["logs"] is not None,
+                  "platform": _platform(meta), "rating": data.get("rating"), "source": data.get("source", "settings"),
+                  "contact": data["contact"], "screenshots": names, "logs_attached": data["logs"] is not None,
                   "server": {"env": settings.env(), "name": settings.server_name(), "host": host[:120]}, "client": meta}
         (tmp / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         (tmp / "description.md").write_text(f"# Обратная связь ({data['type']})\n\n{data['description']}\n", encoding="utf-8")

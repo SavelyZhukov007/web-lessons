@@ -10,6 +10,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from . import settings
+from .privacy import mask_ip
 from .services import audit
 
 access_logger = logging.getLogger("clubs.access")
@@ -86,7 +87,7 @@ async def request_pipeline(request: Request, call_next):
         try:
             response = await call_next(request)
         except Exception:  # noqa: BLE001
-            access_logger.exception("unhandled error request_id=%s path=%s", request_id, request.url.path)
+            access_logger.exception("unhandled error request_id=%s path=%s", request_id, request.url.path)  # без IP и UA
             response = JSONResponse({"detail": "Внутренняя ошибка сервера", "request_id": request_id}, status_code=500)
 
     _security_headers(response, request)
@@ -103,6 +104,6 @@ async def request_pipeline(request: Request, call_next):
         response.status_code,
         (time.perf_counter() - started) * 1000,
         request_id,
-        request.client.host if request.client else "-",
+        mask_ip(request.client.host if request.client else None),  # /24 или /48, User-Agent не пишем
     )
     return response

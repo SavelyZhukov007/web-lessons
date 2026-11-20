@@ -137,3 +137,58 @@ def test_logs_optional_server_side(client, fb_dir):
     folder = next(fb_dir.iterdir())
     assert json.loads((folder / "logs.json").read_text(encoding="utf-8")) == []
     assert json.loads((folder / "report.json").read_text(encoding="utf-8"))["logs_attached"] is False
+
+
+def test_rating_and_source_saved(client, fb_dir):
+    r = send(client, rating="4", source="prompt_update", contact="")
+    assert r.status_code == 201, r.text
+    [folder] = list(fb_dir.iterdir())
+    rep = json.loads((folder / "report.json").read_text(encoding="utf-8"))
+    assert rep["rating"] == 4 and rep["source"] == "prompt_update" and rep["contact"] is None
+
+
+@pytest.mark.parametrize("rating", ["0", "6", "5.5", "отлично"])
+def test_rating_out_of_range_rejected(client, rating):
+    r = send(client, rating=rating)
+    assert r.status_code == 422 and r.json()["detail"] == "Оценка от 1 до 5"
+
+
+def test_defaults_without_rating_and_unknown_source(client, fb_dir):
+    assert send(client).status_code == 201
+    assert send(client, source="<script>").status_code == 201
+    reports = sorted((json.loads((f / "report.json").read_text(encoding="utf-8")) for f in fb_dir.iterdir()), key=lambda r: r["source"])
+    assert [(r["rating"], r["source"]) for r in reports] == [(None, "other"), (None, "settings")]
+
+
+def test_user_agent_trimmed_and_device_name_dropped(client, fb_dir):
+    ua = "Mozilla/5.0 (Linux; Android 14; TECNO BF7n Build/UP1A.231005.007; wv) AppleWebKit/537.36 Version/4.0 Chrome/131.0.6778.39 Mobile Safari/537.36"
+    meta = {"version": "v1.9.024ibA", "platform": "A", "userAgent": ua,
+            "device": {"name": "Телефон Савелия", "model": "TECNO BF7n", "manufacturer": "TECNO", "osVersion": "14",
+                       "platform": "android", "webViewVersion": "131.0.6778.39", "memUsed": 1}}
+    assert send(client, meta=json.dumps(meta, ensure_ascii=False)).status_code == 201
+    [folder] = list(fb_dir.iterdir())
+    client_meta = json.loads((folder / "report.json").read_text(encoding="utf-8"))["client"]
+    assert client_meta["ua"] == "Android 14 · WebView 131" and "userAgent" not in client_meta
+    assert client_meta["device"] == {"model": "TECNO BF7n", "manufacturer": "TECNO", "osVersion": "14", "platform": "android", "webViewMajor": 131}
+    assert "Савелия" not in (folder / "report.json").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("ua, short", [
+    ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1", "iOS 17 · Safari 17"),
+    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 YaBrowser/24.10.0.0 Safari/537.36", "Windows 10.0 · Яндекс Браузер 24"),
+    ("Mozilla/5.0 (X11; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0", "Linux · Firefox 132"),
+    ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36 Edg/131.0", "macOS 10 · Edge 131"),
+    ("curl/8.0", ""),
+])
+def test_short_ua(ua, short):
+    assert svc.short_ua(ua) == short
+
+
+def test_texts_use_ty_without_long_dashes(client):
+    texts = [send(client, type="spam").json()["detail"], send(client, description="short").json()["detail"]]
+    assert texts == ["Выбери тип сообщения", "Напиши чуть подробнее, хотя бы 10 символов"]
+    for _ in range(svc.RATE):
+        send(client)
+    limited = send(client)
+    assert limited.status_code == 429 and limited.json()["detail"] == "Слишком много сообщений. Попробуй через час."
+    assert all("—" not in t for t in texts)
