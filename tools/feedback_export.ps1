@@ -1,5 +1,7 @@
 ﻿# Скачать новые обращения «Обратная связь» с сервера по SSH в QA\<server>\ (см. tools/feedback_export.py).
-# Только чтение: на сервере ничего не меняется и не удаляется.
+# Только чтение: на сервере ничего не меняется и не удаляется. В index.csv колонки rating, source, version, platform;
+# в QA\README.md сводка: число обращений и средняя оценка по версиям, топ-5 файлов ошибок из журналов.
+# Нужен SSH (порт 22). Из домашней сети он до серверов сейчас не проходит (timeout), запускай из другой сети или через VPN.
 # Пример: .\tools\feedback_export.ps1 -Server test -Key $HOME\.ssh\id_ed25519
 param(
     [ValidateSet('test', 'prod')][string]$Server = 'test',

@@ -25,6 +25,7 @@ import io
 import json
 import os
 import posixpath
+import re
 import shlex
 import shutil
 import subprocess
@@ -235,6 +236,75 @@ def plan(remote: list[dict], local: dict[str, dict]) -> tuple[list[dict], list[d
     return new, changed, same
 
 
+INDEX_FIELDS = ["folder", "id", "created_at", "type", "rating", "source", "version", "app_version", "platform", "contact", "screenshots",
+                "on_server", "description"]
+PLATFORMS = {"W": "браузер", "M": "iPhone PWA", "A": "Android APK"}
+
+
+def short_version(full: str) -> str:
+    """v1.9.024ibA → 1.9.024 (без канала, стадии и платформы)."""
+    m = re.match(r"^v?(\d+\.\d+\.\d+)", str(full or ""))
+    return m.group(1) if m else ""
+
+
+def _error_file(entry: dict) -> str:
+    src = str(entry.get("src") or entry.get("url") or "")
+    if not src and entry.get("stack"):
+        m = re.search(r"/([A-Za-z0-9_.-]+\.m?js)", str(entry["stack"]))
+        src = m.group(1) if m else ""
+    return src.rsplit("/", 1)[-1].split("?")[0] if src else ""
+
+
+def summarize(base: Path) -> dict:
+    """Сводка по скачанным отчётам: число и средняя оценка по версиям, топ-5 файлов ошибок из журналов."""
+    by_version: dict[str, dict] = {}
+    files: dict[str, int] = {}
+    total = 0
+    for r in local_reports(base).values():
+        p = r["path"]
+        try:
+            rep = json.loads((p / "report.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            rep = {}
+        total += 1
+        key = (short_version(rep.get("app_version", "")) or "?", PLATFORMS.get(rep.get("platform", ""), "?"))
+        v = by_version.setdefault(key, {"count": 0, "ratings": []})
+        v["count"] += 1
+        if isinstance(rep.get("rating"), int):
+            v["ratings"].append(rep["rating"])
+        try:
+            logs = json.loads((p / "logs.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            logs = []
+        for e in logs if isinstance(logs, list) else []:
+            if isinstance(e, dict) and e.get("level") == "error":
+                name = _error_file(e)
+                if name:
+                    files[name] = files.get(name, 0) + 1
+    return {"total": total, "by_version": by_version, "top_files": sorted(files.items(), key=lambda kv: (-kv[1], kv[0]))[:5]}
+
+
+def summary_md(out_root: Path) -> str:
+    parts = ["", "## Сводка", ""]
+    for server in ("test", "prod"):
+        base = out_root / server
+        if not base.is_dir():
+            continue
+        s = summarize(base)
+        parts.append(f"### {server}: {s['total']} обращений")
+        parts.append("")
+        if s["by_version"]:
+            parts += ["| Версия | Платформа | Обращений | Средняя оценка |", "|---|---|---|---|"]
+            for (ver, plat), v in sorted(s["by_version"].items(), key=lambda kv: kv[0], reverse=True):
+                avg = f"{sum(v['ratings']) / len(v['ratings']):.1f} ({len(v['ratings'])})" if v["ratings"] else "нет"
+                parts.append(f"| {ver} | {plat} | {v['count']} | {avg} |")
+            parts.append("")
+        if s["top_files"]:
+            parts.append("Чаще всего ошибки в журналах: " + ", ".join(f"`{n}` ({c})" for n, c in s["top_files"]) + ".")
+            parts.append("")
+    return "\n".join(parts) if len(parts) > 3 else ""
+
+
 def write_index(base: Path, on_server: set[str]) -> int:
     rows = []
     for rid, r in sorted(local_reports(base).items(), key=lambda kv: kv[1]["path"].name):
@@ -249,10 +319,11 @@ def write_index(base: Path, on_server: set[str]) -> int:
             lines = [ln.strip() for ln in dpath.read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")]
             desc = (lines[0] if lines else "")[:120]
         rows.append({"folder": p.name, "id": rid, "created_at": r["manifest"].get("created_at", ""), "type": rep.get("type", ""),
+                     "rating": rep.get("rating") or "", "source": rep.get("source") or "", "version": short_version(rep.get("app_version", "")),
                      "app_version": rep.get("app_version", ""), "platform": rep.get("platform", ""), "contact": rep.get("contact") or "",
                      "screenshots": len(rep.get("screenshots") or []), "on_server": "yes" if rid in on_server else "no", "description": desc})
     with (base / "index.csv").open("w", newline="", encoding="utf-8-sig") as f:  # BOM — чтобы Excel открыл кириллицу
-        w = csv.DictWriter(f, fieldnames=["folder", "id", "created_at", "type", "app_version", "platform", "contact", "screenshots", "on_server", "description"])
+        w = csv.DictWriter(f, fieldnames=INDEX_FIELDS)
         w.writeheader()
         w.writerows(rows)
     return len(rows)
@@ -268,10 +339,17 @@ README = """# QA — обращения «Обратная связь»
 Внутри — папка на каждое обращение: `<ГГГГ-ММ-ДД_ЧЧММСС>_<тип>_<id>/` (время UTC) с файлами
 `description.md` (текст), `report.json` (версия, устройство, контакт), `logs.json` (журнал ошибок, без паролей
 и личных данных), `screenshots/01.png…` и `manifest.json` (полный id, sha256 и размер каждого файла).
-`index.csv` — сводная таблица; колонка `on_server` показывает, есть ли отчёт на сервере на момент последней выгрузки.
+`index.csv` — сводная таблица: тип, оценка (`rating`, 1..5, если человек пришёл из карточки «Как тебе KipClub?»),
+откуда открыта форма (`source`: settings, prompt_usage, prompt_update, prompt_error, whats_new, shake, offline, error),
+версия (`version`, например 1.9.024) и платформа (W браузер, M iPhone PWA, A Android APK). Колонка `on_server`
+показывает, есть ли отчёт на сервере на момент последней выгрузки.
 
 Сервер хранит только последние 50 обращений; здесь остаётся всё, что когда-либо было скачано.
 Повторный запуск скачивает только новые или изменённые отчёты (сравнение по id и sha256) и ничего не меняет на сервере.
+
+Скрипт ходит на сервер по SSH (порт 22). Из домашней сети Савелия порт 22 до обоих серверов сейчас недоступен
+(`Connection timed out during banner exchange`, проверено 19.11.2026): запускай выгрузку из другой сети (мобильный
+интернет, VPN) или с машины, где SSH открыт. Отдельного HTTPS-доступа к отзывам нет и без отдельного решения не будет.
 """
 
 
@@ -316,7 +394,7 @@ def export(remote: Remote, out_root: Path, server: str, dry_run: bool = False, l
                 log(f"  + {m['folder']}" + ("  (обновлён)" if old else ""))
     on_server = {m["id"] for m in reports if m.get("id")}
     n = write_index(base, on_server)
-    (out_root / "README.md").write_text(README, encoding="utf-8")
+    (out_root / "README.md").write_text(README + summary_md(out_root), encoding="utf-8")
     log(f"Готово: {base} ({n} отчётов в index.csv)")
     return result
 
